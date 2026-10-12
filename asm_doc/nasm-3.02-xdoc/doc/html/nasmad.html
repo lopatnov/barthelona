@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<head>
+<meta charset="UTF-8" />
+<title>NASM - The Netwide Assembler</title>
+<link href="nasmdoc.css" rel="stylesheet" type="text/css" />
+<link href="local.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<div class="header">
+<nav class="navbar" role="navigation"><ul><!--
+--><li class="navtoc"><a href="nasm00.html">Contents</a></li><!--
+--><li class="navchapter"><a href="nasm01.html">Chapter&ensp;1</a></li><!--
+--><li class="navchapter"><a href="nasm02.html">2</a></li><!--
+--><li class="navchapter"><a href="nasm03.html">3</a></li><!--
+--><li class="navchapter"><a href="nasm04.html">4</a></li><!--
+--><li class="navchapter"><a href="nasm05.html">5</a></li><!--
+--><li class="navchapter"><a href="nasm06.html">6</a></li><!--
+--><li class="navchapter"><a href="nasm07.html">7</a></li><!--
+--><li class="navchapter"><a href="nasm08.html">8</a></li><!--
+--><li class="navchapter"><a href="nasm09.html">9</a></li><!--
+--><li class="navchapter"><a href="nasm10.html">10</a></li><!--
+--><li class="navchapter"><a href="nasm11.html">11</a></li><!--
+--><li class="navchapter"><a href="nasm12.html">12</a></li><!--
+--><li class="navchapter"><a href="nasm13.html">13</a></li><!--
+--><li class="navchapter"><a href="nasm14.html">14</a></li><!--
+--><li class="navappendix"><a href="nasmaa.html">Appendix&ensp;A</a></li><!--
+--><li class="navappendix"><a href="nasmab.html">B</a></li><!--
+--><li class="navappendix"><a href="nasmac.html">C</a></li><!--
+--><li class="navappendix navthis"><a href="nasmad.html">D</a></li><!--
+--><li class="navappendix"><a href="nasmae.html">E</a></li><!--
+--><li class="navappendix"><a href="nasmaf.html">F</a></li><!--
+--><li class="navindex"><a href="nasmix.html">Index</a></li><!--
+--></ul></nav>
+<div class="title">
+<h1>NASM - The Netwide Assembler</h1>
+<h2>version 3.02</h2>
+</div>
+</div>
+<div class="contents appendix">
+<h2 id="appendix-D">Appendix D:&ensp;Building NASM from Source</h2>
+<p>The source code for NASM is available from our website,
+<a href="https://www.nasm.us/"><code>https://www.nasm.us/</code></a>, see
+<a href="nasmae.html#section-E.1">section E.1</a>.</p>
+<h3 id="section-D.1">D.1.&ensp;Building from a Source Archive</h3>
+<p>The source archives available on the web site should be capable of
+building on a number of platforms. This is the recommended method for
+building NASM to support platforms for which executables are not available,
+if you do not require changing the source code.</p>
+<p>The preferred build platforms are development environments which support
+POSIX (Unix)-style tools (a "POSIX environment"). For Windows, MSYS2
+(<a href="https://www.msys2.org/"><code>https://www.msys2.org/</code></a>)
+is such a development environment. Normally either <code>gcc</code> or
+<code>clang</code> is used as the compiler, but it is also possible to use
+MSVC with a POSIX wrapper like
+<a href="https://github.com/swig/cccl"><code>cccl</code></a> from the SWIG
+project.</p>
+<p>In a POSIX environment, run:</p>
+<pre>
+     sh configure 
+     make
+</pre>
+<p>A number of options can be passed to <code>configure</code>; see
+<code>sh configure --help</code>. In particular, the <code>--host</code>
+option can be used to cross-compile NASM to run on another host system.</p>
+<p>For non-POSIX environments, a set of makefiles for a handful of other
+environments are also available; please see the file
+<code>Mkfiles/README</code>. These makefiles are generally considered
+unreliable, as we have very little ability to test them.</p>
+<p>The <code>.zip</code> version of the source archive has DOS/Windows line
+endings (<code>CR LF</code>), which many Unix/POSIX systems will not
+recognize. To extract the <code>.zip</code> version on such a system, use
+<code>unzip -a</code>. The <code>.tar</code> versions of the source archive
+has POSIX line endings (<code>LF</code>).</p>
+<h3 id="section-D.2">D.2.&ensp;Optional Build Tools</h3>
+<p>The following additional tools are required to build specific
+subsystems, to build from the <code>git</code> repository, or if the
+sources are modified.</p>
+<p>Note that some of these tools will have their own dependencies.</p>
+<p>Make sure all tools are available in your <code>PATH</code> (or
+equivalent.)</p>
+<p>To build the installer for the Windows platform:</p>
+<ul>
+<li>
+<p>The Nullsoft Scriptable Installer (NSIS,
+<a href="https://nsis-dev.github.io/"><code>https://nsis-dev.github.io/</code></a>).</p>
+</li>
+</ul>
+<p>To modify the sources, <em>or</em> to build the documentation:</p>
+<ul>
+<li>
+<p>A Perl interpreter
+(<a href="https://www.perl.org/"><code>https://www.perl.org/</code></a>).</p>
+</li>
+<li>
+<p>Modules from CPAN
+(<a href="https://www.cpan.org/"><code>https://www.cpan.org/</code></a>).
+The following Perl modules are currently required, some of which will be
+bundled with the Perl interpreter or into larger CPAN packages:</p>
+<pre>
+     Compress::Zlib 
+     Fcntl 
+     File::Basename 
+     File::Compare 
+     File::Copy 
+     File::Find 
+     File::Path 
+     File::Spec 
+     File::Temp 
+     Font::TTF::Cmap 
+     Font::TTF::Font 
+     Font::TTF::Head 
+     Font::TTF::Hmtx 
+     Font::TTF::Maxp 
+     Font::TTF::Post 
+     Font::TTF::PSNames 
+     Getopt::Long 
+     JSON 
+     Pod::Usage 
+     Sort::Versions 
+     Win32 (if building on Windows only)
+</pre>
+</li>
+</ul>
+<p>To build the documentation:</p>
+<ul>
+<li>
+<p>Either Ghostscript
+(<a href="https://www.ghostscript.com/"><code>https://www.ghostscript.com/</code></a>)
+or Adobe Acrobat Distiller (untested.)</p>
+</li>
+<li>
+<p>The Google <em>Roboto</em> and <em>Roboto Mono</em> fonts, which are
+freely available under the SIL Open Font License
+(<a href="https://github.com/google/roboto"><code>https://github.com/google/roboto</code></a>).</p>
+</li>
+</ul>
+<p>To build the Unix man pages:</p>
+<ul>
+<li>
+<p>AsciiDoc
+(<a href="https://asciidoc.org/"><code>https://asciidoc.org/</code></a>).</p>
+</li>
+<li>
+<p>xmlto
+(<a href="https://pagure.io/xmlto/"><code>https://pagure.io/xmlto/</code></a>).</p>
+</li>
+</ul>
+<p>To build from the <code>git</code> repository on a POSIX platform:</p>
+<ul>
+<li>
+<p>GNU <code>m4</code>, <code>autoconf</code> and <code>autoheader</code>
+(<a href="https://www.gnu.org/"><code>https://www.gnu.org/</code></a>).</p>
+</li>
+</ul>
+<h3 id="section-D.3">D.3.&ensp;Building Optional Components</h3>
+<p>Install the required tools for the subsystem in question as described in
+<a href="#section-D.2">section D.2</a>.</p>
+<p>To build the documentation:</p>
+<pre>
+     make doc
+</pre>
+<p>Building the documentation may not work in a non-POSIX environment.</p>
+<p>To build the Windows installer:</p>
+<pre>
+     make nsis
+</pre>
+<p>To build the Unix man pages:</p>
+<pre>
+     make manpages
+</pre>
+<p>To build everything available on the current platform:</p>
+<pre>
+     make everything
+</pre>
+<h3 id="section-D.4">D.4.&ensp;Building from the <code>git</code> Repository</h3>
+<p>The NASM development tree is kept in a source code repository using the
+<code>git</code> distributed source control system. The link is available
+on the website. This is recommended only to participate in the development
+of NASM or to assist with testing the development code.</p>
+<p>Install the required tools as described in section
+<a href="#section-D.2">section D.2</a>.</p>
+<p>In a POSIX environment:</p>
+<p>Run:</p>
+<pre>
+     sh autogen.sh
+</pre>
+<p>to create the <code>configure</code> script and then build as described
+in <a href="#section-D.1">section D.1</a>.</p>
+<p>In a non-POSIX environment, use the tool-specific Makefiles as described
+in <a href="#section-D.1">section D.1</a>.</p>
+<h3 id="section-D.5">D.5.&ensp;Modifying the Sources</h3>
+<p>To build modified sources, you will need the tools described in
+<a href="#section-D.2">section D.2</a>.</p>
+<p>Some build system changes might not be possible without a POSIX
+environment.</p>
+<p>If you have modified the sources to change the embedded declarations of
+warning classes, you may have to manually re-build the warning catalog:</p>
+<pre>
+     make warnings
+</pre>
+<p>This is not done automatically, as the tools do not have the ability to
+automatically detect when it is necessary to do so.</p>
+</div>
+</body>
+</html>

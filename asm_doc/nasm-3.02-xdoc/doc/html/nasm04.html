@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<head>
+<meta charset="UTF-8" />
+<title>NASM - The Netwide Assembler</title>
+<link href="nasmdoc.css" rel="stylesheet" type="text/css" />
+<link href="local.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<div class="header">
+<nav class="navbar" role="navigation"><ul><!--
+--><li class="navtoc"><a href="nasm00.html">Contents</a></li><!--
+--><li class="navchapter"><a href="nasm01.html">Chapter&ensp;1</a></li><!--
+--><li class="navchapter"><a href="nasm02.html">2</a></li><!--
+--><li class="navchapter"><a href="nasm03.html">3</a></li><!--
+--><li class="navchapter navthis"><a href="nasm04.html">4</a></li><!--
+--><li class="navchapter"><a href="nasm05.html">5</a></li><!--
+--><li class="navchapter"><a href="nasm06.html">6</a></li><!--
+--><li class="navchapter"><a href="nasm07.html">7</a></li><!--
+--><li class="navchapter"><a href="nasm08.html">8</a></li><!--
+--><li class="navchapter"><a href="nasm09.html">9</a></li><!--
+--><li class="navchapter"><a href="nasm10.html">10</a></li><!--
+--><li class="navchapter"><a href="nasm11.html">11</a></li><!--
+--><li class="navchapter"><a href="nasm12.html">12</a></li><!--
+--><li class="navchapter"><a href="nasm13.html">13</a></li><!--
+--><li class="navchapter"><a href="nasm14.html">14</a></li><!--
+--><li class="navappendix"><a href="nasmaa.html">Appendix&ensp;A</a></li><!--
+--><li class="navappendix"><a href="nasmab.html">B</a></li><!--
+--><li class="navappendix"><a href="nasmac.html">C</a></li><!--
+--><li class="navappendix"><a href="nasmad.html">D</a></li><!--
+--><li class="navappendix"><a href="nasmae.html">E</a></li><!--
+--><li class="navappendix"><a href="nasmaf.html">F</a></li><!--
+--><li class="navindex"><a href="nasmix.html">Index</a></li><!--
+--></ul></nav>
+<div class="title">
+<h1>NASM - The Netwide Assembler</h1>
+<h2>version 3.02</h2>
+</div>
+</div>
+<div class="contents chapter">
+<h2 id="chapter-4">Chapter 4:&ensp;Syntax Quirks and Summaries</h2>
+<h3 id="section-4.1">4.1.&ensp;Summary of the <code>JMP</code> and <code>CALL</code> Syntax</h3>
+<p>The <code>JMP</code> and <code>CALL</code> instructions support a
+variety of syntaxes to simplify their specific use cases. Some of the
+following chapters explain how these two instructions interact with various
+special symbols that NASM uses and some document non-obvious scenarios
+regarding differently sized modes of operation.</p>
+<h4 id="section-4.1.1">4.1.1.&ensp;Near Jumps</h4>
+<p>Near jumps are jumps within a single segment. Probably the most common
+way to use them is through labels, as explained in
+<a href="nasm03.html#section-3.9">section 3.9</a>. <code>APX</code> added a
+near jump instruction &ndash; <code>JMPABS</code>, that allows jumps to any
+64-bit address specified with an immediate operand. The instruction works
+with absolute addresses and the syntax options are shown in
+<a href="#section-4.1.6">section 4.1.6</a>.</p>
+<h4 id="section-4.1.2">4.1.2.&ensp;Infinite Loop Trick</h4>
+<p>One of the ways to quickly implement an infinite loop is using the
+<code>$</code> token which evaluates to the current position in the code.
+So a one line infinite loop can simply look like:</p>
+<pre>
+     jmp $
+</pre>
+<h4 id="section-4.1.3">4.1.3.&ensp;Jumps and Mixed Sizes</h4>
+<p>In some special circumstances one might need to jump between 16-bit mode
+and 32-bit mode. A similar issue is addressing between 16 and 32 bit
+segments. The possible cases and the relevant syntax for both problems are
+explained in <a href="nasm12.html#section-12.1">section 12.1</a> and
+<a href="nasm12.html#section-12.2">section 12.2</a> respectively.</p>
+<h4 id="section-4.1.4">4.1.4.&ensp;Calling Procedures Outside of a Shared Library</h4>
+<p>When writing shared libraries it's often necessary to call external
+code. In the ELF format the  keyword takes on a different meaning than
+normally when it helps reference a segment &ndash; it's used to refer to
+some special symbols (more about it can be found in
+<a href="nasm09.html#section-9.7.1">section 9.7.1</a>). In the case
+described here, "<code>wrt</code> <code>..plt</code>" references a PLT
+(procedure linkage table) entry. It can be used to call external routines
+in a way explained in <a href="nasm11.html#section-11.2.5">section
+11.2.5</a>.</p>
+<h4 id="section-4.1.5">4.1.5.&ensp;<code>FAR</code> Calls and Jumps</h4>
+<p>NASM supports <code>FAR</code> (inter-segment) calls and jumps by means
+of the syntax <code>call segment:offset</code>, where <code>segment</code>
+and <code>offset</code> both represent immediate values. So to call a far
+procedure, you could code either of</p>
+<pre>
+        call    (seg procedure):procedure 
+        call    weird_seg:(procedure wrt weird_seg)
+</pre>
+<p>(The parentheses are included for clarity, to show the intended parsing
+of the above instructions. They are not necessary in practice.)</p>
+<p>NASM also supports the syntax <code>call far procedure</code> as a
+synonym for the first of the above usages. <code>JMP</code> works
+identically to <code>CALL</code> in these examples.</p>
+<p>To declare a far pointer to a data item in a data segment, you must code</p>
+<pre>
+        dw symbol, seg symbol                ; 16 bit 
+        dd symbol, word seg symbol           ; 32 bit
+</pre>
+<p>NASM supports no convenient synonym for this, though you can always
+invent one using the macro processor.</p>
+<h4 id="section-4.1.6">4.1.6.&ensp;64-bit absolute jump (<code>JMPABS</code>)</h4>
+<p>Defined as part of the APX specification, <code>JMPABS</code> is a new
+near jump instruction takes a 64-bit <em>absolute</em> address immediate.
+It is the only <em>direct</em> jump instruction that can jump anywhere in
+the address space in 64-bit mode.</p>
+<p>NASM allows this instruction to be specified either as:</p>
+<pre>
+     jmpabs target
+</pre>
+<p>... or:</p>
+<pre>
+     jmp abs target
+</pre>
+<p>The generated code is identical. The <code>ABS</code> is required
+regardless of the <code>DEFAULT</code> setting.</p>
+<h4 id="section-4.1.7">4.1.7.&ensp;Optimizing jump lengths and sizes</h4>
+<p><code>JMP</code> lengths can be specified using keywords such as
+<code>SHORT</code> and <code>NEAR</code>. The keyword used also has
+consequences in how many bytes will be emitted in the final assembled
+instruction. It's worth to note the behavior of <code>SHORT</code> and
+<code>NEAR</code> for example in 16 bit mode. If it's specifically required
+to emit a 3 byte encoding of the jump instruction, then the
+<code>NEAR</code> version shall always fulfill this requirement, even if
+the jump is made within a <code>SHORT</code> distance (so up to a byte
+away). If the optimized version is expected then it's best to not use a
+length specifier at all and let the assembler pick the relevant version by
+itself.</p>
+<p>Using size specifiers with jumps (and therefore with labels which are
+just immediates) will be optimized down to the shortest possible encoding
+since the size specifier is relevant to the operation size and not to the
+jump length.</p>
+<pre>
+00000000 EB09                    jmp label 
+00000002 EB07                    jmp SHORT label 
+00000004 E90400                  jmp NEAR label 
+00000007 EB02                    jmp BYTE label 
+00000009 EB00                    jmp WORD label 
+
+                                 label:
+</pre>
+<h3 id="section-4.2">4.2.&ensp;Compact NDS/NDD Operands</h3>
+<p>Some instructions that use the <code>VEX</code> prefix, mainly AVX ones,
+use NDS (Non-Destructive Source) or NDD (New Data Destination) operands.
+Semantically it works by passing another operand to the instruction so that
+none of the source operands are modified as a result of the operation.</p>
+<p>Syntactically NASM allows both the obvious format mentioned above and a
+compact format &ndash; compact meaning that if a user passes two operands
+instead of three, one of them is simply copied to be used as the source or
+destination. Thereby these instructions have exactly the same encoding:</p>
+<pre>
+     vaddpd xmm0, xmm0, xmm1 
+     vaddpd xmm0, xmm1
+</pre>
+<p>Here the <code>XMM0</code> register is used as the "non-destructive
+source" even though in this case it will of course be modified.</p>
+<h3 id="section-4.3">4.3.&ensp;64-bit <em>moffs</em></h3>
+<p>The <em>moffs</em> operand can be used with the <code>MOV</code>
+instruction, only using the "<code>A</code>" register (<code>AL</code>,
+<code>AX</code>, <code>EAX</code>, or <code>RAX</code>), and for non-64-bit
+operand size means to address memory at an offset from a segment. For
+64-bit operands it simply accesses memory at a specified offset (since
+segment based addressing is mostly unavailable in 64-bit mode). Syntax to
+use 64-bit offsets to address memory is showcased in
+<a href="nasm13.html#section-13.2.2">section 13.2.2</a>.</p>
+<h3 id="section-4.4">4.4.&ensp;Split EA Addressing Syntax</h3>
+<p>Instructions that use the mib operand, (that is memory addressed with a
+base register, with some offset, with an added index register that's
+multiplied by some scale factor) can also utilize the split EA (effective
+addressing). The new form is mainly intended for MPX instructions that use
+the mib operands, but can be used for any memory reference. The basic
+concept of this form is splitting base and index:</p>
+<pre>
+     mov eax,[ebx+8,ecx*4]   ; ebx=base, ecx=index, 4=scale, 8=disp
+</pre>
+<p>NASM supports all currently possible forms of the mib syntax:</p>
+<pre>
+     ; bndstx 
+     ; next 5 lines are parsed same 
+     ; base=rax, index=rbx, scale=1, displacement=3 
+     bndstx [rax+0x3,rbx], bnd0      ; NASM - split EA 
+     bndstx [rbx*1+rax+0x3], bnd0    ; GAS - '*1' indecates an index reg 
+     bndstx [rax+rbx+3], bnd0        ; GAS - without hints 
+     bndstx [rax+0x3], bnd0, rbx     ; ICC-1 
+     bndstx [rax+0x3], rbx, bnd0     ; ICC-2
+</pre>
+<h3 id="section-4.5">4.5.&ensp;No Syntax for Ternary Logic Instruction</h3>
+<p><code>VPTERNLOGD</code> and <code>VPTERNLOGQ</code> are instructions
+that implement an arbitrary logic function for three inputs. They take
+three register operands and one immediate value that determines what logic
+function the instruction shall implement on execution. Specifically the
+output of the desired logic function is encoded in the immediate 8-bit
+operand. 3 binary inputs can be configured in 8 possible ways giving 8
+output bits that could implement any one of 256 possible logic functions.
+Therefore it's not practical to have any syntax around different possible
+logic functions.</p>
+<p>However there are some macro solutions that can help avoid writing out
+truth tables in order to use the ternary logic instructions. The simple,
+more manual way is to calculate the logic operation encoding on the fly
+with a few lines of arithmetic directives:</p>
+<pre>
+     a equ 0xaa 
+     b equ 0xcc 
+     c equ 0xf0 
+     imm equ a | b &amp; c
+</pre>
+<p>Here, values for "a", "b" and "c" together are all possible bit
+configurations that a 3 input function can take ("a" being the least
+significant bit and "c" being the most significant one). Then the "imm"
+variable is calculated by evaluating the desired logic function, in this
+case "a or b and c", thereby getting the function's output column that one
+would get when writing out the truth tables.</p>
+<p>Note that only the expression must be written using the bitwise
+operators <code>&amp;</code>, <code>|</code>, <code>^</code>, and
+<code>~</code>. Using the boolean operators <code>&amp;&amp;</code>,
+<code>||</code>, <code>^^</code>, <code>!</code> and <code>? :</code> will
+not work correctly.</p>
+<p>The <code>vtern</code> standard macro package,
+<a href="nasm07.html#section-7.6">section 7.6</a>, allows for these kinds
+of expressions without introducing the symbols <code>a</code>,
+<code>b</code> and <code>c</code> into the global namespace:</p>
+<pre>
+%use vtern 
+     vpternlogd xmm1, xmm2, xmm3, a | b &amp; c 
+     vpternlogq ymm4, ymm5, xmm6, (b ^ c) &amp; ~a 
+     ; a, b, and c are not defined as symbols elsewhere
+</pre>
+<h3 id="section-4.6">4.6.&ensp;APX Instruction Syntax</h3>
+<p>Intel APX (Advanced Performance Extensions) introduces multiple new
+features, mostly to existing instructions. APX is only available in 64-bit
+mode.</p>
+<ul>
+<li>
+<p>There are 16 new general purpose registers, <code>R16</code> to
+<code>R31</code>.</p>
+</li>
+<li>
+<p>Many instructions now support a non-destructive destination operand.</p>
+</li>
+<li>
+<p>The ability to suppress the setting of the arithmetic flags.</p>
+</li>
+<li>
+<p>The ability to zero the upper parts of a full 64-bit register for 8- and
+16-bit operation size instructions. (This zeroing is always performed for
+32-bit operations; this has been the case since 64-bit mode was first
+introduced.)</p>
+</li>
+<li>
+<p>New instructions to conditionally set the arithmetic flags to a
+user-specified value.</p>
+</li>
+<li>
+<p>Performance-enhanced versions of the <code>PUSH</code> and
+<code>POP</code> instructions.</p>
+</li>
+<li>
+<p>A 64-bit absolute jump instruction.</p>
+</li>
+<li>
+<p>A new REX2 prefix.</p>
+</li>
+</ul>
+<p>See
+<a href="https://www.nasm.us/specs/apx"><code>https://www.nasm.us/specs/apx</code></a>
+for a link to the APX technical documentation. NASM generally follows the
+syntax specified in the <em>Assembly Syntax Recommendations for Intel
+APX</em> document although some syntax is relaxed, see below.</p>
+<h4 id="section-4.6.1">4.6.1.&ensp;Extended General Purpose Registers (EGPRs)</h4>
+<p>When it comes to register size, the new registers
+(<code>R16</code>&ndash;<code>R31</code>) work the same way as registers
+<code>R8</code>&ndash;<code>R15</code> (see also
+<a href="nasm13.html#section-13.1">section 13.1</a>):</p>
+<ul>
+<li>
+<p><code>R31</code> is the 64-bit form of register 31,</p>
+</li>
+<li>
+<p><code>R31D</code> is the 32-bit form,</p>
+</li>
+<li>
+<p><code>R31W</code> is the 16-bit form, and</p>
+</li>
+<li>
+<p><code>R31B</code> is the 8-bit form. The form <code>R31L</code> can also
+be used if the <code>altreg</code> macro package is used
+(<code>%use altreg</code>), see <a href="nasm07.html#section-7.1">section
+7.1</a>.</p>
+</li>
+</ul>
+<p>Extended registers require that either a REX2 prefix (the default, if
+possible) or an EVEX prefix is used.</p>
+<p>There are some instructions that don't support EGPRs. In that case, NASM
+will generate an error if they are used.</p>
+<h4 id="section-4.6.2">4.6.2.&ensp;New Data Destination (NDD)</h4>
+<p>Using the new data destination register (when supported) is specified by
+adding an additional register in place of the first operand. For example an
+<code>ADD</code> instruction:</p>
+<pre>
+     add rax, rbx, rcx
+</pre>
+<p>... which would add <code>RBX</code> and <code>RCX</code> and store the
+result in <code>RAX</code>, without modifying neither <code>RBX</code> nor
+<code>RCX</code>.</p>
+<h4 id="section-4.6.3">4.6.3.&ensp;Suppress Modifying Flags (NF)</h4>
+<p>The <code>{nf}</code> prefix on a supported instruction inhibits the
+update of the flags, for example:</p>
+<pre>
+     {nf} add rax, rbx
+</pre>
+<p>... will add <code>RAX</code> and <code>RBX</code> together, storing the
+result in <code>RAX</code>, while leaving the flags register unchanged.</p>
+<p>NASM also allows the <code>{nf}</code> prefix (or any other curly-brace
+prefix) to be specified <em>after</em> the instruction mnemonic. Spaces
+around curly-brace prefixes are optional:</p>
+<pre>
+     {nf} add rax, rbx       ; Standard syntax 
+     {nf}add  rax, rbx       ; Prefix without space 
+     add {nf} rax, rbx       ; Suffix syntax 
+     add{nf}  rax, rbx       ; Suffix without space
+</pre>
+<h4 id="section-4.6.4">4.6.4.&ensp;Zero Upper (ZU)</h4>
+<p>The <code>{zu}</code> prefix can be used meaning &ndash; "zero-upper",
+which disables retaining the upper parts of the registers and instead
+zero-extends the value into the full 64-bit register when the operand size
+is 8 or 16 bits (this is always done when the operand size is 32 bits, even
+without APX). For example:</p>
+<pre>
+     {zu} setb al
+</pre>
+<p>... zeroes out bits [63:8] of the <code>RAX</code> register. For this
+specific instruction, NASM also eccepts these alternate syntaxes:</p>
+<pre>
+     {zu} setb ax 
+     setb {zu} al 
+     setb {zu} ax 
+     setb {zu} eax 
+     setb {zu} rax 
+     setb eax 
+     setb rax
+</pre>
+<h4 id="section-4.6.5">4.6.5.&ensp;Source Condition Code (S<em>cc</em>) and Default Flags Value (DFV)</h4>
+<p>The source condition code (S<em>cc</em>) instructions,
+<code>CCMPS</code><em>cc</em> and <code>CTESTS</code><code>cc</code>,
+perform a test which if successful set the arithmetic flags to a user
+specfied value and otherwise leave them unchanged.</p>
+<p>NASM allows the resulting <em>default flags value</em> to be specified
+either using the <code>{dfv=}</code>...<code>}</code> syntax, containing a
+comma-separated list of zero or more of the CPU flags <code>OF</code>,
+<code>SF</code>, <code>ZF</code> or <code>CF</code> or simply as a numeric
+immediate (with <code>OF</code>, <code>SF</code>, <code>ZF</code> and
+<code>CF</code> being represented by bits 3 to 0 in that order.)</p>
+<p>The <code>PF</code> flag is always set to the same value as the
+<code>CF</code> flag, and the <code>AF</code> flag is always cleared. NASM
+allows <code>{dfv=pf}</code> as an alias for <code>{dfv=cf}</code>, but do
+note that it still affects both flags.</p>
+<p>NASM allows, but does not require, a comma after the <code>{dfv=}</code>
+value; when using the immediate syntax a comma is required; these examples
+all produce the same instruction:</p>
+<pre>
+     ccmpl {dfv=of,cf} rdx, r30 
+     ccmpl {dfv=of,cf}, rdx, r30 
+     ccmpl 0x9, rdx, r30                     ; Comma required
+</pre>
+<p>The immediate syntax also allows for the <code>{dfv=}</code> values to
+be stored in a symbol, or having arithmetic done on them. Note that when
+used in an expression, or in contexts other than <code>EQU</code> or one of
+the <code>S</code><em>cc</em> instructions, parenteses are required; this
+is a safety measure (programmer needs to explicitly indicate that use as an
+expression is what is intended):</p>
+<pre>
+     ccmpl ({dfv=of}|{dfv=cf}), rdx, r30     ; Parens, comma required 
+ocf1 equ {dfv=of,cf}                         ; Parens not required 
+     ccmpl ocf1, rdx, r30                    ; Comma required 
+ofcf equ ({dfv=of,sf,cf} &amp; ~{dfv=sf})        ; Parens required 
+     ccmpl ofcf2, rdx, r30                   ; Comma required
+</pre>
+<h4 id="section-4.6.6">4.6.6.&ensp;<code>PUSH</code> and <code>POP</code> Extensions</h4>
+<p>APX adds variations of the <code>PUSH</code> and <code>POP</code>
+instructions that:</p>
+<ul>
+<li>
+<p>informs the CPU that a specific <code>PUSH</code> and <code>POP</code>
+constitute a matched pair, allowing the hardware to optimize for this
+common use case: <code>PUSHP</code> and <code>POPP</code>;</p>
+</li>
+<li>
+<p>operates on two registers at the same time: <code>PUSH2</code> and
+<code>POP2</code>, with paired variants <code>PUSH2P</code> and
+<code>POP2P</code>.</p>
+</li>
+</ul>
+<p>These extensions only apply to register forms; they are not supported
+for memory or immediate operands.</p>
+<p>The standard syntax for (<code>P</code>)<code>PUSH2</code> and
+(<code>P</code>)<code>POP2</code> specify the registers in the order they
+are to be pushed and popped on the stack:</p>
+<pre>
+     push2p rax, rbx 
+     ; rax in [rsp+8] 
+     ; rbx is [rsp+0] 
+     pop2p rbx, rax
+</pre>
+<p>... would be the equivalent of:</p>
+<pre>
+     push rax 
+     push rbx 
+     ; rax in [rsp+8] 
+     ; rbx is [rsp+0] 
+     pop rbx 
+     pop rax
+</pre>
+<p>NASM also allows the registers to be specified as a <em>register
+pair</em> separated by a colon, in which case the order is always specified
+in the order <em>high</em><code>:</code><em>low</em> and thus is the same
+for <code>PUSH2</code> and <code>POP2</code>. This means the order of the
+operands in the <code>POP2</code> instruction is different:</p>
+<pre>
+     push2p rax:rbx 
+     ; rax in [rsp+8] 
+     ; rbx is [rsp+0] 
+     pop2p rax:rbx
+</pre>
+<h4 id="section-4.6.7">4.6.7.&ensp;APX and the NASM optimizer</h4>
+<p>When the optimizer is enabled (see
+<a href="nasm02.html#section-2.1.24">section 2.1.24</a>), NASM may apply a
+number of optimizations, some of which may apply non-APX instructions to
+what otherwise would be APX forms. Some examples are:</p>
+<ul>
+<li>
+<p>The <code>{nf}</code> prefix may be ignored on instructions that already
+don't modify the arithmetic flags.</p>
+</li>
+<li>
+<p>When the <code>{nf}</code> prefix is specified, NASM may generate
+another instruction which would not modify the flags register. For example,
+<code>{nf} ror rax, rcx, 3</code> can be translated into
+<code>rorx rax, rcx, 3</code>.</p>
+</li>
+<li>
+<p>The <code>{zu}</code> prefix may be ignored on instruction that already
+zero the upper parts of the destination register.</p>
+</li>
+<li>
+<p>When the <code>{zu}</code> prefix is specified, NASM may generate
+another instruction which would zero the upper part of the register. For
+example, <code>{zu} mov ax, cs</code> can be translated into
+<code>mov eax, cs</code>.</p>
+</li>
+<li>
+<p>New data destination or nondestructive source operands may be contracted
+if they are the same (and the semantics are otherwise identical). For
+example, <code>add eax, eax, edx</code> could be encoded as
+<code>add eax, edx</code> using legacy encoding. <em>NASM does not perform
+this optimization as of version 3.00, but it probably will in the
+future.</em></p>
+</li>
+</ul>
+<h4 id="section-4.6.8">4.6.8.&ensp;Force APX Encoding</h4>
+<p>APX encoding, using REX2 and EVEX, respectively, can be forced by using
+the <code>{rex2}</code> or <code>{evex}</code> instruction prefixes.</p>
+</div>
+</body>
+</html>
