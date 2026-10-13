@@ -132,8 +132,8 @@ if ($running -match $Distro) {
     } else {
         Report warn 'docker' 'docker not responding inside WSL'
     }
-    $q = Test-Http 'http://127.0.0.1:6333/'
-    if ($q) { Report ok 'Qdrant' "up, version $($q.version)" } else { Report info 'Qdrant' 'not reachable on 127.0.0.1:6333 (needed from Phase 3)' }
+    $q = Test-Http 'http://127.0.0.1:6343/'
+    if ($q) { Report ok 'Qdrant' "barthelona-qdrant up, version $($q.version)" } else { Report info 'Qdrant' 'barthelona-qdrant not reachable on 127.0.0.1:6343 (needed from Phase 3; runbook section 3)' }
 } else {
     Report info 'WSL' "$Distro stopped (run with -StartWsl to check tools, docker and Qdrant)"
 }

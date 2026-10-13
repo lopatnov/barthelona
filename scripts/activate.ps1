@@ -59,7 +59,7 @@ try {
     $env:BARTHELONA_HOME = $__bartRoot
     if (-not $env:LMSTUDIO_BASE_URL) { $env:LMSTUDIO_BASE_URL = 'http://127.0.0.1:1234/v1' }
     if (-not $env:OLLAMA_BASE_URL) { $env:OLLAMA_BASE_URL = 'http://127.0.0.1:11434' }
-    if (-not $env:QDRANT_URL) { $env:QDRANT_URL = 'http://127.0.0.1:6333' }
+    if (-not $env:QDRANT_URL) { $env:QDRANT_URL = 'http://127.0.0.1:6343' }
 
     # 4. .env: KEY=VALUE per line; '#' comment lines; optional 'export '; quoted values keep '#';
     #    unquoted values end at ' #' (inline comment). Never echo values.

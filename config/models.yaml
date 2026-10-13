@@ -52,6 +52,35 @@ providers:
       The /v1 endpoint cannot set num_ctx. Set the context with OLLAMA_CONTEXT_LENGTH or a Modelfile
       (PARAMETER num_ctx) and check it with /api/ps; overflow silently drops the oldest messages.
 
+  # --- Self-hosted, off this machine (disabled until the owner sets them up) -------------------------
+  lan_lmstudio:                    # LM Studio on the owner's second PC ("Serve on Local Network")
+    kind: openai_chat
+    base_url: ${LAN_LMSTUDIO_BASE_URL:-}   # e.g. http://192.168.x.y:1234/v1; empty keeps it unusable
+    local: false                   # non-loopback host: allowed only because local is false (F-7)
+    network: lan                   # free like local models, but reached over the network
+    enabled: false
+    max_concurrency: 1
+    structured_output: json_schema
+    timeout_s: 900
+    health_url: /api/v1/models
+    notes: >-
+      Plain HTTP on the LAN: no secrets go over it, and LM Studio has no auth by default, so bind it to the
+      LAN interface only and firewall it to this PC. Models are listed in models: with provider lan_lmstudio.
+
+  cloud_gpu:                       # rented GPU running an OpenAI-compatible server (vLLM, SGLang, LM Studio)
+    kind: openai_chat
+    base_url: ${CLOUD_GPU_BASE_URL:-}      # must be https
+    api_key_env: CLOUD_GPU_API_KEY         # vLLM --api-key; never put it in the URL
+    local: false
+    network: internet
+    enabled: false
+    max_concurrency: 4
+    structured_output: json_schema
+    timeout_s: 600
+    notes: >-
+      Billed per hour, not per token; how the budget counts it is open (roadmap F-13). Open models only
+      (e.g. Qwen3-Coder-30B-A3B or larger at full precision), so prompts stay off third-party model APIs.
+
   # --- Cloud (paid, opt-in per run) --------------------------------------------------------------------
   anthropic:
     kind: anthropic_messages       # official `anthropic` SDK (1.x); SDK retries off (max_retries=0)

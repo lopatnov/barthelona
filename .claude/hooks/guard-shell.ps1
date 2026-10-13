@@ -77,7 +77,7 @@ function Test-Git($rest) {
     $sub = (Unquote $rest[$j]).ToLowerInvariant()
     $argv = @()
     if ($j + 1 -lt $rest.Count) { $argv = @($rest[($j + 1)..($rest.Count - 1)] | ForEach-Object { Unquote $_ }) }
-    if ($sub -in @('diff', 'log', 'show', 'format-patch') -and @($argv | Where-Object { $_ -match '^(--output|-o$)' }).Count -gt 0) {
+    if ($sub -match '^(diff(-tree|-index|-files)?|log|show|whatchanged|range-diff|format-patch)$' -and @($argv | Where-Object { $_ -cmatch '^(--output|-o$)' }).Count -gt 0) {
         Block "git $sub --output writes files; redirect output in a separate, visible step instead."
     }
     switch ($sub) {
@@ -106,7 +106,7 @@ function Test-Remove([string]$name, $rest) {
         if ($u -match '^-' -or $u -match '^/[sq]$') { continue }
         $v = ($u -replace '\\', '/').ToLowerInvariant()
         if ($v -match '^[a-z]:/?$' -or $v -eq '/c' -or $v -eq '/mnt/c') { Block 'Recursive delete of a drive root is not allowed.' }
-        if ($v -eq '..' -or $v.StartsWith('../')) { Block "Recursive delete outside the repo ('$u') is not allowed." }
+        if ($v -match '(^|/)\.\.(/|$)') { Block "Recursive delete with a '..' segment ('$u') is not allowed." }
         $abs = $v
         if ($abs -match '^/mnt/([a-z])/(.*)$') { $abs = "$($Matches[1]):/$($Matches[2])" }
         elseif ($abs -match '^/([a-z])/(.*)$') { $abs = "$($Matches[1]):/$($Matches[2])" }
@@ -156,13 +156,26 @@ function Test-Docker($rest) {
 function Test-Segment([string]$seg, [int]$depth) {
     $t = Get-Tokens $seg
     $i = 0
+    $sawEnv = $false
     while ($i -lt $t.Count) {
         $w = (Unquote $t[$i]).ToLowerInvariant().TrimStart('(', '{')
+        if ($w -eq 'env') {
+            # Skip env's own options (-0, -i, -u NAME, -C DIR); with no command left it is a dump.
+            $sawEnv = $true; $i++
+            while ($i -lt $t.Count -and (Unquote $t[$i]).StartsWith('-')) {
+                if ((Unquote $t[$i]) -in @('-u', '--unset', '-C', '--chdir', '-S', '--split-string')) { $i += 2 } else { $i++ }
+            }
+            continue
+        }
         if ($w -eq '' -or $w -in @('&', '.', 'sudo', 'env', 'command', 'exec', 'time', 'nohup', 'builtin', 'call', '{', '(')) { $i++; continue }
         if ($w -match '^[a-z_][a-z0-9_]*=') { $i++; continue }
         break
     }
-    if ($i -ge $t.Count) { return }
+    if ($i -ge $t.Count) {
+        # A bare 'env' (optionally with VAR=x) prints the whole environment.
+        if ($sawEnv) { Block 'Dumping environment variables is not allowed: they may hold API keys.' }
+        return
+    }
     $raw = (Unquote $t[$i]).TrimStart('(', '{')
     $name = ([System.IO.Path]::GetFileName(($raw -replace '/', '\'))).ToLowerInvariant() -replace '\.(exe|cmd|bat)$', ''
     $rest = New-Object System.Collections.Generic.List[string]
@@ -172,6 +185,23 @@ function Test-Segment([string]$seg, [int]$depth) {
     # Sourcing or executing .env, or activating the env (loads API keys into the agent shell).
     if ($name -match $envFile) { Block 'Sourcing or executing .env is not allowed: it holds the owner''s API keys.' }
     if ($name -match '^activate\.(ps1|sh)$') { Block 'Agents must not activate the env (activate.* loads API keys). Run tools via scripts/dev.ps1 or scripts/dev.sh.' }
+
+    # Any command given an unquoted .env* operand (except listing/testing it) could print the secrets.
+    if ($name -notin @('ls', 'dir', 'test', '[', 'get-childitem', 'gci', 'test-path') -and -not ($name -eq 'git' -and $restU -contains 'check-ignore')) {
+        foreach ($tok in $rest) {
+            if ($tok.StartsWith('"') -or $tok.StartsWith("'")) { continue }
+            if (Test-EnvToken $tok) { Block 'Passing .env to a command is not allowed: it holds the owner''s API keys.' }
+        }
+    }
+
+    # Dumping environment variables (they may hold API keys).
+    if ($name -in @('env', 'printenv') -or ($name -eq 'set' -and $rest.Count -eq 0) -or
+        ($name -in @('export', 'declare', 'typeset') -and ($rest.Count -eq 0 -or $restU -contains '-p' -or ($name -ne 'export' -and $restU -contains '-x')))) {
+        Block 'Dumping environment variables is not allowed: they may hold API keys.'
+    }
+    if ($name -in @('get-childitem', 'gci', 'dir', 'ls', 'get-item', 'gi', 'get-content', 'gc', 'cat', 'type') -and @($restU | Where-Object { $_ -match '^env:' }).Count -gt 0) {
+        Block 'Reading the env: drive is not allowed: environment variables may hold API keys.'
+    }
 
     switch -Regex ($name) {
         '^source$' {
@@ -275,6 +305,12 @@ function Test-Command([string]$text, [int]$depth) {
 # 1. Pipelines into a shell / Invoke-Expression (segments would split them apart).
 if ($cmd -match '\b(curl|wget)\b[^;&|\n]*\|\s*(sudo\s+)?(ba|z|da)?sh\b') { Block 'Piping downloaded scripts into a shell is not allowed.' }
 if ($cmd -match '\b(iwr|irm|Invoke-WebRequest|Invoke-RestMethod)\b[^;&\n]*\|\s*(iex|Invoke-Expression)\b') { Block 'Piping downloaded scripts into Invoke-Expression is not allowed.' }
+
+# Secret-looking environment variables and environment dumps, anywhere in the text (including scripts).
+# Checked on the raw text: quoted search patterns and commit messages that name a key are blocked too (fail closed).
+$secretPrefix = '(\$env:|\$\{env:|\$\{?|%|environ\s*\[\s*[''"]|getenv\s*\(\s*[''"]|GetEnvironmentVariable\s*\(\s*[''"])'
+if ($cmd -match ($secretPrefix + '[A-Za-z0-9_]*(API_?KEY|_TOKEN(?!S)|SECRET|PASSWORD|PASSWD)')) { Block 'Referencing secret environment variables is not allowed.' }
+if ($cmd -match 'GetEnvironmentVariables|\bos\.environ\b(?!\s*(\.get|\[))|/proc/[^/\s]+/environ|\bprocess\.env\b(?!\.)') { Block 'Dumping environment variables is not allowed: they may hold API keys.' }
 
 # 2. Drop heredoc and here-string bodies (data, not commands).
 $work = [regex]::Replace($cmd, '(?ms)<<-?\s*([''"]?)(\w+)\1[^\n]*\n.*?^\s*\2\s*$', '<<HEREDOC')
