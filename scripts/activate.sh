@@ -9,6 +9,11 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   exit 1
 fi
 
+# Activate a conda environment in the current shell, set project endpoint defaults,
+# and load literal KEY=VALUE entries from the repo's .env without executing them.
+# Arguments: optional environment name (default: barthelona).
+# Prints activation status and loaded variable names, never their values.
+# Returns: 0 on success, 1 if conda is unavailable or activation fails.
 _bart_main() {
   local name="${1:-barthelona}"
   local root conda line key val loaded=""
