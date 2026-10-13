@@ -309,7 +309,7 @@ if ($cmd -match '\b(iwr|irm|Invoke-WebRequest|Invoke-RestMethod)\b[^;&\n]*\|\s*(
 # Secret-looking environment variables and environment dumps, anywhere in the text (including scripts).
 # Checked on the raw text: quoted search patterns and commit messages that name a key are blocked too (fail closed).
 $secretPrefix = '(\$env:|\$\{env:|\$\{?|%|environ\s*\[\s*[''"]|getenv\s*\(\s*[''"]|GetEnvironmentVariable\s*\(\s*[''"])'
-if ($cmd -match ($secretPrefix + '[A-Za-z0-9_]*(API_?KEY|_TOKEN(?!S)|SECRET|PASSWORD|PASSWD)')) { Block 'Referencing secret environment variables is not allowed.' }
+if ($cmd -match ($secretPrefix + '[A-Za-z0-9_]*(API_?KEY|_TOKEN(?!S)|SECRET|PASSWORD|PASSWD|ACCESS_KEY|AUTH_CONFIG|SSH_AUTH_SOCK)')) { Block 'Referencing secret environment variables is not allowed.' }
 if ($cmd -match 'GetEnvironmentVariables|\bos\.environ\b(?!\s*(\.get|\[))|/proc/[^/\s]+/environ|\bprocess\.env\b(?!\.)') { Block 'Dumping environment variables is not allowed: they may hold API keys.' }
 
 # 2. Drop heredoc and here-string bodies (data, not commands).

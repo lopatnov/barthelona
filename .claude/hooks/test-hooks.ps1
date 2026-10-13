@@ -83,6 +83,9 @@ $shellCases = @(
     @('cat /proc/self/environ', 2), @('node -e "console.log(process.env)"', 2), @('node -e "console.log(process.env.HOME)"', 0),
     @('env -0', 2), @('env -u FOO', 2), @('env -u FOO python -V', 0), @('declare -x', 2), @('echo $MAX_TOKENS', 0),
     @('python -c "import os; print(os.environ[''HOME''])"', 0),
+    # CodeRabbit on #3: credential-bearing variables without a KEY/TOKEN/SECRET suffix
+    @('echo $AWS_ACCESS_KEY_ID', 2), @('echo $AWS_SECRET_ACCESS_KEY', 2), @('echo $SSH_AUTH_SOCK', 2), @('echo $DOCKER_AUTH_CONFIG', 2),
+    @('echo ${env:AWS_ACCESS_KEY_ID}', 2), @('echo $SSH_AGENT_PID', 0),
     # everyday commands
     @('ruff check .', 0), @('python -m pytest -q', 0), @('grep -rn "environment" docs', 0), @('git log --oneline -5', 0)
 )

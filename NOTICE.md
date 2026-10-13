@@ -7,10 +7,11 @@ Barthelona was created and is maintained by Oleksandr Lopatnov (https://github.c
 work in this repository (source code, configuration, scripts and documentation, except the third-party
 material listed below) is licensed under the BSD 2-Clause License; see `LICENSE`.
 
-If you redistribute this software or a derivative work, in source or binary form, keep:
-
-- the copyright notice and license text in `LICENSE`, as the BSD 2-Clause License requires;
-- this `NOTICE.md` file, or an equivalent attribution to Oleksandr Lopatnov as the original author.
+The BSD 2-Clause License sets the redistribution conditions: source distributions must retain the
+copyright notice, the list of conditions and the disclaimer; binary distributions must reproduce them in
+the documentation or other materials provided with the distribution. The license sets no other
+conditions. As a courtesy, not a license term, please also keep this `NOTICE.md` file or an equivalent
+attribution to Oleksandr Lopatnov as the original author.
 
 ## AI-assisted development
 
