@@ -16,7 +16,7 @@ A local-first agentic system that **creates or edits multi-file assembly project
 | Topic | File |
 | --- | --- |
 | Architecture (authoritative) | `docs/architecture.md`: §5 Scrum mapping and pattern map, §9 topology DSL and AI-composed graphs, §13 verification, §16 models, providers and resilience |
-| Decisions | `docs/adr/README.md` (D-001…D-033, all Proposed until the owner accepts) |
+| Decisions | `docs/adr/README.md` (D-001…D-034, all Proposed until the owner accepts) |
 | Phases, exit criteria, open owner decisions, follow-ups | `docs/roadmap.md` |
 | Setup, operations, troubleshooting | `docs/runbook.md` |
 | Model catalog, role chains, budgets | `config/models.yaml` |
@@ -50,7 +50,7 @@ Order: host safety (sandbox, secrets) > correctness as the oracles decide it > b
 - Windows 11 host with conda env `barthelona` (Python 3.13). Create it with `.\scripts\create_env.ps1` (Git Bash: `scripts/create_env.sh`).
 - **Agent tool shells start without the env.** Run every Python tool through `.\scripts\dev.ps1 <cmd>` (PowerShell) or `scripts/dev.sh <cmd>` (bash): it puts the env on PATH for one command and does not load `.env`. **Never dot-source `activate.ps1` in an agent shell** (it loads the owner's API keys); `activate.*` is for the owner's terminal.
 - Dependencies are declared **only** in `pyproject.toml`. After editing them, run `.\scripts\lock.ps1` (or `-UpgradePackage x`), then `create_env.ps1`. Never `pip install` ad hoc.
-- WSL2 Ubuntu 26.04 (distro `Ubuntu`) has gcc, binutils, make and docker; nasm, fasm, gdb and qemu are **not** installed (`docs/runbook.md` §2). The VM may be stopped; then Qdrant (:6333) and the Qdrant MCP (:8000) are unreachable, which is expected.
+- WSL2 Ubuntu 26.04 (distro `Ubuntu`) has gcc, binutils, make and docker; nasm, fasm, gdb and qemu are **not** installed (`docs/runbook.md` §2). The VM may be stopped; then the project Qdrant (:6343, D-034), the owner's `qdrant-db` (:6333) and the Qdrant MCP (:8000) are unreachable, which is expected.
 - LM Studio serves models at `http://127.0.0.1:1234/v1`. Ollama is installed but not running. Cloud keys (Anthropic, OpenAI, Gemini, DeepSeek) live in `.env`.
 
 ## Commands
