@@ -1,0 +1,7 @@
+[shell_environment_policy]
+inherit = "core"
+
+[shell_environment_policy.set]
+PYTHONUTF8 = "1"
+WSL_UTF8 = "1"
+BASH_MAX_TIMEOUT_MS = "1800000"

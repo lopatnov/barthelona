@@ -1,0 +1,9 @@
+# Conda supplies only the interpreter and pip. All Python packages come from the
+# hash-locked files in requirements/ (see docs/adr/D-031 and scripts/create_env.ps1).
+name: barthelona
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.13
+  - pip

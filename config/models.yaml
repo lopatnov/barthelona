@@ -1,0 +1,407 @@
+# Barthelona model catalog: providers, models, role chains, budgets and resilience.
+#
+# - Committed to git. Contains NO secrets: API keys are read from the environment variables named in
+#   `api_key_env` (put them in .env, see .env.example).
+# - Prices are USD per 1M tokens, standard tier, as checked on `pricing_checked`. Providers do not expose
+#   prices through their APIs, so update this file when they change. The gateway computes the cost of every
+#   call from the usage reported by the API and these prices (including long-context tiers, cache writes and
+#   off-peak discounts), and records it in the ledger.
+# - A model is usable for a run only if: its provider is enabled for the run, its key is present, its
+#   circuit breaker is closed, and the model is `enabled` (default true). Chains are walked in order (§16.6).
+# - Design: docs/architecture.md §16, docs/adr/D-029 (catalog) and D-030 (resilience, optional budgets).
+#
+# Field conventions:
+#   context     total window in tokens (input + output) unless `max_input` is also given
+#   max_input   input cap when it is lower than `context`
+#   price       {input, cached_input, output} per 1M tokens; optional:
+#               cache_write (per 1M written), long_context: {above_input_tokens, input, cached_input, output}
+#               (the WHOLE request is billed at these rates when its input exceeds the threshold),
+#               offpeak: {multiplier, peak_utc: [...]} (discount outside the listed peak windows)
+#   reasoning   the provider's control: param name, accepted values, provider default
+#
+# Sampling parameters (temperature/top_p/top_k) are sent ONLY to local models. Cloud models reject or
+# ignore them (Claude 5.x: 400; GPT-6 at any effort except `none`: 400; Gemini 3.x and DeepSeek thinking
+# mode: ignored or rejected). Cloud diversity comes from prompt variants.
+#
+# Sources (verified 2026-10-13): platform.claude.com models/pricing; developers.openai.com models, pricing,
+# deprecations; ai.google.dev models/pricing; api-docs.deepseek.com quick_start/pricing.
+
+schema_version: 1
+
+providers:
+  # --- Local (free) -------------------------------------------------------------------------------
+  lmstudio:
+    kind: openai_chat              # OpenAI-compatible Chat Completions
+    base_url: ${LMSTUDIO_BASE_URL:-http://127.0.0.1:1234/v1}
+    local: true
+    enabled: true
+    max_concurrency: 1             # one resident model; calls are serialized
+    structured_output: json_schema # response_format json_schema, grammar-enforced for GGUF models
+    health_url: /api/v1/models   # path on the base_url origin; shows loaded_instances and context length
+    timeout_s: 1800                # CPU/iGPU decode is slow (~8 tok/s); always stream
+  ollama:
+    kind: openai_chat
+    base_url: ${OLLAMA_BASE_URL:-http://127.0.0.1:11434}/v1
+    local: true
+    enabled: false                 # installed but not running by default
+    max_concurrency: 1
+    structured_output: json_schema
+    timeout_s: 1800
+    health_url: /api/ps          # path on the base_url origin; shows the loaded model and context
+    notes: >-
+      The /v1 endpoint cannot set num_ctx. Set the context with OLLAMA_CONTEXT_LENGTH or a Modelfile
+      (PARAMETER num_ctx) and check it with /api/ps; overflow silently drops the oldest messages.
+
+  # --- Cloud (paid, opt-in per run) --------------------------------------------------------------------
+  anthropic:
+    kind: anthropic_messages       # official `anthropic` SDK (1.x); SDK retries off (max_retries=0)
+    api_key_env: ANTHROPIC_API_KEY
+    enabled: true
+    max_concurrency: 3
+    structured_output: output_config   # output_config.format json_schema / client.messages.parse()
+    timeout_s: 600                 # stream large max_tokens / long reasoning calls
+    notes: >-
+      Set output_config.effort explicitly (Opus 5.5 and Haiku 5.5 default to medium). No sampling
+      parameters. No forced tool_choice (any/tool) on Opus 5.5, Sonnet 5.5 and Fable 5.1 (400). Handle
+      stop_reason "refusal"; send `fallbacks: "default"` (beta server-side-fallback-2026-07-01) on Opus 5.5
+      and Sonnet 5.5.
+  openai:
+    kind: openai_responses         # official `openai` SDK (3.x), Responses API; SDK retries off (max_retries=0)
+    api_key_env: OPENAI_API_KEY
+    base_url: https://api.openai.com/v1
+    enabled: true
+    max_concurrency: 3
+    structured_output: json_schema # text.format {type: json_schema, strict: true}
+    timeout_s: 900
+    notes: >-
+      GPT-6 models need the Responses API for tool calls with reasoning; pass returned reasoning items back
+      in multi-turn calls. Never send sampling parameters (the gateway sends them to local models only;
+      GPT-6 rejects them at any effort except `none`).
+  google:
+    kind: gemini_native            # official `google-genai` SDK (2.x); disable SDK retries with HttpRetryOptions(attempts=1)
+    api_key_env: GEMINI_API_KEY    # pass explicitly: if GOOGLE_API_KEY is also set, the SDK prefers it
+    enabled: true
+    max_concurrency: 3
+    structured_output: json_schema # response_mime_type=application/json + response_json_schema
+    timeout_s: 900
+    notes: >-
+      Gemini 3.x uses thinking_level. The OpenAI-compatible endpoint exists, but its schema enforcement is
+      unverified, so the native SDK is used. Handle finish_reason SAFETY/PROHIBITED_CONTENT as a refusal.
+  deepseek:
+    kind: openai_chat              # official `openai` SDK with base_url; SDK retries off (max_retries=0)
+    api_key_env: DEEPSEEK_API_KEY
+    base_url: https://api.deepseek.com
+    enabled: true
+    max_concurrency: 3
+    structured_output: json_object # NO json_schema: validate with Pydantic and repair (prompt must say "json")
+    timeout_s: 900                 # server closes the connection if inference has not started after 10 min
+    notes: >-
+      Thinking is ON by default (extra_body thinking {type: enabled|disabled}); reasoning_content must be
+      echoed back in tool loops or the API returns 400. No batch API; off-peak is 50% cheaper.
+
+models:
+  # --- Local ---------------------------------------------------------------------------------------
+  # `local_main` is the single resident model serving every local role (D-013). It is TEMPORARY until
+  # the Phase 0 bake-off picks the winner (candidates: Qwen3-Coder-30B-A3B, gpt-oss-20b,
+  # Qwen3.6-35B-A3B, and the installed models below).
+  local_main:
+    provider: lmstudio
+    model: liquid/lfm2-24b-a2b
+    price_class: local
+    context: 16384                 # set at load time in LM Studio; max 32768 on this machine
+    strip_think: true
+  local_reasoning:
+    provider: lmstudio
+    model: mistralai/ministral-3-14b-reasoning
+    price_class: local
+    context: 16384
+    strip_think: true
+    enabled: false                 # dense 14B: slower; bake-off candidate only
+  embed_local:
+    provider: lmstudio
+    model: text-embedding-nomic-embed-text-v1.5   # needs search_document:/search_query: prefixes
+    price_class: embedding
+    enabled: false                 # Phase 3 (Qdrant hybrid), only if the retrieval eval shows a gain
+
+  # --- Anthropic (pricing_checked 2026-10-13; 1M context, 128K output) ---------------------------------
+  claude-opus-5-5:
+    provider: anthropic
+    model: claude-opus-5-5
+    price_class: flagship
+    context: 1000000
+    max_output: 128000
+    reasoning: {param: output_config.effort, values: [low, medium, high, xhigh, max], default: medium}
+    price: {input: 4.00, cached_input: 0.20, output: 20.00, cache_write: 5.00}   # 5-minute cache write
+    pricing_checked: 2026-10-13
+  claude-sonnet-5-5:
+    provider: anthropic
+    model: claude-sonnet-5-5
+    price_class: mid
+    context: 1000000
+    max_output: 128000
+    reasoning: {param: output_config.effort, values: [low, medium, high, xhigh, max], default: high}
+    price: {input: 2.00, cached_input: 0.20, output: 10.00, cache_write: 2.50}
+    pricing_checked: 2026-10-13
+  claude-haiku-5-5:
+    provider: anthropic
+    model: claude-haiku-5-5
+    price_class: cheap
+    context: 1000000
+    max_output: 128000
+    reasoning: {param: output_config.effort, values: [low, medium, high, xhigh, max], default: medium}
+    price:
+      input: 0.10
+      cached_input: 0.01
+      output: 0.50
+      long_context: {above_input_tokens: 100000, input: 0.50, cached_input: 0.05, output: 2.50}
+    pricing_checked: 2026-10-13
+  claude-fable-5-1:
+    provider: anthropic
+    model: claude-fable-5-1
+    price_class: frontier
+    context: 1000000
+    max_output: 128000
+    reasoning: {param: output_config.effort, values: [low, medium, high, xhigh, max]}
+    price: {input: 10.00, cached_input: 0.25, output: 50.00, cache_write: 12.50}
+    pricing_checked: 2026-10-13
+    enabled: false                 # only if the bench shows Opus 5.5 falls short
+
+  # --- OpenAI (pricing_checked 2026-10-13; 1.05M context, 128K output) ---------------------------------
+  # Local endpoint overrides must use 127.0.0.1 (the catalog loader will reject localhost).
+# Prompts over 272K input tokens are billed at 2x input/cache and 1.5x output (GPT-5.4 and later).
+  gpt-6-astra:
+    provider: openai
+    model: gpt-6-astra
+    price_class: frontier
+    context: 1050000
+    max_input: 922000
+    max_output: 128000
+    reasoning: {param: reasoning.effort, values: [low, medium, high, xhigh, max]}   # no "none" (400)
+    price:
+      input: 10.00
+      cached_input: 1.00
+      output: 50.00
+      cache_write: 12.50
+      long_context: {above_input_tokens: 272000, input: 20.00, cached_input: 2.00, output: 75.00}
+    pricing_checked: 2026-10-13
+  gpt-6.1-sol:
+    provider: openai
+    model: gpt-6.1-sol
+    price_class: mid                      # same price class as Sonnet; strong enough to plan at effort high
+    context: 1050000
+    max_output: 128000
+    reasoning: {param: reasoning.effort, values: [low, medium, high, xhigh, max], default: medium}
+    price:
+      input: 2.00
+      cached_input: 0.10
+      output: 10.00
+      cache_write: 2.50
+      long_context: {above_input_tokens: 272000, input: 4.00, cached_input: 0.20, output: 15.00}
+    pricing_checked: 2026-10-13
+  gpt-6-sol:
+    provider: openai
+    model: gpt-6-sol
+    price_class: mid                      # in-provider fallback for gpt-6.1-sol
+    context: 1050000
+    max_output: 128000
+    reasoning: {param: reasoning.effort, values: [none, low, medium, high, xhigh, max]}
+    price:
+      input: 2.00
+      cached_input: 0.20
+      output: 10.00
+      cache_write: 2.50
+      long_context: {above_input_tokens: 272000, input: 4.00, cached_input: 0.40, output: 15.00}
+    pricing_checked: 2026-10-13
+  gpt-6-luna:
+    provider: openai
+    model: gpt-6-luna
+    price_class: cheap
+    context: 1050000
+    max_output: 128000
+    reasoning: {param: reasoning.effort, values: [none, low, medium, high, xhigh, max]}
+    price:
+      input: 0.10
+      cached_input: 0.01
+      output: 0.50
+      cache_write: 0.125
+      long_context: {above_input_tokens: 272000, input: 0.20, cached_input: 0.02, output: 0.75}
+    pricing_checked: 2026-10-13
+  # Never put o3-pro (retires 2026-12-11), o-series or gpt-4.x models in a chain.
+
+  # --- Google Gemini (pricing_checked 2026-10-13; 1,048,576 context, 65,536 output) ---------------------
+  gemini-3.1-pro-preview:
+    provider: google
+    model: gemini-3.1-pro-preview
+    price_class: flagship
+    context: 1048576
+    max_output: 65536
+    reasoning: {param: thinking_level, values: [low, medium, high]}
+    price:
+      input: 2.00
+      cached_input: 0.20
+      output: 12.00
+      long_context: {above_input_tokens: 200000, input: 4.00, cached_input: 0.40, output: 18.00}
+    pricing_checked: 2026-10-13
+    notes: Preview only (no GA 3.x Pro), no free tier; may be deprecated with short notice.
+  gemini-3.8-flash:
+    provider: google
+    model: gemini-3.8-flash
+    price_class: mid
+    context: 1048576
+    max_output: 65536
+    reasoning: {param: thinking_level, values: [low, medium, high], default: medium}   # "minimal" errors
+    price: {input: 0.75, cached_input: 0.075, output: 3.75}   # doubles on 2027-01-01
+    pricing_checked: 2026-10-13
+  gemini-3.6-flash:
+    provider: google
+    model: gemini-3.6-flash
+    price_class: mid                      # in-provider fallback for gemini-3.8-flash
+    context: 1048576
+    max_output: 65536
+    reasoning: {param: thinking_level, values: [minimal, low, medium, high], default: medium}
+    price: {input: 0.75, cached_input: 0.075, output: 3.75}   # doubles on 2027-01-01
+    pricing_checked: 2026-10-13
+  gemini-3.5-flash-lite:
+    provider: google
+    model: gemini-3.5-flash-lite
+    price_class: cheap
+    context: 1048576
+    max_output: 65536
+    reasoning: {param: thinking_level, values: [minimal, low, medium, high], default: minimal}
+    price: {input: 0.30, cached_input: 0.03, output: 2.50}
+    pricing_checked: 2026-10-13
+  # Gemini 2.5 models: access limited to previous users since 2026-09-18; do not use.
+
+  # --- DeepSeek (pricing_checked 2026-10-13; 1M context, up to 384K output) -----------------------------
+  # Off-peak = everything outside 01:00-04:00 and 06:00-10:00 UTC Mon-Fri (and Chinese public holidays).
+  deepseek-v4-pro:
+    provider: deepseek
+    model: deepseek-v4-pro
+    price_class: flagship
+    context: 1000000
+    max_output: 393216
+    reasoning: {param: reasoning_effort, values: [none, low, high, max], default: high, thinking_switch: extra_body.thinking}
+    price:
+      input: 1.32
+      cached_input: 0.044
+      output: 3.96
+      offpeak: {multiplier: 0.5, peak_utc: ["Mon-Fri 01:00-04:00", "Mon-Fri 06:00-10:00"]}
+    pricing_checked: 2026-10-13
+    notes: >-
+      Docs conflict on whether v4-pro is served by V4-Pro or routed to V4.1-Flash until V4.1-Pro launches;
+      re-check GET /models at startup. Concurrency limit 500 per account.
+  deepseek-flash:
+    provider: deepseek
+    model: deepseek-flash
+    price_class: mid
+    context: 1000000
+    max_output: 393216
+    reasoning: {param: reasoning_effort, values: [none, low, high, max], default: high, thinking_switch: extra_body.thinking}
+    price:
+      input: 0.30
+      cached_input: 0.006
+      output: 1.20
+      offpeak: {multiplier: 0.5, peak_utc: ["Mon-Fri 01:00-04:00", "Mon-Fri 06:00-10:00"]}
+    pricing_checked: 2026-10-13
+  # deepseek-chat / deepseek-reasoner / deepseek-v4-flash are legacy aliases; do not use.
+
+# Role chains per profile. The gateway walks each chain in order and uses the first usable entry.
+# An entry is a model key, or {model: <key>, <reasoning/thinking params>} to set per-role parameters;
+# explicit parameters always win over provider defaults (architecture §16.2, §16.5: set effort/thinking explicitly).
+# Every chain ends in a local model, so the system degrades instead of stopping when the cloud is
+# unavailable, out of credit or not allowed for the run. Reorder freely to express preferences.
+#   main       intake, localizer, doc digests, retro analysis
+#   planner    refine_backlog, test_author, architect, sprint_planner (L1/L2 topology composition)
+#   worker     codegen, patcher, fixer
+#   cheap      classification and summaries (reserved: no MVP node uses it yet; see architecture §10)
+#   escalation step E3: flagship-first (after local attempts and candidates fail)
+profiles:
+  local-only:
+    main: [local_main]
+    planner: [local_main]
+    worker: [local_main]
+    cheap: [local_main]
+    escalation: [local_main]
+  hybrid:                          # default: local worker, cloud for planning and escalation
+    main: [local_main]
+    planner:
+      - {model: claude-opus-5-5, effort: high}
+      - {model: gpt-6.1-sol, effort: high}
+      - {model: gemini-3.1-pro-preview, thinking_level: high}
+      - {model: deepseek-v4-pro, thinking: enabled, reasoning_effort: high}
+      - local_main
+    worker: [local_main]
+    cheap: [local_main]
+    escalation:
+      - {model: claude-opus-5-5, effort: high}
+      - {model: gpt-6.1-sol, effort: xhigh}
+      - {model: gemini-3.1-pro-preview, thinking_level: high}
+      - {model: deepseek-v4-pro, thinking: enabled, reasoning_effort: max}
+      - local_main
+  cloud:
+    main:
+      - {model: claude-sonnet-5-5, effort: medium}
+      - {model: gpt-6.1-sol, effort: medium}
+      - {model: gemini-3.8-flash, thinking_level: medium}
+      - {model: deepseek-flash, thinking: enabled, reasoning_effort: high}
+      - local_main
+    planner:
+      - {model: claude-opus-5-5, effort: high}
+      - {model: gpt-6.1-sol, effort: high}
+      - {model: gemini-3.1-pro-preview, thinking_level: high}
+      - {model: deepseek-v4-pro, thinking: enabled, reasoning_effort: high}
+      - local_main
+    worker:
+      - {model: claude-sonnet-5-5, effort: medium}
+      - {model: gpt-6.1-sol, effort: medium}
+      - {model: gpt-6-sol, effort: medium}
+      - {model: gemini-3.8-flash, thinking_level: medium}
+      - {model: gemini-3.6-flash, thinking_level: medium}
+      - {model: deepseek-flash, thinking: enabled, reasoning_effort: high}
+      - local_main
+    cheap:
+      - {model: claude-haiku-5-5, effort: low}
+      - {model: gpt-6-luna, effort: none}
+      - {model: gemini-3.5-flash-lite, thinking_level: minimal}
+      - {model: deepseek-flash, thinking: disabled, reasoning_effort: none}
+      - local_main
+    escalation:
+      - {model: claude-opus-5-5, effort: xhigh}
+      - {model: gpt-6-astra, effort: high}
+      - {model: gemini-3.1-pro-preview, thinking_level: high}
+      - {model: deepseek-v4-pro, thinking: enabled, reasoning_effort: max}
+      - local_main
+
+default_profile: hybrid
+
+# Dollar budgets are OPTIONAL. null = no cap, but every call is still metered per run, sprint and provider.
+# Time and token limits are not optional: an empty UI field means the profile default (limits_by_profile).
+budget:
+  run_usd: null
+  monthly_usd: null
+  per_provider_usd: {}             # e.g. {anthropic: 10, openai: 5}
+  warn_at: 0.8                     # fraction of a cap at which the UI warns
+  on_exhausted: ask                # ask | fallback_local | stop  (G5 gate when "ask")
+  # Time and token limits per profile (always applied; the UI may lower or raise them per run).
+  limits_by_profile:
+    local-only: {wall_s: 14400, tokens: 3000000}
+    hybrid: {wall_s: 14400, tokens: 3000000}
+    cloud: {wall_s: 7200, tokens: 2000000}
+  # Reservation for a capped call: input rate x prompt tokens + output rate x max_tokens (+ cache-write rate),
+  # each at the highest tier the request can reach (long_context, peak); settlement uses the tier that applied.
+
+# Resilience (docs/architecture.md §16.6). Error classes are mapped per provider in code, by error
+# type/code/message substring, never by HTTP status alone.
+resilience:
+  retry:                           # transient errors only: rate limit, overloaded, 5xx, timeouts
+    max_attempts: 3
+    base_delay_s: 1.0
+    max_delay_s: 30.0
+    jitter: full
+    honor_retry_after: true        # Retry-After is a minimum, jitter is added on top
+  circuit_breaker:
+    transient: {failures_to_open: 3, window_s: 120, cooldown_s: 60}
+    terminal: {cooldown_s: 1800}   # no credit / quota / spend limit / bad key: skip provider, re-probe later
+  output_repair:
+    max_repairs: 2                 # invalid JSON or schema: feed back errors, then next model in the chain
+  streaming_required_above_max_tokens: 16000   # stream long outputs and long reasoning to avoid HTTP timeouts
