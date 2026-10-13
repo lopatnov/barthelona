@@ -1,0 +1,135 @@
+# Roadmap
+
+Phased plan for barthelona. Each phase has a goal, deliverables and exit criteria. A phase is done only when its exit criteria are met; the benchmark decides whether optional subsystems are switched on.
+Architecture: `docs/architecture.md`. Decisions: `docs/adr/`.
+
+Current status (2026-10-13): **Phase 0 in progress** — repository and environment done (design, agent configuration for Claude Code and Codex, conda scripts, hash-locked dependencies, baseline tests); code skeleton not started.
+
+## Phase 0 — Foundations and the deterministic spine (about 1–2 weeks, no agent loop yet)
+
+**Goal:** prove the toolchain, the generators and the verification oracles without any LLM, and choose the local model on measured numbers.
+
+**Deliverables**
+- Repository: `AGENTS.md` / `CLAUDE.md`, `.claude/` config and the Codex mirror ✔, `.gitattributes` ✔, `pyproject.toml` ✔, `environment.yml` ✔, hash-locked requirements ✔, `create_env` / `activate` / `lock` scripts ✔, `doctor.ps1` ✔, dependency fingerprint + baseline tests ✔.
+- Code skeleton: domain models (Pydantic v2); persistence (SQLite WAL schema and migrations); `python -m barthelona` CLI.
+- Environment fixes (owner actions): `.wslconfig` memory cap; Qdrant storage moved to a named volume (see `docs/runbook.md`).
+- Execution: Docker images `barthelona/toolchain` and `barthelona/runner`; the WSL agent (JSON lines, staging, allowlist, path fence); `barthelona probe` writing `config/toolchains.lock.json`.
+- Assemblers: NASM and GAS (Intel and AT&T) dialect adapters; ld/gcc linkers; diagnostics parsers with real captured fixtures.
+- Codegen: contract registry → `.inc` files, stubs, `contracts.h`, C harness, Makefile, with golden tests.
+- Verification: ladder levels V0, V1, V2, V5, V6 plus the tamper gate; first ABI mutation corpus entries; `barthelona verify`.
+- Models: minimal gateway (OpenAI-compatible backend + FakeGateway); bake-off harness (10 single-prompt tasks per candidate: tok/s, JSON-schema validity, pass@1).
+
+**Exit criteria**
+- Two hand-written 3-module projects (one NASM, one GAS) pass V0–V2, V5 and V6 through `barthelona verify`.
+- An all-stub skeleton generated from a sample `contracts.yaml` builds.
+- Parser and codegen tests are green.
+- A bake-off table exists; one main local model is chosen and loaded in LM Studio at 16K context.
+- The single-prompt baseline score is recorded.
+
+## Phase 1 — MVP vertical slice (about 3–4 weeks)
+
+**Goal:** an end-to-end Meta-Agentic Scrum run from the Streamlit UI, from request to merged repo, on the linux-x64 NASM/GAS presets.
+
+**Deliverables**
+- Engine: outer run graph (create mode, and edit mode for barthelona-created workspaces); gates G0, G1, G2, G4, G5 (G3 auto when green); node registry; `compose`; validator T1–T10 with Hypothesis property tests; `compile`; topology persistence and revisions.
+- Sprint composition: L0 rule planner, plus **L1 via `planner.composition_level: L1`** (experimental, D-028); multi-unit `LoopBound`s; stall detector; bounded re-planning.
+- Policy v1: templates `module_create`, `symbol_patch`, `fix_build`, a minimal `contract_change`, `integration`; role prompts. The minimality gate ships here too, for barthelona-created projects (symbol spans come from `contracts.yaml`), so edit-mode pipelines satisfy T6.
+- Prompting: envelope parser (FILE / SEARCH-REPLACE / SYMBOL); context assembler with token budgets.
+- Model gateway: backends for LM Studio/Ollama (OpenAI-compatible), Anthropic, OpenAI, Gemini and DeepSeek; `config/models.yaml` catalog; per-call ledger; optional caps; error taxonomy, retries, circuit breakers and fallback chains ending in the local model (D-029, D-030).
+- Run control: budgets, `StopReason`, escalation E0, E1, E3, E4; branch per run, commit per green task, tag per increment.
+- Knowledge: `facts.sqlite` (NASM App. F, directive indexes, `syscall_64.tbl`, SysV ABI row); FTS5 docs; rule cards for nasm / gas-intel / gas-att on linux-x64.
+- Process: `scripts/run.ps1` (worker + Streamlit); worker with event log + JSONL mirror; Streamlit pages New request, Approvals, Sprint board (topology DOT), Live run, Review, Toolchains & models (with provider health), Runs.
+- Benchmark v1: 12 create + 8 edit tasks (dev + holdout); cassette replay.
+- Crash/resume spike.
+
+**Exit criteria**
+- Crash/resume spike passes (kill mid-task and during a gate; no finished node re-runs), or the interpreter fallback is adopted and passes the same test.
+- Graph tests green with FakeGateway: happy path, fix loop, stall, re-plan, escalation, refusal, provider failover, budget stop, tamper rejection.
+- Dev-split bench: the hybrid profile beats the single-prompt baseline by the margin set in Phase 0 (initial target +30 points); local-only recorded; zero tamper escapes; L0 vs L1 recorded.
+- The owner creates a 3-module NASM program from a Russian-language request through the UI and approves it at the gates.
+- Stance until Phase 2: increments are accepted on the MVP DoD (V0–V2 + V5/V6) and labelled **ABI-unverified** in the UI and the increment record, until the V3/V4 oracles and the mutation corpus are in place.
+
+## Phase 2 — Stronger oracles and full meta-agency
+
+**Goal:** stronger verification, plus the complete Meta-Agentic layer.
+
+**Deliverables**
+- V3 Capstone static ABI lint; V4 Unicorn ABI checker (canaries, alignment, red zone, DF, syscall allow-list, registry mocks, DWARF mapping; AVX routed to V5); full ABI mutation corpus.
+- Policy v2: templates `candidates` (E2) and the `trace_capture` slot (V7).
+- **L1 on by default** if the bench shows no regression; **L2** (AI composes whole pipelines from node types) behind a flag for strong tiers.
+- Retrospective report and overlay changes with revert in the UI; lesson candidates stored, not yet injected.
+
+**Exit criteria**
+- Mutation corpus: 100% of bad cases detected, 0 false positives.
+- Every AI-composed topology either validates or falls back to L0; no run is blocked.
+- Bench: Phase 2 ≥ Phase 1 on dev and holdout; L2 enabled for a profile only if it beats L1 there. Results recorded in an ADR.
+
+## Phase 3 — Edit mode for external projects, memory, optional vector search
+
+**Deliverables:** importer and target detection; baseline build with `fix_build`; repo map (regex extractors + PageRank); inferred contracts (nm + Capstone); characterization tests; localizer; minimality gate extended to external projects (symbol spans from the repo map); full `contract_change` flow; lessons lifecycle with regression checks and an inbox; retrieval eval (≥60 queries); Qdrant hybrid backend behind the Retriever interface; MASM docs from cpp-docs.
+
+**Exit criteria:** external seed repos edited with zero characterization regressions; Qdrant on by default only if recall@5 beats FTS5 by the agreed margin; lesson injection on only if the bench improves.
+
+## Phase 4 — Dialect and target breadth
+
+**Deliverables:** FASM 1 (ELF64, PE64; frame-based diagnostics; `-s` line mapping; `public`/`extrn` headers); optional fasmg/fasm2; Win64 targets (NASM/GAS + mingw, wine runner, shadow-space and `.pdata` checks); ELF32 cdecl; asmc/UASM for MASM syntax; ml64 opt-in on Windows (VS Build Tools, admin); boot-sector preset with qemu-system. Each preset ships a rule card, a conformance kit and bench tasks.
+
+**Exit criteria:** each preset passes its conformance kit and solves at least 5 bench tasks within budget.
+
+## Phase 5 — Policy Lab, gated research, extras
+
+**Deliverables:** Policy Lab (PolicyPatch → candidate version → A/B on holdout, ≥3 repeats, batch APIs → G6 activation/rollback); gated web research (approval, domain allowlist, low-trust candidates promoted only after a fix passes); optional advisory critic on a different model; OpenTelemetry → Phoenix; OpenVINO Model Server trial; AArch64/RISC-V via qemu-user; a local MCP server exposing barthelona's toolchain and verification tools (usable by Claude Code during development); KolibriOS if chosen.
+
+**Exit criteria:** at least one policy patch activated with a measured holdout gain; a rollback exercised; web-sourced knowledge never reaches prompts without the evidence step.
+
+## Open decisions (owner)
+
+Each has a recommended default that the docs already assume. Change any of them and the affected ADR is updated.
+
+| # | Question | Recommended default | Why it matters |
+| --- | --- | --- | --- |
+| 1 | Which cloud providers are enabled by default, and for which roles? | All four configured; per-run consent; roles follow `config/models.yaml` (planner and escalation: flagship-first, Opus 5.5 → GPT-6.1 Sol → Gemini 3.1 Pro → DeepSeek V4 Pro; cloud worker: mid tier; cheap tier reserved); no dollar cap unless set | Quality, speed, cost, and whether code leaves the machine |
+| 2 | Which local models to download for the Phase 0 bake-off? | Qwen3-Coder-30B-A3B and gpt-oss-20b, plus Qwen3.6-35B-A3B if disk allows; compare with the installed lfm2-24b-a2b and ministral-3-14b-reasoning | The local model dominates quality and latency; only one large model fits in RAM |
+| 3 | Cap WSL memory in `%UserProfile%\.wslconfig`? | `memory=8GB`, `processors=8`, then `wsl --shutdown` | A ~20 GB local model + Windows + WSL at its default size oversubscribes 32 GB |
+| 4 | Which dialect comes after NASM/GAS? | FASM 1 → Win64 (mingw + wine) → asmc/UASM → ml64 last (opt-in, admin) | Sets Phase 4 order, images, rule cards and bench tasks |
+| 5 | KolibriOS as a target? | Optional, Phase 5+ | Weak oracles and high setup cost; would distort the MVP |
+| 6 | How to install toolchains? | Pinned Docker images for the product; optional `apt-get install nasm yasm fasm gdb` in WSL for manual debugging | Reproducibility and isolation vs convenience |
+| 7 | `asm_doc/` and the Gemini draft in git? | Owner committed `asm_doc/` (2026-10-13, not pushed). Before the first push, decide whether to keep it (licenses: GFDL binutils, Microsoft CC-BY-4.0 MASM, unclear fasm terms) or untrack it (`git rm -r --cached asm_doc` + `.gitignore`). Draft kept in `docs/archive/` as non-authoritative | License hygiene for a BSD-2 public repo; repository size (~19 MB) |
+| 8 | Qdrant storage and usage? | Move storage from the `/mnt/c` bind mount to a named Docker volume now; product uses FTS5 until the Phase 3 eval | Qdrant documents data loss on Windows/WSL shared mounts |
+| 9 | Which human gates are manual by default? | G1, G2, G4 manual; G3 auto when green (autopilot checkbox); G5 always manual | Control vs throughput for long local runs |
+| 10 | Where do workspaces live? | `<repo>/workspaces/` (gitignored), overridable by `BARTHELONA_WORKSPACES` and per project in the UI | Each workspace is its own git repo |
+| 11 | Maximum composition level per profile? | Phase 1: L0 by default, L1 opt-in per run; from Phase 2: L1 by default if the bench agrees; L2 only for hybrid/cloud after the Phase 2 bench | How much graph design is delegated to which model |
+
+## Follow-ups (deferred items)
+
+Items deferred while working, by an agent, the owner or a reviewer. Check this table before picking the next deliverable. A row leaves only when it is fixed (cite the commit) or the owner drops it (date). Bugs in code being changed are fixed in the same change, not parked here.
+
+| # | Item | Found while | Why deferred | Suggested fix | Status |
+| --- | --- | --- | --- | --- | --- |
+| F-1 | `.claude/rules/python.md` says "an import-linter test will enforce" the layering, but `import-linter` is not a dependency | conduit config review, 2026-10-13 | No packages exist yet | Stdlib test `tests/unit/test_import_isolation.py`: import each entry point in a fresh interpreter and assert `langgraph`/engine modules never load under `ui` and `streamlit` never loads under the engine. Or add import-linter via `update-deps` and an ADR. Then fix the rule sentence. | open |
+| F-2 | Path guards matched paths relative to the repo root, so writes under `.claude/worktrees/<x>/` bypassed the protected-path patterns | conduit config review, 2026-10-13 | — | `guard-paths.ps1` and `post-edit.ps1` strip the worktree prefix; `test-hooks.ps1` covers it | fixed (2026-10-13, setup commits) |
+| F-3 | The editable install fetches its build backend (hatchling) from PyPI without a hash lock | second review, 2026-10-13 | Small risk; documented in the runbook and D-031 | Lock hatchling in a build lock and install with `--no-build-isolation` | open |
+| F-4 | `scripts/create_env.sh` has no executable bit in git (Windows checkout) | second review, 2026-10-13 | Only matters on a Linux clone | `git update-index --chmod=+x scripts/create_env.sh scripts/dev.sh` | fixed (2026-10-13, setup commits) |
+
+## Parked ideas (not scheduled)
+
+Ideas that are not defects. At each phase start, move every row into that phase's deliverables or delete it, with a one-line reason in the devlog. At most about 25 rows; no done-archive (git keeps history). A row that would change an invariant needs `new-adr` first.
+
+| Idea | Raised | Trigger | Why parked |
+| --- | --- | --- | --- |
+| `verify-runner` agent (cheap model, read-only, no git-state changes) behind `verify` via `context: fork`, with ENV vs CODE triage for `wsl`/`llm` tests | 2026-10-13, conduit review | `pytest -m wsl` or `barthelona verify` output gets long (Phase 0) | Gate output is short today |
+| `bench-runner` agent + `bench` skill: fixed method, NOT RUN instead of guesses, holdout never read, cost cap required for cloud profiles | 2026-10-13, conduit review | Bake-off harness exists (Phase 0) | Harness not built |
+| `implementation-architect` agent (advisory plans, never edits) + soft 400 / hard 800 code-line limit per module, measured by a script | 2026-10-13, conduit review | First multi-module deliverable, or a module past 300 lines | No code yet |
+| `security-reviewer` agent for the §21 threat model (sandbox flags, include fences, injection, secrets, egress); takes over the review gate for executor, docker and gateway paths | 2026-10-13, conduit review | WSL agent, executors or gateway code lands (Phase 0-1) | `architecture-guardian` covers the current surface |
+| `integrity-auditor` agent (one area per call: code vs tests vs docs claims) + append-only audit log | 2026-10-13, conduit review | Phase 0 exit, then each phase exit | Little shipped code to audit |
+| `license-reviewer` agent + stdlib `scripts/license_report.py` (importlib.metadata inventory, copyleft/unknown flags) | 2026-10-13, conduit review | Before the first public push (open decision 7) or the first new dependency | `update-deps` covers single packages |
+| `testing` skill: layers, fakes, parallel-safe idioms, negative controls, `--collect-only` identity when re-marking tests | 2026-10-13, conduit review | First Phase 0 test modules | Nothing to cite yet |
+| `cleanup` skill: worktrees, `~/.cache/barthelona/devcheck`, session-created docker objects, unreferenced code and config keys | 2026-10-13, conduit review | First docker/WSL debris (Phase 0) | No debris yet |
+| ADR consistency test (README row = Status; `Amends` / `Amended by` pairs) + "a changed conclusion rewrites the headline" rule | 2026-10-13, conduit review | The owner starts accepting or superseding ADRs | All ADRs are Proposed |
+| Explicit `.gitattributes`: LF per assembly extension, `binary` for objects and executables, `-text` for captured diagnostics | 2026-10-13, conduit review | Before the first diagnostics or binary fixture is committed | No fixtures yet |
+| Registry-completeness test with a negative control, "stop rules" and a re-derive note in `add-node-type` / `add-dialect` | 2026-10-13, conduit review | First real node type or the NASM dialect adapter | Checklists not yet exercised |
+| Generated `.codex/hooks.json` from `settings.json`, with hooks that parse `apply_patch` payloads and find the repo root without `CLAUDE_PROJECT_DIR` | 2026-10-13, conduit review | Codex edits code regularly; first log one real Codex payload | Codex hook payloads unverified |
+| `guard-shell.ps1`: block `git add -A`/`.`/`--all`, `sudo` without `-n` inside `wsl`, and Python heredocs that write files | 2026-10-13, conduit review | Second occurrence of the prose rule being missed | Prose rule first |
+| `dependency-steward` agent: batch survey of outdated locked packages (LangGraph trio, SDKs, oracle libs) and lock deltas | 2026-10-13, conduit review | Phase 1 start | Fresh locks |
+| `scripts/health.py --line` for devlog entries (LOC, tests, instruction bytes, mirror and lock state, ADR counts) | 2026-10-13, conduit review | Phase 1 | Few numbers to trend |
+| `pre-commit` config (ruff, mirror and lock checks) | 2026-10-13, second review | First collaborator or CI | Dropped from dev deps as unused |
