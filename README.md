@@ -32,7 +32,7 @@ Git Bash: `scripts/create_env.sh`, then `source scripts/activate.sh`. WSL2 (Ubun
 | Document | Contents |
 | --- | --- |
 | `docs/architecture.md` | The design: Scrum mapping, AI-composed sprint graphs, verification ladder, sandbox, knowledge, model routing and resilience, UI |
-| `docs/adr/` | Architecture decision records D-001 to D-033 |
+| `docs/adr/` | Architecture decision records D-001 to D-034 |
 | `docs/roadmap.md` | Phases, exit criteria, open decisions |
 | `docs/runbook.md` | Environment setup and troubleshooting |
 | `docs/knowledge-sources.md` | Assembler documentation sources and licenses |
