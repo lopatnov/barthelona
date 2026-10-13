@@ -94,9 +94,18 @@ docker run -d --name qdrant-db --restart unless-stopped --network <same-network-
 Keep the same container name and network, so `mcp-server-qdrant` keeps working.
 
 **Availability.** Observed 2026-10-13: the WSL VM shuts down shortly after the last WSL process exits, and both Qdrant containers restart on every VM boot. `qdrant-db` then reloads its collections from `/mnt/c` (the log warns "Unrecognized filesystem - cannot guarantee data safety"), and port 6333 refuses connections for tens of seconds.
-- Keep the VM alive while you need either Qdrant or the Qdrant MCP, for example with an open WSL terminal.
-- Alternatively, raise `vmIdleTimeout` in the `[wsl2]` section of `.wslconfig`; check the current key in Microsoft's WSL config docs.
-- The named-volume migration above also makes startup faster.
+- Why: `docker compose up -d` returns, and docker running under systemd does not count as activity. WSL stops an idle distro after `[general] instanceIdleTimeout` (default 15 s) and then the VM after `[wsl2] vmIdleTimeout` (default 60 s), per https://learn.microsoft.com/en-us/windows/wsl/wsl-config (checked 2026-10-13, WSL 3.0.3). Containers come back on the next boot (`restart: unless-stopped`, docker enabled in systemd), but only after something boots the VM.
+- Recommended (owner action, roadmap decision 3): keep WSL always on and cap its memory in `%UserProfile%\.wslconfig`, then run `wsl --shutdown` once:
+  ```ini
+  [general]
+  instanceIdleTimeout=-1   # never stop the distro when idle
+
+  [wsl2]
+  memory=8GB               # leave RAM for LM Studio models on Windows
+  processors=8
+  ```
+- Without it: keep a WSL terminal open, or start the VM on demand (`wsl -d Ubuntu -e true`; Qdrant answers after a few seconds). From Phase 1, `scripts/run.ps1` and the long-lived WSL agent keep the VM up while the app runs.
+- The named-volume migration of `qdrant-db` above also makes its startup faster.
 
 ## 4. LM Studio (local models)
 
