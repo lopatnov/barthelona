@@ -1,0 +1,44 @@
+---
+paths:
+  - "src/barthelona/llm/**"
+  - "src/barthelona/prompting/**"
+  - "config/models.yaml"
+---
+# LLM gateway and prompting rules (docs/architecture.md §16, ADR D-011, D-012, D-029, D-030)
+
+- **Official SDKs only:** `openai` 3.x (Chat Completions for LM Studio/Ollama/DeepSeek; Responses API for OpenAI GPT-6), `anthropic` 1.x, `google-genai` 2.x. No LiteLLM. Use the `/claude-api` skill before writing Anthropic code.
+- **Model ids, prices and parameters** come from `config/models.yaml`, never from memory. When adding or changing a model, verify it on the provider's docs (use the `docs-researcher` agent) and update `pricing_checked`.
+- **Local endpoints** use `127.0.0.1`, never `localhost` (IPv6 resolution makes LM Studio hang).
+- **Sampling parameters** (`temperature`/`top_p`/`top_k`) go to local models only. Claude 5.x and GPT-6 (effort other than `none`) return 400; Gemini 3.x and DeepSeek thinking mode ignore or reject them. Use prompt variants for cloud diversity.
+- **Reasoning settings** come from the role-chain entry in `config/models.yaml` (e.g. `{model: claude-opus-5-5, effort: high}`) and are always sent explicitly.
+- **Provider quirks that the backends normalize:**
+  - **Anthropic:**
+    - Set `output_config.effort` explicitly (Opus 5.5 and Haiku 5.5 default to `medium`).
+    - Opus 5.5: thinking cannot be disabled.
+    - No forced `tool_choice` on Opus 5.5, Sonnet 5.5 and Fable 5.1.
+    - Handle `stop_reason == "refusal"`, and send `fallbacks: "default"` on Opus/Sonnet 5.5.
+  - **OpenAI:**
+    - GPT-6 tool calls with reasoning need the Responses API.
+    - Echo reasoning items in multi-turn calls.
+    - `gpt-6-astra` and `gpt-6.1-sol` reject `effort: none`.
+  - **Gemini:**
+    - Use `thinking_level`.
+    - Pass `api_key` explicitly (`GOOGLE_API_KEY` would otherwise win).
+    - Handle `finish_reason` SAFETY.
+  - **DeepSeek:**
+    - `json_object` only, so validate with Pydantic and repair.
+    - Thinking is on by default.
+    - `reasoning_content` must be echoed in tool loops.
+- **Resilience:**
+  - Classify every error as transient / terminal-for-provider / model-level / output-level.
+  - Only transient errors are retried: backoff, full jitter, `Retry-After` as the minimum.
+  - Disable SDK-internal retries so attempts are not multiplied: `max_retries=0` (openai, anthropic), `HttpRetryOptions(attempts=1)` (google-genai).
+  - Classify by error type, code or message substring, never by HTTP status alone (some terminal conditions arrive as 400 or 429).
+  - Stream calls with large `max_tokens` or long reasoning; use the per-provider `timeout_s`.
+  - Credit or quota exhaustion opens the provider's terminal circuit and moves to the next model in the chain.
+  - Every chain ends in the local model.
+- **Budgets are optional:** meter every call, using the right price tier (long-context, cache writes, DeepSeek off-peak). Enforce caps only when set, by reserve-then-settle at the highest tier the request can reach.
+- **Every call writes an `LLMCallRecord`:** provider, model, actually-served role, tokens incl. cached, latency, cost, schema validity, repairs and fallback reason. Never record API keys.
+- **Code never goes inside JSON.** Use FILE / SEARCH-REPLACE / SYMBOL envelopes, parsed strictly with path fences. JSON is for small artifacts, validated by Pydantic, with at most 2 repairs.
+- **Context assembly** orders blocks from stable to volatile (role, rule card, project card, contracts, facts, lessons, docs, code, task/errors) and respects the per-role token budgets. Hidden tests never enter prompts.
+- Runtime prompts live in `policies/vN/prompts/*.md.j2`, not in Python strings and not in `.claude/`.

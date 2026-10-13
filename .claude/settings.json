@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "PowerShell(git status*)",
+      "PowerShell(git diff*)",
+      "PowerShell(git log*)",
+      "PowerShell(git show*)",
+      "Bash(git hash-object --stdin*)",
+      "Bash(git rev-parse*)",
+      "PowerShell(git rev-parse*)",
+      "Bash(git worktree list*)",
+      "PowerShell(git worktree list*)",
+      "PowerShell(.\\scripts\\dev.ps1 ruff *)",
+      "PowerShell(.\\scripts\\dev.ps1 mypy*)",
+      "PowerShell(.\\scripts\\dev.ps1 python -m pytest*)",
+      "PowerShell(.\\scripts\\dev.ps1 pytest*)",
+      "PowerShell(.\\scripts\\dev.ps1 python scripts/sync_agent_configs.py*)",
+      "PowerShell(.\\scripts\\dev.ps1 python scripts/deps_fingerprint.py*)",
+      "PowerShell(.\\scripts\\dev.ps1 python .claude/skills/asm-docs/extract.py*)",
+      "PowerShell(./scripts/dev.ps1 ruff *)",
+      "PowerShell(./scripts/dev.ps1 mypy*)",
+      "PowerShell(./scripts/dev.ps1 python -m pytest*)",
+      "PowerShell(./scripts/dev.ps1 python scripts/sync_agent_configs.py*)",
+      "PowerShell(./scripts/dev.ps1 python scripts/deps_fingerprint.py*)",
+      "PowerShell(./scripts/dev.ps1 python .claude/skills/asm-docs/extract.py*)",
+      "Bash(scripts/dev.sh ruff *)",
+      "Bash(scripts/dev.sh mypy*)",
+      "Bash(scripts/dev.sh python -m pytest*)",
+      "Bash(scripts/dev.sh pytest*)",
+      "Bash(scripts/dev.sh python scripts/sync_agent_configs.py*)",
+      "Bash(scripts/dev.sh python scripts/deps_fingerprint.py*)",
+      "Bash(scripts/dev.sh python .claude/skills/asm-docs/extract.py*)",
+      "PowerShell(.\\scripts\\doctor.ps1*)",
+      "Bash(conda env list*)",
+      "PowerShell(conda env list*)",
+      "Bash(wsl.exe -l*)",
+      "Bash(wsl -l*)",
+      "PowerShell(wsl.exe -l*)",
+      "PowerShell(wsl -l*)",
+      "WebFetch(domain:docs.langchain.com)",
+      "WebFetch(domain:langchain-ai.github.io)",
+      "WebFetch(domain:docs.streamlit.io)",
+      "WebFetch(domain:docs.pydantic.dev)",
+      "WebFetch(domain:docs.python.org)",
+      "WebFetch(domain:pypi.org)",
+      "WebFetch(domain:lmstudio.ai)",
+      "WebFetch(domain:docs.ollama.com)",
+      "WebFetch(domain:qdrant.tech)",
+      "WebFetch(domain:code.claude.com)",
+      "WebFetch(domain:platform.claude.com)",
+      "WebFetch(domain:developers.openai.com)",
+      "WebFetch(domain:ai.google.dev)",
+      "WebFetch(domain:api-docs.deepseek.com)",
+      "WebFetch(domain:learn.microsoft.com)",
+      "WebFetch(domain:www.nasm.us)",
+      "WebFetch(domain:flatassembler.net)",
+      "WebFetch(domain:sourceware.org)",
+      "WebFetch(domain:www.felixcloutier.com)",
+      "WebFetch(domain:www.unicorn-engine.org)",
+      "WebFetch(domain:www.capstone-engine.org)",
+      "WebFetch(domain:docs.docker.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "PowerShell(git push*)",
+      "Bash(git commit*)",
+      "PowerShell(git commit*)",
+      "Bash(git stash*)",
+      "PowerShell(git stash*)",
+      "Bash(git checkout*)",
+      "PowerShell(git checkout*)",
+      "Bash(git switch*)",
+      "PowerShell(git switch*)",
+      "Bash(git rebase*)",
+      "PowerShell(git rebase*)",
+      "Bash(git merge*)",
+      "PowerShell(git merge*)",
+      "Bash(sudo *)",
+      "Bash(wsl*sudo*)",
+      "PowerShell(wsl*sudo*)",
+      "Bash(wsl*apt*)",
+      "PowerShell(wsl*apt*)",
+      "Bash(wsl*docker *)",
+      "PowerShell(wsl*docker *)",
+      "Bash(docker *)",
+      "PowerShell(docker *)",
+      "Bash(wsl --shutdown*)",
+      "Bash(wsl.exe --shutdown*)",
+      "PowerShell(wsl --shutdown*)",
+      "PowerShell(wsl.exe --shutdown*)",
+      "Bash(conda env remove*)",
+      "PowerShell(conda env remove*)",
+      "Bash(conda create*)",
+      "PowerShell(conda create*)",
+      "Bash(conda env create*)",
+      "PowerShell(conda env create*)",
+      "PowerShell(.\\scripts\\create_env.ps1*)",
+      "PowerShell(.\\scripts\\lock.ps1*)",
+      "Bash(scripts/create_env.sh*)",
+      "Bash(lms *)",
+      "PowerShell(lms *)",
+      "Edit(**/.reference/**)"
+    ],
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.local)",
+      "Read(**/.env.production)",
+      "Edit(**/.env)",
+      "Edit(**/asm_doc/**)",
+      "Edit(**/docs/archive/**)",
+      "Edit(**/var/**)",
+      "Edit(**/requirements/*.lock)",
+      "Edit(**/requirements/*.sha256)",
+      "Bash(git push --force*)",
+      "PowerShell(git push --force*)",
+      "Bash(git reset --hard*)",
+      "PowerShell(git reset --hard*)",
+      "Bash(git clean*)",
+      "PowerShell(git clean*)",
+      "Bash(conda install*)",
+      "PowerShell(conda install*)",
+      "Bash(wsl --unregister*)",
+      "Bash(wsl.exe --unregister*)",
+      "PowerShell(wsl --unregister*)",
+      "PowerShell(wsl.exe --unregister*)",
+      "PowerShell(Set-ExecutionPolicy*)"
+    ]
+  },
+  "env": {
+    "PYTHONUTF8": "1",
+    "WSL_UTF8": "1",
+    "BASH_MAX_TIMEOUT_MS": "1800000"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${CLAUDE_PROJECT_DIR}/.claude/hooks/session-start.ps1"],
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${CLAUDE_PROJECT_DIR}/.claude/hooks/guard-shell.ps1"],
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${CLAUDE_PROJECT_DIR}/.claude/hooks/guard-paths.ps1"],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${CLAUDE_PROJECT_DIR}/.claude/hooks/post-edit.ps1"],
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
