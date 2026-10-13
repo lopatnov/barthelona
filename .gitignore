@@ -218,4 +218,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
-samples
+
+# --- barthelona ---
+# Runtime data (var/ is also covered by the template above)
+var/
+workspaces/
+# Personal Claude Code config
+CLAUDE.local.md
+.claude/settings.local.json
+# Secrets: only the example file is tracked
+.env.*
+!.env.example
+/.reference
+# Claude Code worktrees
+.claude/worktrees/

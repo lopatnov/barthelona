@@ -1,0 +1,15 @@
+# Default: normalize text to LF (shell scripts, Makefiles and assembly must be LF for WSL tools)
+* text=auto eol=lf
+
+# Windows-native scripts keep CRLF
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.sqlite binary
