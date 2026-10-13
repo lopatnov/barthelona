@@ -68,7 +68,17 @@ docker build -t barthelona/runner:0.1 docker/runner
 
 ## 3. Qdrant (recommended now, needed from Phase 3)
 
-Qdrant runs in WSL Docker as `qdrant-db`, with `mcp-server-qdrant` on `http://localhost:8000/mcp` (the URL in your Claude Code MCP config; it works with `localhost` because Docker publishes the port on IPv4 and IPv6). Both are reachable only while the WSL VM is running. Qdrant documents vector-data loss on Windows/WSL shared mounts, so move its storage off `/mnt/c` to a named volume. Run inside WSL, after checking the current flags:
+**Barthelona's own Qdrant (ADR D-034).** Run inside WSL, from the repo root (`/mnt/c/projects/barthelona`):
+
+```bash
+docker compose -f docker/qdrant/compose.yaml up -d
+curl -s http://127.0.0.1:6343/ ; docker compose -f docker/qdrant/compose.yaml ps
+docker compose -f docker/qdrant/compose.yaml down   # stops it; the data volume stays
+```
+
+It is the container `barthelona-qdrant` with REST on `127.0.0.1:6343` and gRPC on `127.0.0.1:6344`, its data in the named volume `barthelona_qdrant_storage`. `QDRANT_URL` defaults to `http://127.0.0.1:6343`. Windows reaches it through WSL localhost forwarding; `scripts/doctor.ps1 -StartWsl` checks it. Deleting its data (`docker volume rm barthelona_qdrant_storage`) is an owner action.
+
+**Your other Qdrant (`qdrant-db`).** It stays separate and is never touched by the product. It runs in WSL Docker with `mcp-server-qdrant` on `http://localhost:8000/mcp` (the URL in your Claude Code MCP config; it works with `localhost` because Docker publishes the port on IPv4 and IPv6). Qdrant documents vector-data loss on Windows/WSL shared mounts, so consider moving its storage off `/mnt/c` to a named volume. Run inside WSL, after checking the current flags:
 
 ```bash
 docker inspect qdrant-db --format '{{json .Mounts}} {{json .HostConfig.NetworkMode}}'
@@ -83,8 +93,8 @@ docker run -d --name qdrant-db --restart unless-stopped --network <same-network-
 
 Keep the same container name and network, so `mcp-server-qdrant` keeps working.
 
-**Availability.** Observed 2026-10-13: the WSL VM shuts down shortly after the last WSL process exits, and Qdrant restarts on every VM boot. It then reloads its collections from `/mnt/c` (the log warns "Unrecognized filesystem - cannot guarantee data safety"), and port 6333 refuses connections for tens of seconds.
-- Keep the VM alive while you need Qdrant or the Qdrant MCP, for example with an open WSL terminal.
+**Availability.** Observed 2026-10-13: the WSL VM shuts down shortly after the last WSL process exits, and both Qdrant containers restart on every VM boot. `qdrant-db` then reloads its collections from `/mnt/c` (the log warns "Unrecognized filesystem - cannot guarantee data safety"), and port 6333 refuses connections for tens of seconds.
+- Keep the VM alive while you need either Qdrant or the Qdrant MCP, for example with an open WSL terminal.
 - Alternatively, raise `vmIdleTimeout` in the `[wsl2]` section of `.wslconfig`; check the current key in Microsoft's WSL config docs.
 - The named-volume migration above also makes startup faster.
 

@@ -26,7 +26,7 @@ _bart_main() {
   export PYTHONUTF8=1 WSL_UTF8=1 BARTHELONA_HOME="$root"
   export LMSTUDIO_BASE_URL="${LMSTUDIO_BASE_URL:-http://127.0.0.1:1234/v1}"
   export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://127.0.0.1:11434}"
-  export QDRANT_URL="${QDRANT_URL:-http://127.0.0.1:6333}"
+  export QDRANT_URL="${QDRANT_URL:-http://127.0.0.1:6343}"
 
   if [ -f "$root/.env" ]; then
     while IFS= read -r line || [ -n "$line" ]; do

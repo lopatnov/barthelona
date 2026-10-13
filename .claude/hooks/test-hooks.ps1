@@ -70,6 +70,19 @@ $shellCases = @(
     @('source .env', 2), @('. .env', 2), @('. .\scripts\activate.ps1', 2), @('source scripts/activate.sh', 2), @('source ~/.bashrc', 0),
     @('rm -rf ..', 2), @('rm -rf ../other-project', 2), @('rm -rf /c/projects', 2), @("Remove-Item -Recurse -Force $c\projects", 2),
     @('git diff --output=x.patch', 2), @('git log -p --output x.txt', 2), @('git diff --stat', 0),
+    # gaps F-8..F-10 and environment-variable exposure
+    @('rm -rf ./..', 2), @('rm -rf docs/../..', 2), @("rm -rf $fwd/..", 2), @('git diff-tree --output=x HEAD', 2), @('git diff -O order.txt', 0),
+    @('git diff --no-index /dev/null .env', 2), @('ls -la .env', 0), @('git check-ignore -q .env', 0), @('git add .env.example', 0),
+    @('env', 2), @('printenv', 2), @('printenv OPENAI_API_KEY', 2), @('export -p', 2), @('set', 2), @('Get-ChildItem env:', 2), @('gci Env:\ANTHROPIC_API_KEY', 2),
+    @('echo $env:ANTHROPIC_API_KEY', 2), @('echo $DEEPSEEK_API_KEY', 2), @('echo %OPENAI_API_KEY%', 2), @('[Environment]::GetEnvironmentVariables()', 2),
+    @('python -c "import os; print(os.environ)"', 2), @('python -c "import os; print(os.environ.get(''HOME''))"', 0),
+    @('echo $env:CLAUDE_PROJECT_DIR', 0), @('export PYTHONUTF8=1', 0),
+    # review-gate round 2: more env exposure paths and a false positive
+    @('echo ${env:OPENAI_API_KEY}', 2), @('python -c "import os; print(os.environ[''OPENAI_API_KEY''])"', 2),
+    @('python -c "import os; print(os.getenv(''ANTHROPIC_API_KEY''))"', 2), @('[Environment]::GetEnvironmentVariable("OPENAI_API_KEY")', 2),
+    @('cat /proc/self/environ', 2), @('node -e "console.log(process.env)"', 2), @('node -e "console.log(process.env.HOME)"', 0),
+    @('env -0', 2), @('env -u FOO', 2), @('env -u FOO python -V', 0), @('declare -x', 2), @('echo $MAX_TOKENS', 0),
+    @('python -c "import os; print(os.environ[''HOME''])"', 0),
     # everyday commands
     @('ruff check .', 0), @('python -m pytest -q', 0), @('grep -rn "environment" docs', 0), @('git log --oneline -5', 0)
 )
@@ -130,7 +143,16 @@ if ($r1 -ne 2) { $fail3++ }
 if ($r2 -ne 0) { $fail3++ }
 Write-Output "policy immutability: released->$r1 (expect 2), unreleased->$r2 (expect 0)"
 
-$total = $fail + $fail2 + $fail3
+# Every hook script must parse (a parse error silently disables the hook).
+$fail5 = 0
+foreach ($f in Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.ps1') {
+    $errs = $null
+    [void][System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$errs)
+    if (@($errs).Count -gt 0) { $fail5++; Write-Output "PARSE ERROR $($f.Name): $($errs[0].Message)" }
+}
+Write-Output "hook parse check: $fail5 file(s) with errors"
+
+$total = $fail + $fail2 + $fail3 + $fail5
 if ($total -gt 0) { Write-Output "FAILED: $total mismatch(es)"; exit 1 }
 Write-Output 'All hook tests passed.'
 exit 0

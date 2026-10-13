@@ -29,7 +29,7 @@ The result is a self-contained git repository that builds without barthelona.
 - WSL2 Ubuntu 26.04 with Docker.
 - LM Studio, OpenAI-compatible, at `http://127.0.0.1:1234/v1`. Ollama is installed but not running by default.
 - Optional cloud providers (the owner holds keys for all four): Anthropic, OpenAI, Google Gemini, DeepSeek. They are interchangeable behind one gateway and configured in `config/models.yaml` (§16.2).
-- Qdrant runs in WSL Docker. It is reachable only while the WSL VM is running.
+- Qdrant runs in WSL Docker. Barthelona has its own instance (`docker/qdrant/compose.yaml`, `127.0.0.1:6343`, named volume; D-034), separate from the owner's `qdrant-db` on 6333. It is reachable only while the WSL VM is running.
 
 **Out of scope for v1:**
 - running generated code outside a sandbox;
@@ -972,7 +972,7 @@ Keys come from regex extraction over the plan, the code and the errors. Python d
 - filters: dialect, arch, OS, status;
 - collections `bart_docs_vN`, `bart_lessons_vN` with aliases.
 
-Prerequisite (a user action): move Qdrant's storage off the `/mnt/c` bind mount to a named volume. Qdrant documents data loss on such mounts (https://qdrant.tech/documentation/common-errors/). The product uses `qdrant-client`. The Qdrant MCP server is only a development aid for Claude Code.
+Deployment: the project's own `barthelona-qdrant` from `docker/qdrant/compose.yaml` (D-034), storage in a named volume; Qdrant documents data loss on Windows bind mounts (https://qdrant.tech/documentation/common-errors/). The product uses `qdrant-client`. The Qdrant MCP server is only a development aid for Claude Code.
 
 **Rule cards.** `knowledge/rulecards/<dialect>-<target>.md`, about 400 tokens each, always injected. They cover:
 - the section and entry boilerplate;

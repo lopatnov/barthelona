@@ -50,7 +50,7 @@ if ($dev) {
 $env:WSL_UTF8 = '1'
 $running = (wsl.exe -l --running -q 2>$null | Out-String)
 if ($running -match 'Ubuntu') { $lines += '- WSL Ubuntu: running.' }
-else { $lines += '- WSL Ubuntu: stopped (Qdrant :6333 and the Qdrant MCP :8000 are unreachable until it starts; this is expected).' }
+else { $lines += '- WSL Ubuntu: stopped (barthelona-qdrant :6343, the owner''s Qdrant :6333 and the Qdrant MCP :8000 are unreachable until it starts; this is expected).' }
 
 # LM Studio
 try {

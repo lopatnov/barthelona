@@ -84,7 +84,7 @@ asm_doc/         local assembler manuals, tracked in git (licenses in docs/knowl
 .codex/          Codex config; agents/*.toml are GENERATED from .claude/agents
 ```
 
-Planned top-level directories: `policies/`, `knowledge/`, `bench/`, `docker/`. `var/` and `workspaces/` hold runtime data and are gitignored.
+`docker/qdrant/` holds the project Qdrant (D-034). Planned top-level directories: `policies/`, `knowledge/`, `bench/`, `docker/` sandbox images. `var/` and `workspaces/` hold runtime data and are gitignored.
 
 ## Agent configuration and who to call (dev-time only, never shipped; D-026, D-032, D-033)
 

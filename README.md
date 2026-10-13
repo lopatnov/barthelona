@@ -40,4 +40,4 @@ Git Bash: `scripts/create_env.sh`, then `source scripts/activate.sh`. WSL2 (Ubun
 
 ## License
 
-BSD 2-Clause, see `LICENSE`.
+BSD 2-Clause, see `LICENSE`. Authorship, attribution and third-party material: `NOTICE.md`.
