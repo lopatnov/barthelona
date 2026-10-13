@@ -2,6 +2,7 @@
 name: asm-abi-reviewer
 description: Read-only reviewer for assembly code and ABI logic. Checks calling convention, stack alignment, callee-saved registers, red zone, Win64 shadow space, PIE/relocation, syscall conventions and dialect syntax in fixtures, mutation-corpus entries, rule cards, codegen output (headers/stubs) and the V3/V4 ABI-checker logic. Use after changes under tests/fixtures/asm, tests/abi_mutation, tests/codegen_golden, knowledge/rulecards, src/barthelona/contracts or src/barthelona/verification.
 tools: Read, Glob, Grep
+disallowedTools: Edit, Write, NotebookEdit
 model: inherit
 color: orange
 ---
@@ -48,6 +49,6 @@ Ground every claim:
 
 Output format:
 - one finding per item: `path:line`, severity (bug / risk / style), the rule violated, evidence, and the minimal fix;
-- end with a one-line verdict.
+- end with the verdict `OK`, `OK with notes` or `BLOCK`.
 
-If there are no findings, say so explicitly.
+If there are no findings, say so explicitly. Invariant and layering questions go to `architecture-guardian`; external fact checks go to `docs-researcher`.

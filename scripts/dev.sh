@@ -18,6 +18,12 @@ if [ -z "$prefix" ]; then
   done
 fi
 if [ -z "$prefix" ]; then
+  conda_exe="${CONDA_EXE:-$(command -v conda || true)}"
+  if [ -n "$conda_exe" ]; then
+    prefix="$("$conda_exe" env list 2>/dev/null | awk '$1 == "barthelona" {print $NF}' | head -n 1)"
+  fi
+fi
+if [ -z "$prefix" ]; then
   echo "barthelona env not found. Create it with scripts/create_env.sh (or .\\scripts\\create_env.ps1)" >&2
   exit 3
 fi

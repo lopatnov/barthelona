@@ -1,4 +1,5 @@
-# PreToolUse hook for Edit / Write / NotebookEdit. Blocks writes to protected paths.
+# PreToolUse hook for Edit / Write / NotebookEdit (blocks writes to protected paths) and Read / Grep
+# (blocks reading .env* secrets files; everything else stays readable).
 # Exit 2 = block, stderr is shown to Claude as the reason. Compatible with Windows PowerShell 5.1.
 $ErrorActionPreference = 'Stop'
 try {
@@ -13,7 +14,9 @@ $path = $null
 if ($ti) {
     if ($ti.file_path) { $path = [string]$ti.file_path }
     elseif ($ti.notebook_path) { $path = [string]$ti.notebook_path }
+    elseif ($ti.path) { $path = [string]$ti.path }
 }
+$isRead = ([string]$payload.tool_name) -in @('Read', 'Grep')
 if (-not $path) { exit 0 }
 
 $root = $env:CLAUDE_PROJECT_DIR
@@ -42,7 +45,11 @@ function Block([string]$why) {
     exit 2
 }
 
-if ($rel -eq '.env' -or ($rel -match '(^|/)\.env(\.[^/]+)?$' -and $rel -notmatch '\.env\.example$')) { Block 'Secrets files are edited by the owner only.' }
+if ($rel -eq '.env' -or ($rel -match '(^|/)\.env(\.[^/]+)?$' -and $rel -notmatch '\.env\.example$')) {
+    if ($isRead) { Block 'Reading secrets files is not allowed: they hold the owner''s API keys. Use .env.example for the variable names.' }
+    Block 'Secrets files are edited by the owner only.'
+}
+if ($isRead) { exit 0 }   # reads: only the secrets rule applies
 if ($rel -match '^asm_doc/') { Block 'asm_doc/ is a read-only reference cache.' }
 if ($rel -match '^\.agents/skills/' -or $rel -match '^\.codex/agents/') { Block 'Generated Codex mirror. Edit .claude/skills or .claude/agents; scripts/sync_agent_configs.py regenerates it.' }
 if ($rel -match '^docs/archive/') { Block 'docs/archive/ is historical and read-only.' }

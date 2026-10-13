@@ -24,13 +24,21 @@ Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 
-$uv = Get-Command uv -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($uv) {
-    $UvCmd = @($uv.Source)
-} elseif ($env:CONDA_PREFIX -and (Test-Path (Join-Path $env:CONDA_PREFIX 'python.exe'))) {
-    $UvCmd = @((Join-Path $env:CONDA_PREFIX 'python.exe'), '-m', 'uv')
+# Prefer the uv pinned in the barthelona env (dev lock), so locks are produced by the same uv everywhere.
+$EnvPython = $null
+foreach ($c in @($(if ($env:CONDA_PREFIX -and (Split-Path -Leaf $env:CONDA_PREFIX) -eq 'barthelona') { $env:CONDA_PREFIX }),
+                 $env:BARTHELONA_ENV_PREFIX,
+                 (Join-Path $env:USERPROFILE 'miniconda3\envs\barthelona'),
+                 (Join-Path $env:USERPROFILE 'anaconda3\envs\barthelona'))) {
+    if ($c -and (Test-Path (Join-Path $c 'Scripts\uv.exe'))) { $EnvPython = Join-Path $c 'python.exe'; break }
+}
+if ($EnvPython) {
+    $UvCmd = @($EnvPython, '-m', 'uv')
 } else {
-    throw 'uv not found. Install it (winget install astral-sh.uv) or activate the env (dev deps include uv).'
+    $uv = Get-Command uv -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $uv) { throw 'uv not found. Create the env (.\scripts\create_env.ps1; dev deps include uv) or install uv.' }
+    $UvCmd = @($uv.Source)
+    Write-Warning ("Using uv from PATH (" + ((& $uv.Source --version) -join ' ') + "), not the env's pinned uv; lock output may differ.")
 }
 
 $Platforms = [ordered]@{ win = 'x86_64-pc-windows-msvc'; linux = 'x86_64-unknown-linux-gnu' }

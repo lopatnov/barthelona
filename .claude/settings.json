@@ -165,7 +165,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write|NotebookEdit",
+        "matcher": "Edit|Write|NotebookEdit|Read|Grep",
         "hooks": [
           {
             "type": "command",

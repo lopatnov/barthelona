@@ -77,6 +77,9 @@ function Test-Git($rest) {
     $sub = (Unquote $rest[$j]).ToLowerInvariant()
     $argv = @()
     if ($j + 1 -lt $rest.Count) { $argv = @($rest[($j + 1)..($rest.Count - 1)] | ForEach-Object { Unquote $_ }) }
+    if ($sub -in @('diff', 'log', 'show', 'format-patch') -and @($argv | Where-Object { $_ -match '^(--output|-o$)' }).Count -gt 0) {
+        Block "git $sub --output writes files; redirect output in a separate, visible step instead."
+    }
     switch ($sub) {
         'push' {
             if (@($argv | Where-Object { $_ -match '^(--force|--force-with-lease|--force-if-includes|--mirror|--delete|--prune)(=.*)?$' -or $_ -cmatch '^-[a-zA-Z]*[fd][a-zA-Z]*$' -or $_ -match '^\+' -or $_ -match '^:' }).Count -gt 0) {
@@ -103,6 +106,14 @@ function Test-Remove([string]$name, $rest) {
         if ($u -match '^-' -or $u -match '^/[sq]$') { continue }
         $v = ($u -replace '\\', '/').ToLowerInvariant()
         if ($v -match '^[a-z]:/?$' -or $v -eq '/c' -or $v -eq '/mnt/c') { Block 'Recursive delete of a drive root is not allowed.' }
+        if ($v -eq '..' -or $v.StartsWith('../')) { Block "Recursive delete outside the repo ('$u') is not allowed." }
+        $abs = $v
+        if ($abs -match '^/mnt/([a-z])/(.*)$') { $abs = "$($Matches[1]):/$($Matches[2])" }
+        elseif ($abs -match '^/([a-z])/(.*)$') { $abs = "$($Matches[1]):/$($Matches[2])" }
+        if ($root -and $abs -match '^[a-z]:/') {
+            $rootN = ($root -replace '\\', '/').ToLowerInvariant().TrimEnd('/')
+            if ($rootN.StartsWith($abs.TrimEnd('/') + '/')) { Block "Recursive delete of an ancestor of the repo ('$u') is not allowed." }
+        }
         while ($v.EndsWith('/*') -or ($v.Length -gt 1 -and $v.EndsWith('/'))) { $v = $v.Substring(0, $v.Length - $(if ($v.EndsWith('/*')) { 2 } else { 1 })) }
         while ($v.StartsWith('./') -and $v.Length -gt 2) { $v = $v.Substring(2) }
         if ($v -eq './') { $v = '.' }
@@ -158,7 +169,18 @@ function Test-Segment([string]$seg, [int]$depth) {
     for ($k = $i + 1; $k -lt $t.Count; $k++) { $rest.Add($t[$k]) }
     $restU = @($rest | ForEach-Object { Unquote $_ })
 
+    # Sourcing or executing .env, or activating the env (loads API keys into the agent shell).
+    if ($name -match $envFile) { Block 'Sourcing or executing .env is not allowed: it holds the owner''s API keys.' }
+    if ($name -match '^activate\.(ps1|sh)$') { Block 'Agents must not activate the env (activate.* loads API keys). Run tools via scripts/dev.ps1 or scripts/dev.sh.' }
+
     switch -Regex ($name) {
+        '^source$' {
+            foreach ($tok in $rest) {
+                if (Test-EnvToken $tok) { Block 'Sourcing .env is not allowed: it holds the owner''s API keys.' }
+                if ((Unquote $tok) -match 'activate\.(ps1|sh)$') { Block 'Agents must not activate the env (activate.* loads API keys). Run tools via scripts/dev.ps1 or scripts/dev.sh.' }
+            }
+            return
+        }
         '^wsl$' {
             if ($restU -contains '--unregister') { Block 'Unregistering a WSL distro destroys it.' }
             $idx = -1

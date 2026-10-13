@@ -17,6 +17,10 @@ import io
 import re
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from bs4 import BeautifulSoup
 
 ROOT = Path(__file__).resolve().parents[3]
 DOCS = ROOT / "asm_doc"
@@ -81,10 +85,12 @@ def nasm_insn(mnemonic: str, limit: int) -> None:
     _out(rows or [f"{mnemonic!r} not found in Appendix F"], limit)
 
 
-def _soup(rel: str):  # type: ignore[no-untyped-def]
+def _soup(rel: str) -> BeautifulSoup:
     from bs4 import BeautifulSoup
 
-    path = DOCS / rel
+    path = (DOCS / rel).resolve()
+    if not path.is_relative_to(DOCS.resolve()):  # never read outside asm_doc/
+        sys.exit(f"refusing to read outside asm_doc/: {rel}")
     if not path.is_file():
         sys.exit(f"not found: {path}")
     return BeautifulSoup(path.read_text(encoding="utf-8", errors="replace"), "lxml")

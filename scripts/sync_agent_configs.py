@@ -22,6 +22,7 @@ SKILLS_SRC = ROOT / ".claude" / "skills"
 SKILLS_DST = ROOT / ".agents" / "skills"
 AGENTS_SRC = ROOT / ".claude" / "agents"
 AGENTS_DST = ROOT / ".codex" / "agents"
+WRITE_TOOLS = frozenset({"Edit", "Write", "NotebookEdit", "MultiEdit"})  # shared with the tests
 HEADER = "# GENERATED from .claude/agents/{name}.md by scripts/sync_agent_configs.py - do not edit.\n"
 
 
@@ -65,8 +66,7 @@ def expected_files() -> dict[Path, bytes]:
         # Claude `tools`/`disallowedTools` do not exist in Codex; keep read-only agents read-only there.
         tools = {t.strip() for t in meta.get("tools", "").split(",") if t.strip()}
         denied = {t.strip() for t in meta.get("disallowedTools", "").split(",") if t.strip()}
-        writers = {"Edit", "Write", "NotebookEdit", "MultiEdit"}
-        read_only = (bool(tools) and not (tools & writers)) or writers <= denied
+        read_only = (bool(tools) and not (tools & WRITE_TOOLS)) or {"Edit", "Write"} <= denied
         toml = (
             HEADER.format(name=src.stem)
             + f"name = {_toml_basic(name)}\n"

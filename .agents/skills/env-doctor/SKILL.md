@@ -20,5 +20,5 @@ Then:
 
 Known expected states:
 - The WSL VM is often stopped, so Qdrant (:6333) and the Qdrant MCP (:8000) are unreachable until it boots. After a boot, Qdrant needs tens of seconds to load from `/mnt/c`.
-- nasm, fasm, gdb and qemu are not installed in WSL by design: the product uses pinned Docker images (Phase 0).
+- nasm, fasm, gdb and qemu are not installed in WSL by default: the product uses pinned Docker images (Phase 0). Installing them in WSL for manual checks (`asm-check`) is an optional owner action.
 - `barthelona/toolchain` and `barthelona/runner` images do not exist until Phase 0.

@@ -66,6 +66,10 @@ $shellCases = @(
     # search patterns and heredocs are not commands
     @('grep -rn "git push" docs', 0), @('rg -n "Set-ExecutionPolicy" docs/runbook.md', 0), @('grep -rn "rm -rf" scripts', 0),
     @("cat <<'EOF' > notes.md${nl}never run git push here${nl}EOF", 0),
+    # sourcing secrets / activating in an agent shell / deletes outside the repo / git --output
+    @('source .env', 2), @('. .env', 2), @('. .\scripts\activate.ps1', 2), @('source scripts/activate.sh', 2), @('source ~/.bashrc', 0),
+    @('rm -rf ..', 2), @('rm -rf ../other-project', 2), @('rm -rf /c/projects', 2), @("Remove-Item -Recurse -Force $c\projects", 2),
+    @('git diff --output=x.patch', 2), @('git log -p --output x.txt', 2), @('git diff --stat', 0),
     # everyday commands
     @('ruff check .', 0), @('python -m pytest -q', 0), @('grep -rn "environment" docs', 0), @('git log --oneline -5', 0)
 )
@@ -94,6 +98,20 @@ foreach ($case in $pathCases) {
     if ("$code" -ne "$($case[1])") { $fail2++; Write-Output "PATH MISMATCH exit=$code expected=$($case[1]) :: $($case[0])" }
 }
 Write-Output "guard-paths: $($pathCases.Count) cases, $fail2 mismatches"
+
+# Reads: only .env* (except .env.example) is blocked; protected-but-readable paths stay readable.
+$readCases = @(
+    @('Read', 'file_path', "$root\.env", 2), @('Read', 'file_path', "$root\.env.development", 2), @('Read', 'file_path', "$root\.env.example", 0),
+    @('Read', 'file_path', "$root\asm_doc\fasm\manual.htm", 0), @('Read', 'file_path', "$root\requirements\dev.win.lock", 0),
+    @('Grep', 'path', "$root\.env", 2), @('Grep', 'path', "$root\docs", 0), @('Grep', 'path', $root, 0)
+)
+$fail4 = 0
+foreach ($case in $readCases) {
+    $code = Invoke-Hook $pathsHook @{ tool_name = $case[0]; cwd = $root; tool_input = @{ $case[1] = $case[2] } } $root
+    if ("$code" -ne "$($case[3])") { $fail4++; Write-Output "READ MISMATCH exit=$code expected=$($case[3]) :: $($case[0]) $($case[2])" }
+}
+Write-Output "guard-paths reads: $($readCases.Count) cases, $fail4 mismatches"
+$fail2 += $fail4
 
 # Released-policy immutability, in a temp project
 $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ('bart-hooktest-' + [guid]::NewGuid().ToString('N'))

@@ -37,7 +37,7 @@ providers:
     enabled: true
     max_concurrency: 1             # one resident model; calls are serialized
     structured_output: json_schema # response_format json_schema, grammar-enforced for GGUF models
-    health_url: http://127.0.0.1:1234/api/v1/models   # shows loaded_instances and context length
+    health_url: /api/v1/models   # path on the base_url origin; shows loaded_instances and context length
     timeout_s: 1800                # CPU/iGPU decode is slow (~8 tok/s); always stream
   ollama:
     kind: openai_chat
@@ -47,6 +47,7 @@ providers:
     max_concurrency: 1
     structured_output: json_schema
     timeout_s: 1800
+    health_url: /api/ps          # path on the base_url origin; shows the loaded model and context
     notes: >-
       The /v1 endpoint cannot set num_ctx. Set the context with OLLAMA_CONTEXT_LENGTH or a Modelfile
       (PARAMETER num_ctx) and check it with /api/ps; overflow silently drops the oldest messages.
@@ -74,7 +75,8 @@ providers:
     timeout_s: 900
     notes: >-
       GPT-6 models need the Responses API for tool calls with reasoning; pass returned reasoning items back
-      in multi-turn calls. No sampling parameters unless effort is `none`.
+      in multi-turn calls. Never send sampling parameters (the gateway sends them to local models only;
+      GPT-6 rejects them at any effort except `none`).
   google:
     kind: gemini_native            # official `google-genai` SDK (2.x); disable SDK retries with HttpRetryOptions(attempts=1)
     api_key_env: GEMINI_API_KEY    # pass explicitly: if GOOGLE_API_KEY is also set, the SDK prefers it
@@ -165,7 +167,8 @@ models:
     enabled: false                 # only if the bench shows Opus 5.5 falls short
 
   # --- OpenAI (pricing_checked 2026-10-13; 1.05M context, 128K output) ---------------------------------
-  # Prompts over 272K input tokens are billed at 2x input/cache and 1.5x output (GPT-5.4 and later).
+  # Local endpoint overrides must use 127.0.0.1 (the catalog loader will reject localhost).
+# Prompts over 272K input tokens are billed at 2x input/cache and 1.5x output (GPT-5.4 and later).
   gpt-6-astra:
     provider: openai
     model: gpt-6-astra
@@ -304,7 +307,7 @@ models:
 
 # Role chains per profile. The gateway walks each chain in order and uses the first usable entry.
 # An entry is a model key, or {model: <key>, <reasoning/thinking params>} to set per-role parameters;
-# explicit parameters always win over provider defaults (D-030: set effort/thinking explicitly).
+# explicit parameters always win over provider defaults (architecture §16.2, §16.5: set effort/thinking explicitly).
 # Every chain ends in a local model, so the system degrades instead of stopping when the cloud is
 # unavailable, out of credit or not allowed for the run. Reorder freely to express preferences.
 #   main       intake, localizer, doc digests, retro analysis
@@ -384,8 +387,8 @@ budget:
     local-only: {wall_s: 14400, tokens: 3000000}
     hybrid: {wall_s: 14400, tokens: 3000000}
     cloud: {wall_s: 7200, tokens: 2000000}
-  # Reservation for a capped call uses the highest price tier the prompt can reach (long_context tier,
-  # peak rate, cache writes) times (prompt tokens + max_tokens); settlement uses the tier that applied.
+  # Reservation for a capped call: input rate x prompt tokens + output rate x max_tokens (+ cache-write rate),
+  # each at the highest tier the request can reach (long_context, peak); settlement uses the tier that applied.
 
 # Resilience (docs/architecture.md §16.6). Error classes are mapped per provider in code, by error
 # type/code/message substring, never by HTTP status alone.

@@ -15,13 +15,13 @@
 - Existing pins are kept on re-lock unless `-Upgrade` or `-UpgradePackage` is passed.
 - Installs are exact: after installing a lock, `scripts/prune_env.py` uninstalls packages that are not in it. The editable install's build backend (hatchling) is the one unhashed download.
 - Agents run tools through `scripts/dev.ps1` / `dev.sh` (env on PATH for one command, no `.env`); `activate.*` is for the owner's own terminal.
-- `lock.ps1` also writes `requirements/pyproject-deps.sha256`: a sha256 of `requires-python`, `dependencies` and `optional-dependencies` (`scripts/deps_fingerprint.py`). `doctor.ps1`, the SessionStart hook and `tests/unit/test_package.py` compare it. A dependency edit without a re-lock is caught, while unrelated `pyproject.toml` edits (tool config) are not flagged.
+- `lock.ps1` also writes `requirements/pyproject-deps.sha256`: a sha256 of `requires-python`, `dependencies` and `optional-dependencies` (`scripts/deps_fingerprint.py`). `doctor.ps1`, the SessionStart hook and `tests/unit/test_package.py` compare it. The stamp also covers the four lock files, so a dependency edit without a re-lock, or a hand-edited lock, is caught, while unrelated `pyproject.toml` edits (tool config) are not flagged.
 
 ## Rationale
 
 - One declaration avoids drift between `pyproject.toml` and `*.in` files.
 - Per-platform locks avoid hash mismatches between Windows and Linux wheels.
-- On 2026-10-13 the dev closure resolved to 130 pinned packages on Windows and 128 on Linux, including langgraph 1.2.15, streamlit 1.65.0, anthropic 1.13.0, openai 3.29.0, google-genai 2.30.0, unicorn 2.1.4 and lief 1.0.0.
+- On 2026-10-13 the dev closure resolved to 123 pinned packages on Windows and 121 on Linux (after dropping pre-commit), including langgraph 1.2.15, streamlit 1.65.0, anthropic 1.13.0, openai 3.29.0, google-genai 2.30.0, unicorn 2.1.4 and lief 1.0.0.
 
 ## Alternatives considered
 

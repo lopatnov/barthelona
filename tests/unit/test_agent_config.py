@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import re
 from pathlib import Path
 
@@ -9,12 +10,18 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 CLAUDE_DIR = ROOT / ".claude"
+_spec = importlib.util.spec_from_file_location(
+    "sync_agent_configs", ROOT / "scripts" / "sync_agent_configs.py"
+)
+assert _spec and _spec.loader
+_sync = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_sync)
+WRITE_TOOLS: frozenset[str] = _sync.WRITE_TOOLS  # one write-tool set, shared with the Codex mirror sync
 # Owner-reviewed limits. Raise them only in an explicit diff; first move detail out of instructions.
 MAX_ALWAYS_LOADED_BYTES = 22_000
 MAX_ALWAYS_LOADED_LINES = 200  # docs-adr rule: AGENTS.md + CLAUDE.md under about 200 lines together
 MAX_RULE_BYTES = 5_000
 MAX_DESCRIPTION_CHARS = 500
-WRITE_TOOLS = {"Edit", "Write", "NotebookEdit"}
 READ_ONLY_PROSE = re.compile(r"(never|do not) (modify|edit) files", re.IGNORECASE)
 HINT = "Move detail into a skill, a path-scoped rule or docs/ (see .claude/rules/agent-config.md)."
 
@@ -88,9 +95,13 @@ def test_read_only_agents_say_so_in_their_body(agent: Path) -> None:
     """Codex sees only the body and sandbox_mode, not the Claude tool lists."""
     meta = _frontmatter(agent)
     tools, denied = _csv(meta.get("tools", "")), _csv(meta.get("disallowedTools", ""))
-    if (tools and not tools & WRITE_TOOLS) or denied >= WRITE_TOOLS:
+    if (tools and not tools & WRITE_TOOLS) or {"Edit", "Write"} <= denied:
         text = agent.read_text(encoding="utf-8")
         assert READ_ONLY_PROSE.search(text), f"{agent.name}: say 'Never modify files.' in the body"
+        mirror = ROOT / ".codex" / "agents" / f"{agent.stem}.toml"
+        assert 'sandbox_mode = "read-only"' in mirror.read_text(encoding="utf-8"), (
+            f"{mirror.name}: not read-only"
+        )
 
 
 def test_every_skill_and_agent_is_routed_in_agents_md() -> None:

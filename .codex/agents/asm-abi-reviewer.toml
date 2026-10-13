@@ -46,7 +46,7 @@ Ground every claim:
 
 Output format:
 - one finding per item: `path:line`, severity (bug / risk / style), the rule violated, evidence, and the minimal fix;
-- end with a one-line verdict.
+- end with the verdict `OK`, `OK with notes` or `BLOCK`.
 
-If there are no findings, say so explicitly.
+If there are no findings, say so explicitly. Invariant and layering questions go to `architecture-guardian`; external fact checks go to `docs-researcher`.
 '''

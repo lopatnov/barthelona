@@ -110,6 +110,9 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-2 | Path guards matched paths relative to the repo root, so writes under `.claude/worktrees/<x>/` bypassed the protected-path patterns | conduit config review, 2026-10-13 | — | `guard-paths.ps1` and `post-edit.ps1` strip the worktree prefix; `test-hooks.ps1` covers it | fixed (2026-10-13, setup commits) |
 | F-3 | The editable install fetches its build backend (hatchling) from PyPI without a hash lock | second review, 2026-10-13 | Small risk; documented in the runbook and D-031 | Lock hatchling in a build lock and install with `--no-build-isolation` | open |
 | F-4 | `scripts/create_env.sh` has no executable bit in git (Windows checkout) | second review, 2026-10-13 | Only matters on a Linux clone | `git update-index --chmod=+x scripts/create_env.sh scripts/dev.sh` | fixed (2026-10-13, setup commits) |
+| F-5 | The `kb`, `obs` and `ingest-pdf` extras are declared but not locked; installing them today would be ad hoc | review gate, 2026-10-13 | Not needed before Phase 3/5 | Before an extra is first used, add its lock profile to `lock.ps1` and `create_env` (or drop the extra until its phase) | open |
+| F-6 | `unicorn` (runtime dependency for the V4 emulator) is GPL-2.0 per upstream, while barthelona is BSD-2-Clause | review gate, 2026-10-13 | No distribution planned yet | `docs-researcher` confirms the license and the implications of importing it; record the decision (keep in the separate emulator process, relicense, or replace) in an ADR before distributing | open |
+| F-7 | Local endpoint overrides (`LMSTUDIO_BASE_URL`, `OLLAMA_BASE_URL`) could use `localhost` or a non-loopback host | review gate, 2026-10-13 | No catalog loader yet | The Phase 1 catalog loader rejects `localhost` and, for `local: true` providers, non-loopback hosts; unit test | open |
 
 ## Parked ideas (not scheduled)
 
@@ -133,3 +136,4 @@ Ideas that are not defects. At each phase start, move every row into that phase'
 | `dependency-steward` agent: batch survey of outdated locked packages (LangGraph trio, SDKs, oracle libs) and lock deltas | 2026-10-13, conduit review | Phase 1 start | Fresh locks |
 | `scripts/health.py --line` for devlog entries (LOC, tests, instruction bytes, mirror and lock state, ADR counts) | 2026-10-13, conduit review | Phase 1 | Few numbers to trend |
 | `pre-commit` config (ruff, mirror and lock checks) | 2026-10-13, second review | First collaborator or CI | Dropped from dev deps as unused |
+| Guard `git -c alias.*=...push...` / configured push aliases, and anchor the template `.gitignore` build directories (`/build/`, `/lib/`) | 2026-10-13, review gate | First use of git aliases, or a source dir named `lib`/`build` | Low risk today |
