@@ -88,8 +88,10 @@ def existing_files() -> set[Path]:
 
 
 def _inside_mirror(path: Path) -> bool:
+    # Compare with the repo-local roots as spelled, not resolved: a symlinked .agents/ or
+    # .codex/agents/ must not turn an outside directory into an accepted mirror root.
     resolved = path.resolve()
-    return any(resolved.is_relative_to(root.resolve()) for root in (SKILLS_DST, AGENTS_DST))
+    return any(resolved.is_relative_to(root) for root in (SKILLS_DST, AGENTS_DST))
 
 
 def main(argv: list[str]) -> int:

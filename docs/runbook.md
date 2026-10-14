@@ -144,7 +144,7 @@ Cloud use is opt-in per run, and a dollar cap is optional. A provider that fails
 ### CI and static analysis
 
 - `.github/workflows/ci.yml` runs on every push to `main` and every pull request: the Python gates of the `verify` skill (ruff, format check, mypy, pytest, mirror and lock checks, on Linux with `requirements/dev.linux.lock`), ShellCheck on `*.sh`, PSScriptAnalyzer (`PSScriptAnalyzerSettings.psd1`) under Windows PowerShell 5.1, and yamllint (`.yamllint.yaml`).
-- To reproduce a lint job locally: `Invoke-ScriptAnalyzer -Path scripts -Recurse -Settings .\PSScriptAnalyzerSettings.psd1` (needs `Install-Module PSScriptAnalyzer -Scope CurrentUser`); ShellCheck and yamllint are easiest in WSL (`sudo apt install shellcheck yamllint`).
+- To reproduce the PowerShell job locally: `git ls-files '*.ps1' '*.psm1' '*.psd1' | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings .\PSScriptAnalyzerSettings.psd1 }` (CI additionally skips two rules for `.claude/hooks/`, F-28; needs `Install-Module PSScriptAnalyzer -Scope CurrentUser`); ShellCheck and yamllint are easiest in WSL (`sudo apt install shellcheck yamllint`).
 - SonarCloud (project `lopatnov_barthelona`) uses automatic analysis; `.sonarcloud.properties` sets the sources and excludes the vendored manuals (`asm_doc/`), `docs/archive/` and the generated Codex mirror. Issues are at https://sonarcloud.io/project/issues?id=lopatnov_barthelona.
 
 ## 7. Reference material (`.reference/`)
