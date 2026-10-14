@@ -86,13 +86,26 @@ def migrate(conn: sqlite3.Connection) -> int:
         raise RuntimeError(
             f"database schema version {current} is newer than this barthelona supports ({LATEST_VERSION})"
         )
-    for version in range(current + 1, LATEST_VERSION + 1):
-        # executescript() runs outside the connection's transaction handling, so wrap each step explicitly.
-        script = f"BEGIN IMMEDIATE;\n{MIGRATIONS[version - 1]}\nPRAGMA user_version = {version};\nCOMMIT;"
-        try:
-            conn.executescript(script)
-        except sqlite3.Error:
-            if conn.in_transaction:
-                conn.rollback()
-            raise
+    # In autocommit mode executescript() does not commit a pending transaction, so each step can hold
+    # BEGIN IMMEDIATE across its script; the caller's transaction mode is restored afterwards.
+    previous_mode = conn.autocommit
+    conn.autocommit = True
+    try:
+        for version in range(current + 1, LATEST_VERSION + 1):
+            _apply(conn, version)
+    finally:
+        conn.autocommit = previous_mode
     return schema_version(conn)
+
+
+def _apply(conn: sqlite3.Connection, version: int) -> None:
+    """Apply one migration under the write lock, unless a concurrent caller already applied it."""
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        if schema_version(conn) < version:
+            conn.executescript(f"{MIGRATIONS[version - 1]}\nPRAGMA user_version = {version};")
+        conn.execute("COMMIT")
+    except BaseException:
+        if conn.in_transaction:
+            conn.execute("ROLLBACK")
+        raise

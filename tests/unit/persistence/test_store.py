@@ -174,6 +174,24 @@ def test_failed_migration_leaves_the_schema_untouched(
     assert conn.execute("SELECT count(*) FROM sqlite_master").fetchone()[0] == 0
 
 
+def test_migration_skips_a_step_applied_after_the_version_was_read(
+    opened: Opener, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two processes can both read version 0; the second must not re-run DDL once it gets the lock."""
+    conn = opened(connect)
+    migrate(opened(connect))
+    real_schema_version = migrations.schema_version
+    reads: list[int] = []
+
+    def first_read_is_stale(c: sqlite3.Connection) -> int:
+        reads.append(real_schema_version(c))
+        return 0 if len(reads) == 1 else reads[-1]
+
+    monkeypatch.setattr(migrations, "schema_version", first_read_is_stale)
+    assert migrate(conn) == LATEST_VERSION
+    assert conn.autocommit == sqlite3.LEGACY_TRANSACTION_CONTROL
+
+
 def test_persistence_imports_no_engine_or_ui_modules() -> None:
     """The worker and the UI meet in persistence (invariant 8), so it loads neither; partial cover for F-1."""
     code = (
@@ -310,6 +328,7 @@ def test_commands_are_claimed_once_in_order(store: Store) -> None:
         decision=GateDecision(gate_id="g1", decision="approve", at=T0),
     )
     cancel = RunCommand(run_id="r1", kind=CommandKind.CANCEL)
+    store.open_gate(_gate())
     first_id = store.enqueue_command(resume)
     assert store.enqueue_command(cancel) == first_id + 1
     assert store.claim_commands("r1") == [resume, cancel]
@@ -317,6 +336,21 @@ def test_commands_are_claimed_once_in_order(store: Store) -> None:
     orphan = RunCommand(run_id="ghost", kind=CommandKind.CANCEL)
     with pytest.raises(NotFoundError):
         store.enqueue_command(orphan)
+
+
+def test_resume_names_a_gate_of_its_own_run(store: Store) -> None:
+    store.create_run(_run("r2"))
+    store.open_gate(_gate())
+    decision = GateDecision(gate_id="g1", decision="approve", at=T0)
+    other_run = RunCommand(run_id="r2", kind=CommandKind.RESUME, decision=decision)
+    unknown_gate = RunCommand(
+        run_id="r1", kind=CommandKind.RESUME, decision=decision.model_copy(update={"gate_id": "g9"})
+    )
+    with pytest.raises(ValueError, match="belongs to run 'r1'"):
+        store.enqueue_command(other_run)
+    with pytest.raises(NotFoundError, match="g9"):
+        store.enqueue_command(unknown_gate)
+    assert store.claim_commands("r2") == []
 
 
 @pytest.mark.parametrize(

@@ -182,6 +182,13 @@ class Store:
                 (self._now(), decision.model_dump_json(), decision.gate_id),
             )
 
+    def _check_gate_run(self, gate_id: str, run_id: str) -> None:
+        row = self._conn.execute("SELECT run_id FROM gates WHERE gate_id = ?", (gate_id,)).fetchone()
+        if row is None:
+            raise NotFoundError(f"gate {gate_id!r} not found")
+        if row["run_id"] != run_id:
+            raise ValueError(f"gate {gate_id!r} belongs to run {row['run_id']!r}, not {run_id!r}")
+
     def pending_gates(self, run_id: str) -> list[GateRequest]:
         rows = self._conn.execute(
             "SELECT request FROM gates WHERE run_id = ? AND resolved_at IS NULL ORDER BY created_at, gate_id",
@@ -192,9 +199,12 @@ class Store:
     # --- commands --------------------------------------------------------------------------------
 
     def enqueue_command(self, command: RunCommand) -> int:
+        """Queue a command for the worker; a resume must name a gate of the same run."""
         if command.decision is not None:
             _check_payload_size("gate decision", command.decision.edits)
         with self._write():
+            if command.decision is not None:
+                self._check_gate_run(command.decision.gate_id, command.run_id)
             try:
                 cursor = self._conn.execute(
                     "INSERT INTO commands (run_id, kind, created_at, doc) VALUES (?, ?, ?, ?)",
