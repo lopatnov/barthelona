@@ -8,5 +8,7 @@ rules:
     check-keys: false
   comments:
     min-spaces-from-content: 1
-  # config/models.yaml uses outdented section comments between list items.
-  comments-indentation: disable
+  comments-indentation:
+    # config/models.yaml uses outdented section comments between list items.
+    ignore: |
+      config/models.yaml
