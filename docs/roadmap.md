@@ -123,6 +123,7 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-15 | `AGENTS.md` Environment still says Qdrant (:6333) is unreachable while WSL is stopped; the product's Qdrant is now `barthelona-qdrant` on :6343 (D-034) | 2026-10-13 | Gated file; out of the reviewed diff | Mention both ports in the next AGENTS.md change (review gate) | open |
 | F-16 | `Lesson.regression_check.asm` puts assembly inside the Lesson JSON document, which `retro` (an LLM node) proposes; this conflicts with invariant 5 / D-011 if filled through a JSON schema | review gate, domain models, 2026-10-13 | Needs an owner decision; no retro node yet | Fill `asm` deterministically from the evidence diff, or carry it in a FILE envelope referenced by path; record in §15.2 and D-017 | open (owner) |
 | F-17 | `RunEvent.payload`, `GateRequest.payload` and `GateDecision.edits` are free-form dicts; code or secrets could end up in event JSON | review gate, domain models, 2026-10-13 | The model layer cannot enforce it | With persistence: cap the payload size and route code and bulky data to `payload_ref`; unit test | open |
+| F-18 | `SprintTopology` compares a `pipelines` key with `pipeline.hash` only when the hash is set; a pipeline with `hash=None` can sit under any key | delta review gate, domain models, 2026-10-13 | Belongs with rule T2 | The T2 validator checks `key == spec_hash(pipeline)` for every pipeline; unit test | open |
 
 ## Parked ideas (not scheduled)
 

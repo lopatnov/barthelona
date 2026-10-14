@@ -38,7 +38,7 @@ Text = Annotated[str, StringConstraints(max_length=4000)]
 
 
 class DomainModel(BaseModel):
-    """Immutable value object: unknown keys are rejected, and updates go through `model_copy`."""
+    """Value object: fields cannot be reassigned, unknown keys are rejected, updates go through `model_copy`."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
