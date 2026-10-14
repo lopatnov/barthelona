@@ -36,7 +36,10 @@ if (-not $__bartPrefix) {
         try {
             $__json = & $__conda.Source env list --json | Out-String | ConvertFrom-Json
             $__bartPrefix = @($__json.envs | Where-Object { (Split-Path -Leaf $_) -eq 'barthelona' })[0]
-        } catch { }
+        } catch {
+            # Fall through to the "env not found" message below, but say why the lookup failed.
+            [Console]::Error.WriteLine("conda env list failed: $($_.Exception.Message)")
+        }
     }
 }
 if (-not $__bartPrefix -or -not (Test-Path (Join-Path $__bartPrefix 'python.exe'))) {

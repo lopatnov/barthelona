@@ -1,0 +1,14 @@
+extends: default
+
+rules:
+  line-length:
+    max: 130
+  document-start: disable
+  truthy:
+    check-keys: false
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation:
+    # config/models.yaml uses outdented section comments between list items.
+    ignore: |
+      config/models.yaml
