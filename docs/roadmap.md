@@ -1,6 +1,7 @@
 # Roadmap
 
 Phased plan for barthelona. Each phase has a goal, deliverables and exit criteria. A phase is done only when its exit criteria are met; the benchmark decides whether optional subsystems are switched on.
+Every phase's exit criteria also include the phase review (D-037): it ran, and its blocking issues are fixed.
 Architecture: `docs/architecture.md`. Decisions: `docs/adr/`.
 
 Current status (2026-10-14): **Phase 0 in progress** — repository and environment done (design, agent configuration for Claude Code and Codex, conda scripts, hash-locked dependencies, baseline tests); code skeleton started: domain models, the `var/app.sqlite` store and the `python -m barthelona` entry point exist; the toolchain probe and `verify` are next.
@@ -26,7 +27,6 @@ Current status (2026-10-14): **Phase 0 in progress** — repository and environm
 - Parser and codegen tests are green.
 - A bake-off table exists; one main local model is chosen and loaded in LM Studio at 16K context.
 - The single-prompt baseline score is recorded.
-- The phase review (D-037) ran and its blocking issues are fixed.
 
 ## Phase 1 — MVP vertical slice (about 3–4 weeks)
 
@@ -133,7 +133,7 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-22 | `Store.set_run_status` accepts any status after any other (for example `stopped` back to `running`); the architecture defines no run-status transitions | review gate, persistence, 2026-10-14 | The engine run graph does not exist yet | With the outer run graph: write the allowed transitions in architecture §17, enforce them in `set_run_status`, unit test | open (#10) |
 | F-23 | The UI shares one read-only SQLite handle across Streamlit threads (§17), which is safe only on a serialized SQLite build (`sqlite3.threadsafety == 3`) | review gate, persistence, 2026-10-14 | No UI yet | Check `sqlite3.threadsafety` in `env-doctor` and where the UI opens its handle; fail with a clear message. The UI also handles `connect_readonly`'s `RuntimeError` when the worker has not migrated yet ("worker not started") | open (#11) |
 | F-24 | The training dataset has no size limit or retention; it grows with every collecting run | D-036, 2026-10-14 | Nothing writes samples before the Phase 1 engine hook | With the engine hook: show the dataset size in `training status` and on the Toolchains & models page; add `training prune --before <date>` if the size becomes a problem | open |
-| F-25 | Two resume commands for one open gate can both be queued; the second fails at the worker with `ConflictError` from `resolve_gate` | review gate, PR #8, 2026-10-14 | The worker command loop does not exist yet | In the command loop, turn that `ConflictError` into a `RunEvent` (invariant 11) and test it, or refuse a second unclaimed resume per `gate_id` at enqueue | open (#12) |
+| F-25 | Two resume commands for one open gate can both be queued; the second fails at the worker with `ConflictError` from `resolve_gate` | review gate, PR #8, 2026-10-14 | The worker command loop does not exist yet | In the command loop, turn that `ConflictError` into a `RunEvent` (no silent fallbacks, `.claude/rules/python.md`) and test it, or refuse a second unclaimed resume per `gate_id` at enqueue | open (#12) |
 
 ## Parked ideas (not scheduled)
 
