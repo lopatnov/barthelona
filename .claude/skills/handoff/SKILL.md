@@ -32,7 +32,7 @@ Get every fact from a command, never from memory. Run Python through the wrapper
    - owner actions pending (roadmap open decision #, `.wslconfig`, model downloads, `sudo` steps);
    - the next step as one literal command or file;
    - for a Codex successor: Claude hooks do not run there, so it runs `ruff format`, keeps LF in shell and assembly files, and runs `python scripts/sync_agent_configs.py` itself.
-6. Do not commit unless the owner asked. Show the devlog diff.
+6. Commit the devlog entry as its own `docs` commit. Show the devlog diff.
 
 ## resume
 

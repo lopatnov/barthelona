@@ -85,11 +85,20 @@ function Test-Git($rest) {
             if (@($argv | Where-Object { $_ -match '^(--force|--force-with-lease|--force-if-includes|--mirror|--delete|--prune)(=.*)?$' -or $_ -cmatch '^-[a-zA-Z]*[fd][a-zA-Z]*$' -or $_ -match '^\+' -or $_ -match '^:' }).Count -gt 0) {
                 Block 'Force-push, --mirror and deleting remote branches are never allowed from an agent.'
             }
-            $script:AskReason = 'git push publishes commits to the remote. Confirm the branch and remote before approving (AGENTS.md: push only when the owner asks).'
+            if (@($argv | Where-Object { $_ -match '(^|:)(refs/heads/)?(main|master)$' }).Count -gt 0) {
+                Block 'Pushing to main/master is not allowed from an agent. Push a feature branch and merge through a PR.'
+            }
         }
         'reset' { if ($argv -contains '--hard') { Block 'git reset --hard discards work. Ask the owner first.' } }
         'clean' { if (@($argv | Where-Object { $_ -cmatch '^-[a-zA-Z]*f' -or $_ -eq '--force' }).Count -gt 0) { Block 'git clean -f deletes untracked files (e.g. .reference/, var/). Ask the owner first.' } }
-        'checkout' { if ($argv -contains '.') { Block 'Discarding all working-tree changes is not allowed. Restore specific files instead.' } }
+        'checkout' {
+            if ($argv -contains '.') { Block 'Discarding all working-tree changes is not allowed. Restore specific files instead.' }
+            if (@($argv | Where-Object { $_ -eq '--force' -or $_ -cmatch '^-[a-zA-Z]*f' }).Count -gt 0) { Block 'This git command can lose work (rebase, --amend, stash drop/clear, forced checkout/switch); D-035 blocks it for agents.' }
+        }
+        'switch' { if (@($argv | Where-Object { $_ -match '^(--force|--discard-changes)$' -or $_ -cmatch '^-[a-zA-Z]*f' }).Count -gt 0) { Block 'This git command can lose work (rebase, --amend, stash drop/clear, forced checkout/switch); D-035 blocks it for agents.' } }
+        'rebase' { Block 'This git command can lose work (rebase, --amend, stash drop/clear, forced checkout/switch); D-035 blocks it for agents.' }
+        'commit' { if ($argv -contains '--amend') { Block 'This git command can lose work (rebase, --amend, stash drop/clear, forced checkout/switch); D-035 blocks it for agents.' } }
+        'stash' { if ($argv.Count -gt 0 -and $argv[0] -match '^(drop|clear)$') { Block 'This git command can lose work (rebase, --amend, stash drop/clear, forced checkout/switch); D-035 blocks it for agents.' } }
         'restore' { if ($argv -contains '.') { Block 'Discarding all working-tree changes is not allowed. Restore specific files instead.' } }
     }
 }
@@ -331,11 +340,6 @@ if ($root) {
     }
 }
 
-# 4. Analyze. Blocks exit immediately; an "ask" is reported only if nothing in the command was blocked.
-$script:AskReason = $null
+# 4. Analyze. Blocks exit immediately with code 2.
 Test-Command $work 0
-if ($script:AskReason) {
-    $out = @{ hookSpecificOutput = @{ hookEventName = 'PreToolUse'; permissionDecision = 'ask'; permissionDecisionReason = $script:AskReason } }
-    [Console]::Out.Write(($out | ConvertTo-Json -Compress -Depth 4))
-}
 exit 0

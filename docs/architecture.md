@@ -2,7 +2,7 @@
 
 Version 1.0 · 2026-10-13 · Status: proposed baseline, pending owner review (see `docs/roadmap.md` § Open decisions).
 
-Decisions are recorded as ADRs D-001 to D-034 in `docs/adr/` (index: `docs/adr/README.md`). This document supersedes the Gemini brainstorming draft, which is kept only in `docs/archive/` and is non-authoritative: its model names and statistics are partly fabricated or outdated.
+Decisions are recorded as ADRs D-001 to D-035 in `docs/adr/` (index: `docs/adr/README.md`). This document supersedes the Gemini brainstorming draft, which is kept only in `docs/archive/` and is non-authoritative: its model names and statistics are partly fabricated or outdated.
 
 How this document was produced: five web-verified research reports (Gemini-draft audit, orchestration stack, assembler toolchains, knowledge layer, Claude Code configuration), three competing architecture proposals (Scrum-faithful, verification-first, local-first pragmatist), and a judged synthesis that starts from the verification-first spine and keeps Meta-Agentic Scrum as the organizing model. Owner requirements added after the synthesis are folded in: AI-composed sprint graphs (§9.5), four cloud providers (§16.2), optional budgets and provider resilience (§16.6), and a pattern map (§5.3).
 
