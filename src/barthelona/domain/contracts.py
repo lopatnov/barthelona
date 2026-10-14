@@ -48,7 +48,8 @@ class RegisterContract(DomainModel):
 
 class StackContract(DomainModel):
     entry_align: Literal["8 mod 16", "0 mod 16", "4 mod 16", "0 mod 8", "0 mod 4"] = "8 mod 16"
-    max_depth: int | None = Field(default=None, ge=0, le=1 << 20)  # bytes; None = unchecked
+    # Deepest stack use in bytes; leaving it unset means the depth is not checked.
+    max_depth: int | None = Field(default=None, ge=0, le=1 << 20)
     red_zone: bool = True
 
 

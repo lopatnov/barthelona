@@ -13,7 +13,8 @@ CLAUDE_DIR = ROOT / ".claude"
 _spec = importlib.util.spec_from_file_location(
     "sync_agent_configs", ROOT / "scripts" / "sync_agent_configs.py"
 )
-assert _spec and _spec.loader
+assert _spec is not None
+assert _spec.loader is not None
 _sync = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_sync)
 WRITE_TOOLS: frozenset[str] = _sync.WRITE_TOOLS  # one write-tool set, shared with the Codex mirror sync

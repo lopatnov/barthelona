@@ -157,8 +157,9 @@ def test_a_corrupt_index_line_is_reported_with_its_number(tmp_path: Path) -> Non
     DatasetWriter(tmp_path, Redactor()).record(_attempt(0), prompt=PROMPT, response=RESPONSE)
     with (tmp_path / "samples.jsonl").open("a", encoding="utf-8", newline="\n") as index:
         index.write("{not json\n")
+    reader = DatasetReader(tmp_path)
     with pytest.raises(DatasetError, match=r"samples\.jsonl:2:"):
-        list(DatasetReader(tmp_path).samples())
+        list(reader.samples())
 
 
 def test_cli_status_reports_a_corrupt_dataset_without_a_traceback(
