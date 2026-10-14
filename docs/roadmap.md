@@ -12,6 +12,7 @@ Current status (2026-10-13): **Phase 0 in progress** — repository and environm
 **Deliverables**
 - Repository: `AGENTS.md` / `CLAUDE.md`, `.claude/` config and the Codex mirror ✔, `.gitattributes` ✔, `pyproject.toml` ✔, `environment.yml` ✔, hash-locked requirements ✔, `create_env` / `activate` / `lock` scripts ✔, `doctor.ps1` ✔, dependency fingerprint + baseline tests ✔.
 - Code skeleton: domain models (Pydantic v2) ✔; persistence (SQLite WAL schema and migrations); `python -m barthelona` CLI (entry point with `version` and `schema` ✔; `verify` and `probe` land with their deliverables).
+- Training data (D-036): `TrainingSample` model, the off-by-default setting, the local dataset writer and reader with secret redaction, `python -m barthelona training status` ✔.
 - Environment fixes (owner actions): `.wslconfig` memory cap; Qdrant storage moved to a named volume (see `docs/runbook.md`).
 - Execution: Docker images `barthelona/toolchain` and `barthelona/runner`; the WSL agent (JSON lines, staging, allowlist, path fence); `barthelona probe` writing `config/toolchains.lock.json`.
 - Assemblers: NASM and GAS (Intel and AT&T) dialect adapters; ld/gcc linkers; diagnostics parsers with real captured fixtures.
@@ -36,6 +37,7 @@ Current status (2026-10-13): **Phase 0 in progress** — repository and environm
 - Policy v1: templates `module_create`, `symbol_patch`, `fix_build`, a minimal `contract_change`, `integration`; role prompts. The minimality gate ships here too, for barthelona-created projects (symbol spans come from `contracts.yaml`), so edit-mode pipelines satisfy T6.
 - Prompting: envelope parser (FILE / SEARCH-REPLACE / SYMBOL); context assembler with token budgets.
 - Model gateway: backends for LM Studio/Ollama (OpenAI-compatible), Anthropic, OpenAI, Gemini and DeepSeek; `config/models.yaml` catalog; per-call ledger; optional caps; error taxonomy, retries, circuit breakers and fallback chains ending in the local model (D-029, D-030).
+- Training data (D-036): the engine records each code-producing attempt after the ladder when `Run.collect_training_data` is set, passing the gateway's key values to the redactor and refusing runs on `bench/tasks/holdout` tasks (unit test); the New request checkbox; `barthelona training export` (supervised pairs from accepted attempts, preference pairs from `improves_on_seq`; local-model samples only unless the owner opts in per provider).
 - Run control: budgets, `StopReason`, escalation E0, E1, E3, E4; branch per run, commit per green task, tag per increment.
 - Knowledge: `facts.sqlite` (NASM App. F, directive indexes, `syscall_64.tbl`, SysV ABI row); FTS5 docs; rule cards for nasm / gas-intel / gas-att on linux-x64.
 - Process: `scripts/run.ps1` (worker + Streamlit); worker with event log + JSONL mirror; Streamlit pages New request, Approvals, Sprint board (topology DOT), Live run, Review, Toolchains & models (with provider health), Runs.
@@ -127,6 +129,7 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-19 | `Lesson.regression_check.asm` puts assembly inside the Lesson JSON document, which `retro` (an LLM node) proposes; this conflicts with invariant 5 / D-011 if filled through a JSON schema | review gate, domain models, 2026-10-13 | Needs an owner decision; no retro node yet | Fill `asm` deterministically from the evidence diff, or carry it in a FILE envelope referenced by path; record in §15.2 and D-017 | open (owner) |
 | F-20 | `RunEvent.payload`, `GateRequest.payload` and `GateDecision.edits` are free-form dicts; code or secrets could end up in event JSON | review gate, domain models, 2026-10-13 | The model layer cannot enforce it | With persistence: cap the payload size and route code and bulky data to `payload_ref`; unit test | open |
 | F-21 | `SprintTopology` compares a `pipelines` key with `pipeline.hash` only when the hash is set; a pipeline with `hash=None` can sit under any key | delta review gate, domain models, 2026-10-13 | Belongs with rule T2 | The T2 validator checks `key == spec_hash(pipeline)` for every pipeline; unit test | open |
+| F-24 | The training dataset has no size limit or retention; it grows with every collecting run | D-036, 2026-10-14 | Nothing writes samples before the Phase 1 engine hook | With the engine hook: show the dataset size in `training status` and on the Toolchains & models page; add `training prune --before <date>` if the size becomes a problem | open |
 
 ## Parked ideas (not scheduled)
 

@@ -75,6 +75,7 @@ from barthelona.domain.topology import (
     TopologyRequest,
     UnitSize,
 )
+from barthelona.domain.training import SampleSource, TrainingAttempt, TrainingSample, Verdict
 from barthelona.domain.verification import (
     Diagnostic,
     Expectation,
@@ -112,6 +113,7 @@ DOCUMENTS: dict[str, type[Document]] = {
         LLMCallRecord,
         GateRequest,
         GateDecision,
+        TrainingSample,
     )
 }
 
@@ -177,6 +179,7 @@ __all__ = [
     "RunEvent",
     "RunMode",
     "RunStatus",
+    "SampleSource",
     "Severity",
     "SprintBudget",
     "SprintPlan",
@@ -199,7 +202,10 @@ __all__ = [
     "TestKind",
     "TestOrigin",
     "TopologyRequest",
+    "TrainingAttempt",
+    "TrainingSample",
     "UnitSize",
+    "Verdict",
     "VerificationReport",
     "Visibility",
     "canonical_json",

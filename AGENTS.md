@@ -60,6 +60,7 @@ Agents prefix each command with `.\scripts\dev.ps1` / `scripts/dev.sh`; in an ac
 | Task | Command | Available |
 | --- | --- | --- |
 | Version / domain JSON schemas | `python -m barthelona version`, `python -m barthelona schema [Document]` | now |
+| Training-data setting and sample counts (opt-in, D-036) | `python -m barthelona training status` | now |
 | Lint / format / types | `ruff check .`, `ruff format .`, `mypy` | now |
 | Tests | `python -m pytest` (default excludes the `wsl`, `llm` and `slow` markers) | now (baseline tests only) |
 | Environment health | `.\scripts\doctor.ps1 [-StartWsl]` (or the `env-doctor` skill) | now |
