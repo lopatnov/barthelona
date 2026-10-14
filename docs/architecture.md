@@ -37,7 +37,7 @@ The result is a self-contained git repository that builds without barthelona.
 - multi-agent debate;
 - autonomous web research;
 - in-run rewriting of prompts or rules;
-- fine-tuning;
+- fine-tuning (the opt-in training-data collection that would feed it is in scope, §19, D-036);
 - KolibriOS (optional, later).
 
 ## 2. Principles
@@ -112,7 +112,7 @@ Measured costs:
 So the worker keeps one WSL agent and one toolchain container alive, and runs tests in batches.
 
 **Layering**, enforced by an import-linter test:
-- Order: `domain` ← {contracts, toolchains, executors, verification, knowledge, memory, llm, prompting, persistence, workspace, policy} ← `nodes` ← `engine` ← `cli`.
+- Order: `domain` ← {contracts, toolchains, executors, verification, knowledge, memory, llm, prompting, persistence, workspace, policy, training} ← `nodes` ← `engine` ← `cli`.
 - `ui` imports only `domain`, `persistence` and `config`.
 - Nothing imports `ui`.
 - The engine never imports Streamlit.
@@ -236,7 +236,8 @@ So the worker keeps one WSL agent and one toolchain container alive, and runs te
   - `policy_version` (pinned);
   - `budget{wall_s, tokens, usd (optional, null = uncapped but metered), max_sprints, cloud_allowed, allowed_providers, autopilot}`;
   - `composition_level`: `L0|L1|L2` (§9.5);
-  - `status`: `queued|running|waiting_gate|draining|stopped`; `stop_reason` is set exactly when the run is stopped.
+  - `status`: `queued|running|waiting_gate|draining|stopped`; `stop_reason` is set exactly when the run is stopped;
+  - `collect_training_data` (default false), pinned at run start from the training-data setting (§19, D-036).
 - `StopReason`: `green|budget_tokens|budget_time|budget_cost|max_attempts|max_sprints|human_abort|unsupported_target|refusal|no_model_available|infra_error`. `no_model_available` means every model in the role's chain, including the local one, is unavailable; the run drains to a resumable checkpoint.
 - `RunEvent`:
   - `run_id`, `seq`, `ts`, `ns`, `phase`, `sprint`, `task_id`, `node_id`;
@@ -247,6 +248,10 @@ So the worker keeps one WSL agent and one toolchain container alive, and runs te
   - `tokens_in`, `tokens_out`, `tokens_cached`;
   - `latency_ms`, `tok_per_s`, `schema_valid`, `repairs`, `usd`, `stop_reason`.
 - `GateRequest{gate_id, kind, run_id, payload, options}` and `GateDecision{gate_id, decision, edits, comment, at}`.
+
+**Training data** (§19, D-036)
+- `TrainingAttempt`: `run_id`, `seq`, `recorded_at`, `source` (`run|bench_dev`; the holdout has no value), `target`, `story_kind`, `task_id`, `node_id`, `role` (never `det`), `attempt`, `provider`, `model`, `model_hash`, `local`, `levels` (`LevelResult`s), `improves_on_seq` (an earlier, failed attempt this one retries). Its `verdict` is computed from `levels`: `rejected` if one failed, `accepted` if none failed and at least one passed, otherwise `not_verified` (skipped or unsupported levels confirm nothing).
+- `TrainingSample{attempt, prompt_sha256, response_sha256}`: the texts are files referenced by hash, never inline.
 
 ## 5. Meta-Agentic Scrum
 
@@ -1265,7 +1270,7 @@ Caps exist per run, per month, and per provider. Spend history is kept in `app.s
 
 | Page | Contents |
 | --- | --- |
-| New request* | Mode, dialect, target preset (unsupported presets disabled with the reason), workspace or import path, description (RU/UK/EN), profile, cloud consent and allowed providers, optional dollar budget (empty = uncapped but metered), time and token limits (empty = profile default; never unlimited), composition level, autopilot. |
+| New request* | Mode, dialect, target preset (unsupported presets disabled with the reason), workspace or import path, description (RU/UK/EN), profile, cloud consent and allowed providers, optional dollar budget (empty = uncapped but metered), time and token limits (empty = profile default; never unlimited), composition level, autopilot, collect training data (defaults to the setting, §19). |
 | Approvals* | Gate inbox. Editable spec, test and contract tables; contract-delta view; diff view for G4. |
 | Sprint board* | Backlog, sprint and done columns. The current topology rendered with `st.graphviz_chart` from DOT, showing the chosen template, insertions, knobs and why. A story × level ladder matrix with clickable diagnostics. |
 | Live run* | Current phase and node, attempts, tok/s, ETA, spend per provider (and vs. the cap, if one is set), which model is actually serving each role, event log (including fallbacks such as "anthropic: billing_error → deepseek"), cancel button. |
@@ -1293,6 +1298,7 @@ UI language is English. Input in Russian or Ukrainian is accepted; the normalize
   - `exec/<seq>.{argv,out,err}`;
   - `report.md`.
 - `kb/`: `facts.sqlite`, `docs_fts.sqlite`, and `emb_cache.sqlite` (P3).
+- `training/` (only when training-data collection is on, §19): `samples.jsonl` and `texts/<aa>/<sha256>.txt`.
 - `policies/vN/` (runtime-created versions) and `bench/<suite>/<timestamp>/`.
 
 **A project workspace** is its own git repository at `<workspaces>/<slug>/`. The default root is `<repo>/workspaces/` (gitignored), configurable with `BARTHELONA_WORKSPACES`.
@@ -1336,6 +1342,13 @@ The baseline is the product's own event log, which also feeds the UI.
 
 Langfuse and LangSmith are excluded: self-hosting Langfuse is too heavy for this machine, and LangSmith is SaaS.
 
+**Training data (opt-in, D-036).** Runs can collect a dataset for training an assembly-programming model later; fine-tuning itself stays out of scope (§1).
+- **Setting:** `BARTHELONA_TRAINING_DATA_ENABLED` (default off) and `BARTHELONA_TRAINING_DATA_DIRECTORY` (default `var/training`), read from the process environment by `training.TrainingDataSettings`. The New request page offers a "Collect training data" checkbox that defaults to the setting; the choice is pinned as `Run.collect_training_data`. `python -m barthelona training status` prints the setting and the sample count per verdict.
+- **What:** one `TrainingSample` (§4) per code-producing model attempt, recorded after the tamper gate and the ladder have judged it, so the label comes from the oracles. Failed attempts are kept: a rejected attempt and the accepted retry that names it in `improves_on_seq` form a preference pair.
+- **Where:** local files only, never uploaded: `samples.jsonl` (metadata, one sample per line) and content-addressed `texts/<aa>/<sha256>.txt` for prompts and responses, so code stays out of JSON (invariant 5). Secrets are redacted before a text is written. The worker is the only writer.
+- **Not collected:** holdout benchmark attempts (no `SampleSource` value exists for them, `source` is required, and the engine hook refuses runs on holdout tasks) and deterministic nodes.
+- **Export** (Phase 1): `barthelona training export` writes trainer-ready files; by default it keeps only local-model samples, because provider terms may restrict training on cloud outputs.
+
 ## 20. Evaluation
 
 - **Unit tests** (no LLM, no WSL):
@@ -1378,6 +1391,7 @@ Langfuse and LangSmith are excluded: self-hosting Langfuse is too heavy for this
 | Secret leakage | Keys only in the environment; redacted from logs and events; never in Streamlit session state or containers |
 | Supply chain | Hash-locked requirements (`--require-hashes`); pinned image digests; no LiteLLM; AGPL PyMuPDF kept out of the product |
 | Cloud data egress | Per-run consent; the profile is shown on every run; local-only profile available |
+| Training data leaks secrets or leaves the machine | Off by default; local files only, never uploaded; secrets redacted before writing; holdout attempts never recorded (D-036) |
 | Self-modification abuse | Immutable policy versions, invariants, holdout A/B, human activation at G6, rollback |
 
 ## 22. Known uncertainties and spikes

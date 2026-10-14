@@ -17,7 +17,7 @@ paths:
 - `subprocess` takes argv lists only, never `shell=True`. Use `pathlib`. Open text files with `encoding="utf-8", newline="\n"`.
 - No `print` in library code: emit `RunEvent`s or use `logging`. Never log secrets, prompts containing keys, or `.env` content.
 - Import layering (an import-linter test will enforce it):
-  - `domain` ← {contracts, toolchains, executors, verification, knowledge, memory, llm, prompting, persistence, workspace, policy} ← `nodes` ← `engine` ← `cli`;
+  - `domain` ← {contracts, toolchains, executors, verification, knowledge, memory, llm, prompting, persistence, workspace, policy, training} ← `nodes` ← `engine` ← `cli`;
   - `ui` imports only `domain`, `persistence` and `config`.
 - Tests:
   - pytest markers `wsl` (needs WSL/docker), `llm` (real model calls) and `slow`. The default run excludes them.

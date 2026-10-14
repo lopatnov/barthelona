@@ -42,3 +42,4 @@ Template: Context (optional), Decision, Rationale, Alternatives considered, Cons
 | [D-033](D-033-dev-process-conventions.md) | Development-process conventions for coding agents (adapted from the owner's conduit project) | Proposed | amends D-026, D-032; amended by D-035 |
 | [D-034](D-034-project-owned-qdrant-in-docker-compose.md) | Barthelona runs its own Qdrant from docker/qdrant/compose.yaml | Proposed |  |
 | [D-035](D-035-agents-commit-push-and-merge-without-approval.md) | Coding agents commit, push and merge their own PRs without owner approval | Proposed | amends D-033 |
+| [D-036](D-036-opt-in-local-training-data-collection.md) | Opt-in, local collection of training data from code-producing attempts | Proposed |  |
