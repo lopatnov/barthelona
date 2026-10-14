@@ -1,6 +1,7 @@
 # Roadmap
 
 Phased plan for barthelona. Each phase has a goal, deliverables and exit criteria. A phase is done only when its exit criteria are met; the benchmark decides whether optional subsystems are switched on.
+Every phase's exit criteria also include the phase review (D-037): it ran, and its blocking issues are fixed.
 Architecture: `docs/architecture.md`. Decisions: `docs/adr/`.
 
 Current status (2026-10-14): **Phase 0 in progress** — repository and environment done (design, agent configuration for Claude Code and Codex, conda scripts, hash-locked dependencies, baseline tests); code skeleton started: domain models, the `var/app.sqlite` store and the `python -m barthelona` entry point exist; the toolchain probe and `verify` are next.
@@ -26,6 +27,7 @@ Current status (2026-10-14): **Phase 0 in progress** — repository and environm
 - Parser and codegen tests are green.
 - A bake-off table exists; one main local model is chosen and loaded in LM Studio at 16K context.
 - The single-prompt baseline score is recorded.
+- The phase review (D-037) ran, and its blocking issues are fixed.
 
 ## Phase 1 — MVP vertical slice (about 3–4 weeks)
 
@@ -50,6 +52,7 @@ Current status (2026-10-14): **Phase 0 in progress** — repository and environm
 - Dev-split bench: the hybrid profile beats the single-prompt baseline by the margin set in Phase 0 (initial target +30 points); local-only recorded; zero tamper escapes; L0 vs L1 recorded.
 - The owner creates a 3-module NASM program from a Russian-language request through the UI and approves it at the gates.
 - Stance until Phase 2: increments are accepted on the MVP DoD (V0–V2 + V5/V6) and labelled **ABI-unverified** in the UI and the increment record, until the V3/V4 oracles and the mutation corpus are in place.
+- The phase review (D-037) ran, and its blocking issues are fixed.
 
 ## Phase 2 — Stronger oracles and full meta-agency
 
@@ -65,24 +68,25 @@ Current status (2026-10-14): **Phase 0 in progress** — repository and environm
 - Mutation corpus: 100% of bad cases detected, 0 false positives.
 - Every AI-composed topology either validates or falls back to L0; no run is blocked.
 - Bench: Phase 2 ≥ Phase 1 on dev and holdout; L2 enabled for a profile only if it beats L1 there. Results recorded in an ADR.
+- The phase review (D-037) ran, and its blocking issues are fixed.
 
 ## Phase 3 — Edit mode for external projects, memory, optional vector search
 
 **Deliverables:** importer and target detection; baseline build with `fix_build`; repo map (regex extractors + PageRank); inferred contracts (nm + Capstone); characterization tests; localizer; minimality gate extended to external projects (symbol spans from the repo map); full `contract_change` flow; lessons lifecycle with regression checks and an inbox; retrieval eval (≥60 queries); Qdrant hybrid backend behind the Retriever interface; MASM docs from cpp-docs.
 
-**Exit criteria:** external seed repos edited with zero characterization regressions; Qdrant on by default only if recall@5 beats FTS5 by the agreed margin; lesson injection on only if the bench improves.
+**Exit criteria:** external seed repos edited with zero characterization regressions; Qdrant on by default only if recall@5 beats FTS5 by the agreed margin; lesson injection on only if the bench improves; the phase review (D-037) ran, and its blocking issues are fixed.
 
 ## Phase 4 — Dialect and target breadth
 
 **Deliverables:** FASM 1 (ELF64, PE64; frame-based diagnostics; `-s` line mapping; `public`/`extrn` headers); optional fasmg/fasm2; Win64 targets (NASM/GAS + mingw, wine runner, shadow-space and `.pdata` checks); ELF32 cdecl; asmc/UASM for MASM syntax; ml64 opt-in on Windows (VS Build Tools, admin); boot-sector preset with qemu-system. Each preset ships a rule card, a conformance kit and bench tasks.
 
-**Exit criteria:** each preset passes its conformance kit and solves at least 5 bench tasks within budget.
+**Exit criteria:** each preset passes its conformance kit and solves at least 5 bench tasks within budget; the phase review (D-037) ran, and its blocking issues are fixed.
 
 ## Phase 5 — Policy Lab, gated research, extras
 
 **Deliverables:** Policy Lab (PolicyPatch → candidate version → A/B on holdout, ≥3 repeats, batch APIs → G6 activation/rollback); gated web research (approval, domain allowlist, low-trust candidates promoted only after a fix passes); optional advisory critic on a different model; OpenTelemetry → Phoenix; OpenVINO Model Server trial; AArch64/RISC-V via qemu-user; a local MCP server exposing barthelona's toolchain and verification tools (usable by Claude Code during development); KolibriOS if chosen.
 
-**Exit criteria:** at least one policy patch activated with a measured holdout gain; a rollback exercised; web-sourced knowledge never reaches prompts without the evidence step.
+**Exit criteria:** at least one policy patch activated with a measured holdout gain; a rollback exercised; web-sourced knowledge never reaches prompts without the evidence step; the phase review (D-037) ran, and its blocking issues are fixed.
 
 ## Open decisions (owner)
 
@@ -129,9 +133,10 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-19 | `Lesson.regression_check.asm` puts assembly inside the Lesson JSON document, which `retro` (an LLM node) proposes; this conflicts with invariant 5 / D-011 if filled through a JSON schema | review gate, domain models, 2026-10-13 | Needs an owner decision; no retro node yet | Fill `asm` deterministically from the evidence diff, or carry it in a FILE envelope referenced by path; record in §15.2 and D-017 | open (owner) |
 | F-20 | `RunEvent.payload`, `GateRequest.payload` and `GateDecision.edits` are free-form dicts; code or secrets could end up in event JSON | review gate, domain models, 2026-10-13 | The model layer cannot enforce it | With persistence: cap the payload size and route code and bulky data to `payload_ref`; unit test | open (partial 2026-10-14: the store refuses event payloads, gate payloads and gate-decision `edits` over 16 KiB with a pointer to `payload_ref`; routing code to `payload_ref` lands with the nodes that emit it) |
 | F-21 | `SprintTopology` compares a `pipelines` key with `pipeline.hash` only when the hash is set; a pipeline with `hash=None` can sit under any key | delta review gate, domain models, 2026-10-13 | Belongs with rule T2 | The T2 validator checks `key == spec_hash(pipeline)` for every pipeline; unit test | open |
-| F-22 | `Store.set_run_status` accepts any status after any other (for example `stopped` back to `running`); the architecture defines no run-status transitions | review gate, persistence, 2026-10-14 | The engine run graph does not exist yet | With the outer run graph: write the allowed transitions in architecture §17, enforce them in `set_run_status`, unit test | open |
-| F-23 | The UI shares one read-only SQLite handle across Streamlit threads (§17), which is safe only on a serialized SQLite build (`sqlite3.threadsafety == 3`) | review gate, persistence, 2026-10-14 | No UI yet | Check `sqlite3.threadsafety` in `env-doctor` and where the UI opens its handle; fail with a clear message. The UI also handles `connect_readonly`'s `RuntimeError` when the worker has not migrated yet ("worker not started") | open |
+| F-22 | `Store.set_run_status` accepts any status after any other (for example `stopped` back to `running`); the architecture defines no run-status transitions | review gate, persistence, 2026-10-14 | The engine run graph does not exist yet | With the outer run graph: write the allowed transitions in architecture §17, enforce them in `set_run_status`, unit test | open (#10) |
+| F-23 | The UI shares one read-only SQLite handle across Streamlit threads (§17), which is safe only on a serialized SQLite build (`sqlite3.threadsafety == 3`) | review gate, persistence, 2026-10-14 | No UI yet | Check `sqlite3.threadsafety` in `env-doctor` and where the UI opens its handle; fail with a clear message. The UI also handles `connect_readonly`'s `RuntimeError` when the worker has not migrated yet ("worker not started") | open (#11) |
 | F-24 | The training dataset has no size limit or retention; it grows with every collecting run | D-036, 2026-10-14 | Nothing writes samples before the Phase 1 engine hook | With the engine hook: show the dataset size in `training status` and on the Toolchains & models page; add `training prune --before <date>` if the size becomes a problem | open |
+| F-25 | Two resume commands for one open gate can both be queued; the second fails at the worker with `ConflictError` from `resolve_gate` | review gate, PR #8, 2026-10-14 | The worker command loop does not exist yet | In the command loop, turn that `ConflictError` into a `RunEvent` (no silent fallbacks, `.claude/rules/python.md`) and test it, or refuse a second unclaimed resume per `gate_id` at enqueue | open (#12) |
 
 ## Parked ideas (not scheduled)
 
