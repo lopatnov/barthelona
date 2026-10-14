@@ -28,4 +28,4 @@ Existing ADRs:
 3. If it amends or supersedes earlier ADRs, add `- Amended by: D-NNN` (or change `Status:` to `Superseded by D-NNN`) in those files.
 4. Add a row to `docs/adr/README.md`.
 5. Update the affected sections of `docs/architecture.md` (and `AGENTS.md` if an invariant changed) in the same change.
-6. Show the user the new ADR and the diff summary. Do not commit unless asked.
+6. Show the user the new ADR and the diff summary. Commit it on the working branch after the review gate (AGENTS.md is a gated path); the ADR stays Proposed until the owner accepts it.
