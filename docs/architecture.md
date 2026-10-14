@@ -120,7 +120,8 @@ So the worker keeps one WSL agent and one toolchain container alive, and runs te
 ## 4. Domain model (Pydantic v2, `src/barthelona/domain/`)
 
 **General rules:**
-- Every model has a `schema_version` and serializes to JSON or YAML.
+- Every top-level document (`barthelona.domain.DOCUMENTS`; `python -m barthelona schema` lists them and prints their JSON schemas) has a `schema_version`; nested value objects take the version of the document that holds them. Every model serializes to JSON or YAML, has fields that cannot be reassigned (updates go through `model_copy`; nested lists and dicts are not deep-frozen) and rejects unknown keys. Hashes (`spec_hash`, `hash`) cover the canonical JSON without the model's own hash fields.
+- The models check field shapes and local consistency only (unique ids, a stopped run has a `StopReason`, sprint layers cover every task once, a sprint topology's tasks map to its pipelines) and absolute ceilings; the LLM-facing decoding schema is generated from the active policy (§9.4) and is tighter. Graph rules for topologies are validator rules T1–T10 (§9.4).
 - Every model an LLM fills is flat: no recursion, minimal `$ref`/`anyOf`, enums, and length limits. This lets grammar-constrained decoding work on local models.
 
 **Target and project**
@@ -177,8 +178,8 @@ So the worker keeps one WSL agent and one toolchain container alive, and runs te
 - `SprintPlan`: `sprint_no`, `goal`, `item_ids`, `tasks`, `layers` (list of task-id lists), `topology_request`, `budget`.
 - `Task`: `id`, `item_id`, `module`, `symbols`, `depends_on`, `write_scope` (globs), `role_hint`.
 - `TopologyRequest` (LLM-fillable; enums and bounded numbers only):
-  - per task: `{task_id, template_id, insertions{slot: [node_type]}, knobs{name: value}, loop_budgets{back_edge: {max_iters, max_wall_s, max_tokens, max_usd}}, unit_size: symbol|module|module_group}` (L1);
-  - or, at L2, `pipelines[TaskPipeline]` built from registered node types;
+  - per task: `{task_id, template_id, insertions{slot: [node_type]}, knobs{name: value}, loop_budgets{"src->dst": {max_iters, max_wall_s, max_tokens, max_usd}}, unit_size: symbol|module|module_group}` (L1);
+  - or, at L2, `pipelines{task_id: TaskPipeline}` built from registered node types (a request is either L1 or L2, never both);
   - `rationale`, at most 300 characters.
 - `SprintTopology`, `TaskPipeline`, `NodeSpec`, `EdgeSpec`, `LoopBound`: see §9.
 
@@ -235,7 +236,7 @@ So the worker keeps one WSL agent and one toolchain container alive, and runs te
   - `policy_version` (pinned);
   - `budget{wall_s, tokens, usd (optional, null = uncapped but metered), max_sprints, cloud_allowed, allowed_providers, autopilot}`;
   - `composition_level`: `L0|L1|L2` (§9.5);
-  - `status`, `stop_reason`.
+  - `status`: `queued|running|waiting_gate|draining|stopped`; `stop_reason` is set exactly when the run is stopped.
 - `StopReason`: `green|budget_tokens|budget_time|budget_cost|max_attempts|max_sprints|human_abort|unsupported_target|refusal|no_model_available|infra_error`. `no_model_available` means every model in the role's chain, including the local one, is unavailable; the run drains to a resumable checkpoint.
 - `RunEvent`:
   - `run_id`, `seq`, `ts`, `ns`, `phase`, `sprint`, `task_id`, `node_id`;
@@ -503,7 +504,8 @@ An unsatisfiable contract goes to `contract_change` and G2.
   - `pipelines`: map of hash to TaskPipeline;
   - `task_pipeline`: map of task id to hash;
   - `post`: `[integration, verify_dod, review_gate]`;
-  - `budget`, `spec_hash`.
+  - `budget`, `spec_hash`;
+  - `revision` (K in `topology.rK.json`) and `composition_level` (the level actually used).
 
 ### 9.2 Template example (`module_create`; illustrative: the `abi_lint` insertion and the `trace_capture` slot arrive with policy v2)
 
