@@ -153,3 +153,32 @@ class GateDecision(Document):
     edits: dict[str, Any] = Field(default_factory=dict)
     comment: Text = ""
     at: datetime
+
+
+class CommandKind(StrEnum):
+    RESUME = "resume"
+    CANCEL = "cancel"
+    RETRY_TASK = "retry_task"
+    EXTEND_BUDGET = "extend_budget"
+
+
+class RunCommand(Document):
+    """A request from the UI or CLI to the worker (`commands` table, §17)."""
+
+    run_id: ItemId
+    kind: CommandKind
+    decision: GateDecision | None = None  # resume only
+    task_id: NodeId | None = None  # retry_task only
+    budget: RunBudget | None = None  # extend_budget only: the new limits
+
+    @model_validator(mode="after")
+    def _arguments_match_kind(self) -> RunCommand:
+        expected = {
+            CommandKind.RESUME: "decision",
+            CommandKind.RETRY_TASK: "task_id",
+            CommandKind.EXTEND_BUDGET: "budget",
+        }.get(self.kind)
+        given = {name for name in ("decision", "task_id", "budget") if getattr(self, name) is not None}
+        if given != ({expected} if expected else set()):
+            raise ValueError(f"{self.kind.value!r} takes {expected or 'no arguments'}, got {sorted(given)}")
+        return self

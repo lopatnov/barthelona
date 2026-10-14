@@ -1282,6 +1282,9 @@ UI language is English. Input in Russian or Ukrainian is accepted; the normalize
 
 **`var/` (gitignored):**
 - `app.sqlite` (WAL). Tables: `runs`, `commands`, `events`, `gates`, `llm_calls`, `exec_log`, `lessons`, `lesson_uses`, `overlay_changes`, `policy_pointer`, `metrics`, `bench_results`.
+  - Schema versions are tracked with `PRAGMA user_version`; migrations are append-only (`persistence/migrations.py`). Migration 1 creates the first five tables as STRICT tables; each later table arrives with its feature as a new migration.
+  - Each row stores the domain document as JSON (`Run`, `RunCommand`, `RunEvent`, `GateRequest`/`GateDecision`, `LLMCallRecord`) next to a few indexed columns, and every read validates it back into its model.
+  - Writes run in `BEGIN IMMEDIATE` transactions. Event numbers per run are contiguous from 0, commands are claimed exactly once, and a gate is resolved once with one of its offered options. Event payloads, gate payloads and gate-decision edits over 16 KiB are refused; bulky data goes under `runs/<run_id>/` and is referenced by `payload_ref`.
 - `checkpoints.sqlite`: LangGraph `AsyncSqliteSaver`.
 - `worker.lock`.
 - `runs/<run_id>/`:

@@ -4,7 +4,7 @@ Shared instructions for every coding agent working on this repo. Codex reads thi
 
 A local-first agentic system that **creates or edits multi-file assembly projects** from a natural-language request. In a Streamlit UI the user picks an assembler dialect (NASM, GAS; later FASM, MASM, ...) and a target preset (arch / OS / ABI / format), chooses create or edit, and describes the goal. A **Meta-Agentic Scrum** engine on LangGraph turns the request into a spec, contracts and tests, then runs bounded sprints whose loop graphs the AI composes from registered building blocks, until the project builds and passes its tests in a sandbox.
 
-**Status (2026-10-13): Phase 0 in progress — repository and environment done; code skeleton started.** What exists: the design docs, the agent configuration (Claude Code and Codex), the conda scripts, hash-locked dependencies, baseline tests, the domain models (`src/barthelona/domain/`) and the `python -m barthelona` entry point (`version`, `schema`). Everything else in the docs is planned. Check `docs/roadmap.md` before assuming a module or command exists.
+**Status (2026-10-14): Phase 0 in progress — repository and environment done; code skeleton started.** What exists: the design docs, the agent configuration (Claude Code and Codex), the conda scripts, hash-locked dependencies, baseline tests, the domain models (`src/barthelona/domain/`), the `var/app.sqlite` store (`src/barthelona/persistence/`) and the `python -m barthelona` entry point (`version`, `schema`). Everything else in the docs is planned. Check `docs/roadmap.md` before assuming a module or command exists.
 
 ## Language
 

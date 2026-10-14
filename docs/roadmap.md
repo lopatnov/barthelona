@@ -3,7 +3,7 @@
 Phased plan for barthelona. Each phase has a goal, deliverables and exit criteria. A phase is done only when its exit criteria are met; the benchmark decides whether optional subsystems are switched on.
 Architecture: `docs/architecture.md`. Decisions: `docs/adr/`.
 
-Current status (2026-10-13): **Phase 0 in progress** — repository and environment done (design, agent configuration for Claude Code and Codex, conda scripts, hash-locked dependencies, baseline tests); code skeleton started: domain models and the `python -m barthelona` entry point exist, persistence is next.
+Current status (2026-10-14): **Phase 0 in progress** — repository and environment done (design, agent configuration for Claude Code and Codex, conda scripts, hash-locked dependencies, baseline tests); code skeleton started: domain models, the `var/app.sqlite` store and the `python -m barthelona` entry point exist; the toolchain probe and `verify` are next.
 
 ## Phase 0 — Foundations and the deterministic spine (about 1–2 weeks, no agent loop yet)
 
@@ -11,7 +11,7 @@ Current status (2026-10-13): **Phase 0 in progress** — repository and environm
 
 **Deliverables**
 - Repository: `AGENTS.md` / `CLAUDE.md`, `.claude/` config and the Codex mirror ✔, `.gitattributes` ✔, `pyproject.toml` ✔, `environment.yml` ✔, hash-locked requirements ✔, `create_env` / `activate` / `lock` scripts ✔, `doctor.ps1` ✔, dependency fingerprint + baseline tests ✔.
-- Code skeleton: domain models (Pydantic v2) ✔; persistence (SQLite WAL schema and migrations); `python -m barthelona` CLI (entry point with `version` and `schema` ✔; `verify` and `probe` land with their deliverables).
+- Code skeleton: domain models (Pydantic v2) ✔; persistence (SQLite WAL schema and migrations for `runs`, `commands`, `events`, `gates`, `llm_calls`) ✔; `python -m barthelona` CLI (entry point with `version` and `schema` ✔; `verify` and `probe` land with their deliverables).
 - Environment fixes (owner actions): `.wslconfig` memory cap; Qdrant storage moved to a named volume (see `docs/runbook.md`).
 - Execution: Docker images `barthelona/toolchain` and `barthelona/runner`; the WSL agent (JSON lines, staging, allowlist, path fence); `barthelona probe` writing `config/toolchains.lock.json`.
 - Assemblers: NASM and GAS (Intel and AT&T) dialect adapters; ld/gcc linkers; diagnostics parsers with real captured fixtures.
@@ -125,8 +125,10 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-17 | `docs/roadmap.md` open decision 7 and D-027 say `asm_doc/` is not pushed, but origin/main has it since 3bef7db | review gate on D-035, 2026-10-13 | Owner decision on publishing third-party docs | Owner decides: keep (fix both texts and check licenses) or remove from history | open (owner) |
 | F-18 | Guard gaps after D-035: a bare `git push` while on `main`, and `git checkout HEAD -- <dir>` (discards a directory), are not blocked; nor are abbreviated long options (`--amen`, `--forc`, `--discard`) or `git stash -q drop` | review gate on D-035, 2026-10-13 | Needs the current branch / pathspec analysis in the hook | Resolve the current branch and its upstream for refspec-less pushes; block `checkout <tree> -- <dir>` for directories; match option prefixes of 3+ chars; find the stash subcommand after options; add harness cases | open |
 | F-19 | `Lesson.regression_check.asm` puts assembly inside the Lesson JSON document, which `retro` (an LLM node) proposes; this conflicts with invariant 5 / D-011 if filled through a JSON schema | review gate, domain models, 2026-10-13 | Needs an owner decision; no retro node yet | Fill `asm` deterministically from the evidence diff, or carry it in a FILE envelope referenced by path; record in §15.2 and D-017 | open (owner) |
-| F-20 | `RunEvent.payload`, `GateRequest.payload` and `GateDecision.edits` are free-form dicts; code or secrets could end up in event JSON | review gate, domain models, 2026-10-13 | The model layer cannot enforce it | With persistence: cap the payload size and route code and bulky data to `payload_ref`; unit test | open |
+| F-20 | `RunEvent.payload`, `GateRequest.payload` and `GateDecision.edits` are free-form dicts; code or secrets could end up in event JSON | review gate, domain models, 2026-10-13 | The model layer cannot enforce it | With persistence: cap the payload size and route code and bulky data to `payload_ref`; unit test | open (partial 2026-10-14: the store refuses event payloads, gate payloads and gate-decision `edits` over 16 KiB with a pointer to `payload_ref`; routing code to `payload_ref` lands with the nodes that emit it) |
 | F-21 | `SprintTopology` compares a `pipelines` key with `pipeline.hash` only when the hash is set; a pipeline with `hash=None` can sit under any key | delta review gate, domain models, 2026-10-13 | Belongs with rule T2 | The T2 validator checks `key == spec_hash(pipeline)` for every pipeline; unit test | open |
+| F-22 | `Store.set_run_status` accepts any status after any other (for example `stopped` back to `running`); the architecture defines no run-status transitions | review gate, persistence, 2026-10-14 | The engine run graph does not exist yet | With the outer run graph: write the allowed transitions in architecture §17, enforce them in `set_run_status`, unit test | open |
+| F-23 | The UI shares one read-only SQLite handle across Streamlit threads (§17), which is safe only on a serialized SQLite build (`sqlite3.threadsafety == 3`) | review gate, persistence, 2026-10-14 | No UI yet | Check `sqlite3.threadsafety` in `env-doctor` and where the UI opens its handle; fail with a clear message | open |
 
 ## Parked ideas (not scheduled)
 

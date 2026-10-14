@@ -50,6 +50,7 @@ from barthelona.domain.memory import (
 from barthelona.domain.patch import FileWrite, HunkEdit, Patch, SymbolEdit
 from barthelona.domain.project import ChangeSpec, ModuleSpec, ProjectSpec, Requirement, TargetProfile
 from barthelona.domain.run import (
+    CommandKind,
     EventKind,
     GateDecision,
     GateKind,
@@ -58,6 +59,7 @@ from barthelona.domain.run import (
     Profile,
     Run,
     RunBudget,
+    RunCommand,
     RunEvent,
     RunMode,
     RunStatus,
@@ -112,6 +114,7 @@ DOCUMENTS: dict[str, type[Document]] = {
         LLMCallRecord,
         GateRequest,
         GateDecision,
+        RunCommand,
     )
 }
 
@@ -123,6 +126,7 @@ __all__ = [
     "Arch",
     "BacklogItem",
     "ChangeSpec",
+    "CommandKind",
     "CompositionLevel",
     "ContractRegistry",
     "Diagnostic",
@@ -173,6 +177,7 @@ __all__ = [
     "Role",
     "Run",
     "RunBudget",
+    "RunCommand",
     "RunEnv",
     "RunEvent",
     "RunMode",
