@@ -120,7 +120,7 @@ So the worker keeps one WSL agent and one toolchain container alive, and runs te
 ## 4. Domain model (Pydantic v2, `src/barthelona/domain/`)
 
 **General rules:**
-- Every top-level document (`barthelona.domain.DOCUMENTS`; `python -m barthelona schema` lists them and prints their JSON schemas) has a `schema_version`; nested value objects take the version of the document that holds them. Every model serializes to JSON or YAML, has fields that cannot be reassigned (updates go through `model_copy`; nested lists and dicts are not deep-frozen) and rejects unknown keys. Hashes (`spec_hash`, `hash`) cover the canonical JSON without the model's own hash fields.
+- Every top-level document (`barthelona.domain.DOCUMENTS`; `python -m barthelona schema` lists them and prints their JSON schemas) has a `schema_version`; nested value objects take the version of the document that holds them. Every model serializes to JSON or YAML, has fields that cannot be reassigned (nested lists and dicts are not deep-frozen); `model_copy(update=...)` skips validation, so updates from untrusted input go through `model_validate` and rejects unknown keys. Hashes (`spec_hash`, `hash`) cover the canonical JSON without the model's own hash fields.
 - The models check field shapes and local consistency only (unique ids, a stopped run has a `StopReason`, sprint layers cover every task once, a sprint topology's tasks map to its pipelines) and absolute ceilings; the LLM-facing decoding schema is generated from the active policy (§9.4) and is tighter. Graph rules for topologies are validator rules T1–T10 (§9.4).
 - Every model an LLM fills is flat: no recursion, minimal `$ref`/`anyOf`, enums, and length limits. This lets grammar-constrained decoding work on local models.
 

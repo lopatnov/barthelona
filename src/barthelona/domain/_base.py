@@ -38,7 +38,11 @@ Text = Annotated[str, StringConstraints(max_length=4000)]
 
 
 class DomainModel(BaseModel):
-    """Value object: fields cannot be reassigned and unknown keys are rejected; use `model_copy`."""
+    """Value object: fields cannot be reassigned and unknown keys are rejected.
+
+    `model_copy(update=...)` skips validation, so use it only for trusted values; build untrusted updates
+    with `model_validate(model.model_dump() | changes)`.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 

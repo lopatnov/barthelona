@@ -160,6 +160,11 @@ def test_struct_offsets_are_ascending_and_inside_the_struct() -> None:
     StructDef(
         fields=[StructField(name="a", type="u64", off=0), StructField(name="b", type="u32", off=8)], size=16
     )
+    with pytest.raises(ValidationError, match="strictly ascending"):
+        StructDef(
+            fields=[StructField(name="a", type="u64", off=0), StructField(name="b", type="u64", off=0)],
+            size=16,
+        )
     with pytest.raises(ValidationError, match="ascending"):
         StructDef(
             fields=[StructField(name="a", type="u64", off=8), StructField(name="b", type="u64", off=0)],
@@ -375,6 +380,7 @@ def test_lesson_rule_is_short_and_web_lessons_cite_a_url() -> None:
         {"type": "int", "min": 0, "max": 1, "default": True},
         {"type": "enum", "values": ["8k", "16k"], "default": "32k"},
         {"type": "bool", "default": "yes"},
+        {"type": "int", "min": 1, "max": 4, "default": 1.5},
     ],
 )
 def test_knob_defaults_are_within_their_ranges(knob: dict[str, object]) -> None:
@@ -385,6 +391,23 @@ def test_knob_defaults_are_within_their_ranges(knob: dict[str, object]) -> None:
 def test_json_patch_op_uses_the_rfc_field_name() -> None:
     op = JsonPatchOp.model_validate({"op": "move", "from": "/a", "path": "/b"})
     assert op.model_dump()["from"] == "/a"
+    JsonPatchOp.model_validate({"op": "add", "path": "/a~1b", "value": None})  # explicit null is a value
+
+
+@pytest.mark.parametrize(
+    "op",
+    [
+        {"op": "add", "path": "/b"},
+        {"op": "move", "path": "/b"},
+        {"op": "copy", "path": "/b"},
+        {"op": "move", "from": "/a", "path": "/a/b"},
+        {"op": "remove", "path": "/item~2"},
+        {"op": "remove", "path": "/item~"},
+    ],
+)
+def test_json_patch_ops_follow_rfc_6902(op: dict[str, object]) -> None:
+    with pytest.raises(ValidationError):
+        JsonPatchOp.model_validate(op)
 
 
 # --- layering ----------------------------------------------------------------------------------

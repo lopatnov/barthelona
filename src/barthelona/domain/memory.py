@@ -20,6 +20,8 @@ from barthelona.domain._base import (
 from barthelona.domain.enums import OS, Arch, Dialect, ObjFormat
 
 LESSON_RULE_MAX_WORDS = 40
+# RFC 6901: `~` only as the escapes `~0` and `~1`.
+JsonPointer = Annotated[str, StringConstraints(pattern=r"^(/([^/~]|~[01])*)*$", max_length=255)]
 
 
 class LessonKind(StrEnum):
@@ -111,6 +113,8 @@ class Knob(DomainModel):
         elif self.type in ("int", "float"):
             if isinstance(self.default, bool) or not isinstance(self.default, int | float):
                 raise ValueError("numeric knob needs a numeric default")
+            if self.type == "int" and not isinstance(self.default, int):
+                raise ValueError("int knob needs an integer default")
             if self.min is None or self.max is None or not self.min <= self.default <= self.max:
                 raise ValueError("numeric knob needs min <= default <= max")
         elif not isinstance(self.default, bool):
@@ -159,11 +163,19 @@ class JsonPatchOp(DomainModel):
     model_config = ConfigDict(extra="forbid", frozen=True, validate_by_name=True, serialize_by_alias=True)
 
     op: Literal["add", "remove", "replace", "move", "copy", "test"]
-    path: Annotated[str, StringConstraints(pattern=r"^(/[^/]*)*$", max_length=255)]
+    path: JsonPointer
     value: Any = None
-    from_: Annotated[str, StringConstraints(pattern=r"^(/[^/]*)*$", max_length=255)] | None = Field(
-        default=None, alias="from"
-    )
+    from_: JsonPointer | None = Field(default=None, alias="from")
+
+    @model_validator(mode="after")
+    def _members_match_op(self) -> JsonPatchOp:
+        if self.op in ("add", "replace", "test") and "value" not in self.model_fields_set:
+            raise ValueError(f"{self.op!r} needs a value (null is allowed)")
+        if self.op in ("move", "copy") and self.from_ is None:
+            raise ValueError(f"{self.op!r} needs a from path")
+        if self.op == "move" and self.from_ is not None and self.path.startswith(self.from_ + "/"):
+            raise ValueError("cannot move a value into one of its own children")
+        return self
 
 
 class PolicyPatch(Document):

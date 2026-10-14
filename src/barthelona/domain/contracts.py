@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from itertools import pairwise
 from typing import Annotated, Literal
 
 from pydantic import Field, StringConstraints, model_validator
@@ -91,8 +92,9 @@ class StructDef(DomainModel):
     @model_validator(mode="after")
     def _offsets_in_bounds(self) -> StructDef:
         offsets = [f.off for f in self.fields]
-        if offsets != sorted(offsets):
-            raise ValueError("struct field offsets must be ascending")
+        # Field widths depend on the dialect's type sizes, so extent overflow is checked by codegen.
+        if any(a >= b for a, b in pairwise(offsets)):
+            raise ValueError("struct field offsets must be strictly ascending")
         if offsets[-1] >= self.size:
             raise ValueError("struct field offset beyond the struct size")
         return self
