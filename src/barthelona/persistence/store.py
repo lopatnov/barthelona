@@ -41,6 +41,7 @@ class ConflictError(RuntimeError):
 
 
 def _utc_now() -> datetime:
+    """Default clock."""
     return datetime.now(UTC)
 
 
@@ -59,6 +60,7 @@ class Store:
     # --- runs ------------------------------------------------------------------------------------
 
     def create_run(self, run: Run) -> None:
+        """Insert a new run; `ConflictError` if its id is taken."""
         now = self._now()
         with self._write():
             try:
@@ -71,12 +73,14 @@ class Store:
                 raise ConflictError(f"run {run.id!r} already exists") from exc
 
     def get_run(self, run_id: str) -> Run:
+        """The stored run; `NotFoundError` if there is none."""
         row = self._conn.execute("SELECT doc FROM runs WHERE id = ?", (run_id,)).fetchone()
         if row is None:
             raise NotFoundError(f"run {run_id!r} not found")
         return Run.model_validate_json(row["doc"])
 
     def list_runs(self, status: RunStatus | None = None) -> list[Run]:
+        """All runs, or those in `status`, oldest first."""
         if status is None:
             rows = self._conn.execute("SELECT doc FROM runs ORDER BY created_at, id")
         else:
@@ -107,6 +111,7 @@ class Store:
         return run
 
     def _save_run(self, run: Run) -> None:
+        """Overwrite the run's row; callers hold the write transaction."""
         self._conn.execute(
             "UPDATE runs SET status = ?, stop_reason = ?, updated_at = ?, doc = ? WHERE id = ?",
             (run.status, run.stop_reason, self._now(), run.model_dump_json(), run.id),
@@ -115,6 +120,7 @@ class Store:
     # --- events ----------------------------------------------------------------------------------
 
     def next_seq(self, run_id: str) -> int:
+        """The sequence number the run's next event must carry."""
         row = self._conn.execute("SELECT MAX(seq) AS last FROM events WHERE run_id = ?", (run_id,)).fetchone()
         return 0 if row["last"] is None else int(row["last"]) + 1
 
@@ -153,6 +159,7 @@ class Store:
     # --- gates -----------------------------------------------------------------------------------
 
     def open_gate(self, request: GateRequest) -> None:
+        """Store a gate request awaiting a human decision."""
         _check_payload_size("gate", request.payload)
         with self._write():
             try:
@@ -167,29 +174,28 @@ class Store:
         """Record the decision once; it must be one of the options the gate offered."""
         _check_payload_size("gate decision", decision.edits)
         with self._write():
-            row = self._conn.execute(
-                "SELECT request, resolved_at FROM gates WHERE gate_id = ?", (decision.gate_id,)
-            ).fetchone()
-            if row is None:
-                raise NotFoundError(f"gate {decision.gate_id!r} not found")
-            if row["resolved_at"] is not None:
-                raise ConflictError(f"gate {decision.gate_id!r} is already resolved")
-            request = GateRequest.model_validate_json(row["request"])
-            if decision.decision not in request.options:
-                raise ValueError(f"decision {decision.decision!r} is not one of {request.options}")
+            self._answerable_request(decision)
             self._conn.execute(
                 "UPDATE gates SET resolved_at = ?, decision = ? WHERE gate_id = ?",
                 (self._now(), decision.model_dump_json(), decision.gate_id),
             )
 
-    def _check_gate_run(self, gate_id: str, run_id: str) -> None:
-        row = self._conn.execute("SELECT run_id FROM gates WHERE gate_id = ?", (gate_id,)).fetchone()
+    def _answerable_request(self, decision: GateDecision) -> GateRequest:
+        """The open gate `decision` answers; raise if it is unknown, resolved or lacks the option."""
+        row = self._conn.execute(
+            "SELECT request, resolved_at FROM gates WHERE gate_id = ?", (decision.gate_id,)
+        ).fetchone()
         if row is None:
-            raise NotFoundError(f"gate {gate_id!r} not found")
-        if row["run_id"] != run_id:
-            raise ValueError(f"gate {gate_id!r} belongs to run {row['run_id']!r}, not {run_id!r}")
+            raise NotFoundError(f"gate {decision.gate_id!r} not found")
+        if row["resolved_at"] is not None:
+            raise ConflictError(f"gate {decision.gate_id!r} is already resolved")
+        request = GateRequest.model_validate_json(row["request"])
+        if decision.decision not in request.options:
+            raise ValueError(f"decision {decision.decision!r} is not one of {request.options}")
+        return request
 
     def pending_gates(self, run_id: str) -> list[GateRequest]:
+        """The run's unresolved gate requests, oldest first."""
         rows = self._conn.execute(
             "SELECT request FROM gates WHERE run_id = ? AND resolved_at IS NULL ORDER BY created_at, gate_id",
             (run_id,),
@@ -199,12 +205,20 @@ class Store:
     # --- commands --------------------------------------------------------------------------------
 
     def enqueue_command(self, command: RunCommand) -> int:
-        """Queue a command for the worker; a resume must name a gate of the same run."""
+        """Queue a command for the worker and return its id.
+
+        A resume must answer an open gate of the same run with one of its options, so the UI hears
+        about a bad decision now rather than from the worker later.
+        """
         if command.decision is not None:
             _check_payload_size("gate decision", command.decision.edits)
         with self._write():
             if command.decision is not None:
-                self._check_gate_run(command.decision.gate_id, command.run_id)
+                request = self._answerable_request(command.decision)
+                if request.run_id != command.run_id:
+                    raise ValueError(
+                        f"gate {request.gate_id!r} belongs to run {request.run_id!r}, not {command.run_id!r}"
+                    )
             try:
                 cursor = self._conn.execute(
                     "INSERT INTO commands (run_id, kind, created_at, doc) VALUES (?, ?, ?, ?)",
@@ -230,6 +244,7 @@ class Store:
     # --- LLM-call ledger -------------------------------------------------------------------------
 
     def record_llm_call(self, run_id: str, record: LLMCallRecord) -> None:
+        """Add one model call to the run's cost and token ledger."""
         with self._write():
             try:
                 self._conn.execute(
@@ -251,12 +266,14 @@ class Store:
                 raise NotFoundError(f"run {run_id!r} not found") from exc
 
     def llm_calls(self, run_id: str) -> list[LLMCallRecord]:
+        """The run's model calls in the order they were recorded."""
         rows = self._conn.execute("SELECT doc FROM llm_calls WHERE run_id = ? ORDER BY id", (run_id,))
         return [LLMCallRecord.model_validate_json(row["doc"]) for row in rows]
 
     # --- helpers ---------------------------------------------------------------------------------
 
     def _now(self) -> str:
+        """The clock's time as ISO 8601 UTC, the format every timestamp column uses."""
         return self._clock().astimezone(UTC).isoformat()
 
     @contextmanager
@@ -283,6 +300,7 @@ class Store:
 
 
 def _check_payload_size(what: str, payload: object) -> None:
+    """Refuse payloads over `MAX_PAYLOAD_BYTES` (F-20): bulk data belongs in files, not rows."""
     size = len(orjson.dumps(payload))
     if size > MAX_PAYLOAD_BYTES:
         raise ValueError(

@@ -1,6 +1,7 @@
 """Schema migrations for `var/app.sqlite`, tracked with `PRAGMA user_version`.
 
-Migrations are append-only: a released migration is never edited; a change is a new entry. Tables for
+Migrations are append-only: a released migration is never edited; a change is a new entry. A migration
+script never contains BEGIN, COMMIT or ROLLBACK: `migrate` holds the write lock across each script. Tables for
 later features (lessons, overlay changes, policy pointer, metrics, bench results, exec log) arrive with
 those features (docs/architecture.md §18).
 """
@@ -72,6 +73,7 @@ LATEST_VERSION = len(MIGRATIONS)
 
 
 def schema_version(conn: sqlite3.Connection) -> int:
+    """The schema version stored in the database file (0 for a new file)."""
     version: int = conn.execute("PRAGMA user_version").fetchone()[0]
     return version
 
@@ -79,13 +81,12 @@ def schema_version(conn: sqlite3.Connection) -> int:
 def migrate(conn: sqlite3.Connection) -> int:
     """Apply pending migrations, each in its own transaction, and return the resulting version.
 
+    Run it on a fresh connection: switching to autocommit commits any transaction the caller left open.
     Raises `RuntimeError` for a database written by a newer barthelona, which this code must not touch.
     """
     current = schema_version(conn)
     if current > LATEST_VERSION:
-        raise RuntimeError(
-            f"database schema version {current} is newer than this barthelona supports ({LATEST_VERSION})"
-        )
+        raise RuntimeError(_newer_schema(current))
     # In autocommit mode executescript() does not commit a pending transaction, so each step can hold
     # BEGIN IMMEDIATE across its script; the caller's transaction mode is restored afterwards.
     previous_mode = conn.autocommit
@@ -98,11 +99,18 @@ def migrate(conn: sqlite3.Connection) -> int:
     return schema_version(conn)
 
 
+def _newer_schema(version: int) -> str:
+    return f"database schema version {version} is newer than this barthelona supports ({LATEST_VERSION})"
+
+
 def _apply(conn: sqlite3.Connection, version: int) -> None:
     """Apply one migration under the write lock, unless a concurrent caller already applied it."""
     conn.execute("BEGIN IMMEDIATE")
     try:
-        if schema_version(conn) < version:
+        current = schema_version(conn)
+        if current > LATEST_VERSION:
+            raise RuntimeError(_newer_schema(current))
+        if current < version:
             conn.executescript(f"{MIGRATIONS[version - 1]}\nPRAGMA user_version = {version};")
         conn.execute("COMMIT")
     except BaseException:

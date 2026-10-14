@@ -192,6 +192,23 @@ def test_migration_skips_a_step_applied_after_the_version_was_read(
     assert conn.autocommit == sqlite3.LEGACY_TRANSACTION_CONTROL
 
 
+def test_migration_refuses_a_schema_made_newer_while_waiting(
+    opened: Opener, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    conn = opened(connect)
+    real_schema_version = migrations.schema_version
+    reads: list[int] = []
+
+    def newer_after_first_read(c: sqlite3.Connection) -> int:
+        reads.append(real_schema_version(c))
+        return 0 if len(reads) == 1 else LATEST_VERSION + 1
+
+    monkeypatch.setattr(migrations, "schema_version", newer_after_first_read)
+    with pytest.raises(RuntimeError, match="newer"):
+        migrate(conn)
+    assert real_schema_version(conn) == 0
+
+
 def test_persistence_imports_no_engine_or_ui_modules() -> None:
     """The worker and the UI meet in persistence (invariant 8), so it loads neither; partial cover for F-1."""
     code = (
@@ -346,10 +363,20 @@ def test_resume_names_a_gate_of_its_own_run(store: Store) -> None:
     unknown_gate = RunCommand(
         run_id="r1", kind=CommandKind.RESUME, decision=decision.model_copy(update={"gate_id": "g9"})
     )
+    unoffered = RunCommand(
+        run_id="r1", kind=CommandKind.RESUME, decision=decision.model_copy(update={"decision": "maybe"})
+    )
     with pytest.raises(ValueError, match="belongs to run 'r1'"):
         store.enqueue_command(other_run)
     with pytest.raises(NotFoundError, match="g9"):
         store.enqueue_command(unknown_gate)
+    with pytest.raises(ValueError, match="not one of"):
+        store.enqueue_command(unoffered)
+    store.resolve_gate(decision)
+    late = RunCommand(run_id="r1", kind=CommandKind.RESUME, decision=decision)
+    with pytest.raises(ConflictError, match="already resolved"):
+        store.enqueue_command(late)
+    assert store.claim_commands("r1") == []
     assert store.claim_commands("r2") == []
 
 
