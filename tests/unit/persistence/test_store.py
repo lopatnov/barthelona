@@ -146,8 +146,9 @@ def test_migrate_refuses_a_newer_schema(opened: Opener) -> None:
 def test_readonly_connection_reads_committed_rows_and_cannot_write(store: Store, opened: Opener) -> None:
     reader_store = Store(opened(connect_readonly))
     assert reader_store.get_run("r1").id == "r1"
+    second_run = _run("r2")
     with pytest.raises(sqlite3.OperationalError, match="readonly"):
-        reader_store.create_run(_run("r2"))
+        reader_store.create_run(second_run)
 
 
 def test_readonly_connection_needs_an_existing_database(tmp_path: Path) -> None:
@@ -204,8 +205,9 @@ def test_reader_sees_writes_while_the_writer_stays_open(store: Store, opened: Op
 
 def test_runs_round_trip_and_ids_are_unique(store: Store) -> None:
     assert store.get_run("r1") == _run()
+    duplicate = _run()
     with pytest.raises(ConflictError, match="already exists"):
-        store.create_run(_run())
+        store.create_run(duplicate)
     with pytest.raises(NotFoundError):
         store.get_run("nope")
 
@@ -241,54 +243,64 @@ def test_events_append_in_order_and_page_by_seq(store: Store) -> None:
 
 @pytest.mark.parametrize("batch", [[1], [0, 2], [0, 0]])
 def test_event_seq_has_no_gaps_or_repeats(store: Store, batch: list[int]) -> None:
+    events = [_event(seq) for seq in batch]
     with pytest.raises(ConflictError, match="expected"):
-        store.append_events([_event(seq) for seq in batch])
+        store.append_events(events)
     assert store.events_after("r1") == []
 
 
 def test_event_batch_belongs_to_one_known_run(store: Store) -> None:
+    mixed = [_event(0), _event(1, run_id="r2")]
+    unknown = [_event(0, run_id="ghost")]
     with pytest.raises(ValueError, match="one run"):
-        store.append_events([_event(0), _event(1, run_id="r2")])
+        store.append_events(mixed)
     with pytest.raises(NotFoundError):
-        store.append_events([_event(0, run_id="ghost")])
+        store.append_events(unknown)
 
 
 BULK = {"blob": "x" * MAX_PAYLOAD_BYTES}
 
 
 def test_bulky_payloads_are_refused(store: Store) -> None:
+    bulky_event = [_event(0, **BULK)]
+    bulky_gate = _gate().model_copy(update={"payload": BULK})
     bulky_decision = GateDecision(gate_id="g1", decision="edit", edits=BULK, at=T0)
+    bulky_resume = RunCommand(run_id="r1", kind=CommandKind.RESUME, decision=bulky_decision)
     with pytest.raises(ValueError, match="payload_ref"):
-        store.append_events([_event(0, **BULK)])
+        store.append_events(bulky_event)
     with pytest.raises(ValueError, match="payload_ref"):
-        store.open_gate(_gate().model_copy(update={"payload": BULK}))
+        store.open_gate(bulky_gate)
     store.open_gate(_gate())
     with pytest.raises(ValueError, match="payload_ref"):
         store.resolve_gate(bulky_decision)
     with pytest.raises(ValueError, match="payload_ref"):
-        store.enqueue_command(RunCommand(run_id="r1", kind=CommandKind.RESUME, decision=bulky_decision))
+        store.enqueue_command(bulky_resume)
 
 
 # --- gates and commands ------------------------------------------------------------------------
 
 
 def test_gate_resolves_once_with_an_offered_option(store: Store) -> None:
+    unoffered = GateDecision(gate_id="g1", decision="maybe", at=T0)
+    second = GateDecision(gate_id="g1", decision="edit", at=T0)
+    unknown = GateDecision(gate_id="g9", decision="approve", at=T0)
     store.open_gate(_gate())
     assert store.pending_gates("r1") == [_gate()]
     with pytest.raises(ValueError, match="not one of"):
-        store.resolve_gate(GateDecision(gate_id="g1", decision="maybe", at=T0))
+        store.resolve_gate(unoffered)
     store.resolve_gate(GateDecision(gate_id="g1", decision="approve", at=T0))
     assert store.pending_gates("r1") == []
     with pytest.raises(ConflictError, match="already resolved"):
-        store.resolve_gate(GateDecision(gate_id="g1", decision="edit", at=T0))
+        store.resolve_gate(second)
     with pytest.raises(NotFoundError):
-        store.resolve_gate(GateDecision(gate_id="g9", decision="approve", at=T0))
+        store.resolve_gate(unknown)
 
 
 def test_gate_ids_are_unique(store: Store) -> None:
+    duplicate = _gate()
     store.open_gate(_gate())
     with pytest.raises(ConflictError):
-        store.open_gate(_gate())
+        store.open_gate(duplicate)
 
 
 def test_commands_are_claimed_once_in_order(store: Store) -> None:
@@ -302,8 +314,9 @@ def test_commands_are_claimed_once_in_order(store: Store) -> None:
     assert store.enqueue_command(cancel) == first_id + 1
     assert store.claim_commands("r1") == [resume, cancel]
     assert store.claim_commands("r1") == []
+    orphan = RunCommand(run_id="ghost", kind=CommandKind.CANCEL)
     with pytest.raises(NotFoundError):
-        store.enqueue_command(RunCommand(run_id="ghost", kind=CommandKind.CANCEL))
+        store.enqueue_command(orphan)
 
 
 @pytest.mark.parametrize(
