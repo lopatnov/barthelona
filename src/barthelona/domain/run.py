@@ -67,6 +67,7 @@ class Run(Document):
     composition_level: CompositionLevel = CompositionLevel.L0  # the maximum level for this run
     status: RunStatus = RunStatus.QUEUED
     stop_reason: StopReason | None = None
+    collect_training_data: bool = False  # pinned at run start from the setting (D-036)
 
     @model_validator(mode="after")
     def _stop_has_reason(self) -> Run:
