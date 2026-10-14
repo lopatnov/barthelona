@@ -3,7 +3,7 @@
 Phased plan for barthelona. Each phase has a goal, deliverables and exit criteria. A phase is done only when its exit criteria are met; the benchmark decides whether optional subsystems are switched on.
 Architecture: `docs/architecture.md`. Decisions: `docs/adr/`.
 
-Current status (2026-10-13): **Phase 0 in progress** — repository and environment done (design, agent configuration for Claude Code and Codex, conda scripts, hash-locked dependencies, baseline tests); code skeleton not started.
+Current status (2026-10-13): **Phase 0 in progress** — repository and environment done (design, agent configuration for Claude Code and Codex, conda scripts, hash-locked dependencies, baseline tests); code skeleton started: domain models and the `python -m barthelona` entry point exist, persistence is next.
 
 ## Phase 0 — Foundations and the deterministic spine (about 1–2 weeks, no agent loop yet)
 
@@ -11,7 +11,7 @@ Current status (2026-10-13): **Phase 0 in progress** — repository and environm
 
 **Deliverables**
 - Repository: `AGENTS.md` / `CLAUDE.md`, `.claude/` config and the Codex mirror ✔, `.gitattributes` ✔, `pyproject.toml` ✔, `environment.yml` ✔, hash-locked requirements ✔, `create_env` / `activate` / `lock` scripts ✔, `doctor.ps1` ✔, dependency fingerprint + baseline tests ✔.
-- Code skeleton: domain models (Pydantic v2); persistence (SQLite WAL schema and migrations); `python -m barthelona` CLI.
+- Code skeleton: domain models (Pydantic v2) ✔; persistence (SQLite WAL schema and migrations); `python -m barthelona` CLI (entry point with `version` and `schema` ✔; `verify` and `probe` land with their deliverables).
 - Environment fixes (owner actions): `.wslconfig` memory cap; Qdrant storage moved to a named volume (see `docs/runbook.md`).
 - Execution: Docker images `barthelona/toolchain` and `barthelona/runner`; the WSL agent (JSON lines, staging, allowlist, path fence); `barthelona probe` writing `config/toolchains.lock.json`.
 - Assemblers: NASM and GAS (Intel and AT&T) dialect adapters; ld/gcc linkers; diagnostics parsers with real captured fixtures.
@@ -106,7 +106,7 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 
 | # | Item | Found while | Why deferred | Suggested fix | Status |
 | --- | --- | --- | --- | --- | --- |
-| F-1 | `.claude/rules/python.md` says "an import-linter test will enforce" the layering, but `import-linter` is not a dependency | conduit config review, 2026-10-13 | No packages exist yet | Stdlib test `tests/unit/test_import_isolation.py`: import each entry point in a fresh interpreter and assert `langgraph`/engine modules never load under `ui` and `streamlit` never loads under the engine. Or add import-linter via `update-deps` and an ADR. Then fix the rule sentence. | open |
+| F-1 | `.claude/rules/python.md` says "an import-linter test will enforce" the layering, but `import-linter` is not a dependency | conduit config review, 2026-10-13 | No packages exist yet | Stdlib test `tests/unit/test_import_isolation.py`: import each entry point in a fresh interpreter and assert `langgraph`/engine modules never load under `ui` and `streamlit` never loads under the engine. Or add import-linter via `update-deps` and an ADR. Then fix the rule sentence. | open (partial 2026-10-13: `test_domain_imports_no_io_or_framework_modules` covers `domain`) |
 | F-2 | Path guards matched paths relative to the repo root, so writes under `.claude/worktrees/<x>/` bypassed the protected-path patterns | conduit config review, 2026-10-13 | — | `guard-paths.ps1` and `post-edit.ps1` strip the worktree prefix; `test-hooks.ps1` covers it | fixed (2026-10-13, setup commits) |
 | F-3 | The editable install fetches its build backend (hatchling) from PyPI without a hash lock | second review, 2026-10-13 | Small risk; documented in the runbook and D-031 | Lock hatchling in a build lock and install with `--no-build-isolation` | open |
 | F-4 | `scripts/create_env.sh` has no executable bit in git (Windows checkout) | second review, 2026-10-13 | Only matters on a Linux clone | `git update-index --chmod=+x scripts/create_env.sh scripts/dev.sh` | fixed (2026-10-13, setup commits) |
@@ -124,6 +124,9 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-16 | No CI workflow: agents' self-merge (D-035) rests on review/scan apps and a local `verify`, none of which builds or runs tests on GitHub | review gate on D-035, 2026-10-13 | Out of scope for the approval change | Add a GitHub Actions workflow running ruff, mypy, pytest and the mirror/lock checks; make it required | open |
 | F-17 | `docs/roadmap.md` open decision 7 and D-027 say `asm_doc/` is not pushed, but origin/main has it since 3bef7db | review gate on D-035, 2026-10-13 | Owner decision on publishing third-party docs | Owner decides: keep (fix both texts and check licenses) or remove from history | open (owner) |
 | F-18 | Guard gaps after D-035: a bare `git push` while on `main`, and `git checkout HEAD -- <dir>` (discards a directory), are not blocked; nor are abbreviated long options (`--amen`, `--forc`, `--discard`) or `git stash -q drop` | review gate on D-035, 2026-10-13 | Needs the current branch / pathspec analysis in the hook | Resolve the current branch and its upstream for refspec-less pushes; block `checkout <tree> -- <dir>` for directories; match option prefixes of 3+ chars; find the stash subcommand after options; add harness cases | open |
+| F-19 | `Lesson.regression_check.asm` puts assembly inside the Lesson JSON document, which `retro` (an LLM node) proposes; this conflicts with invariant 5 / D-011 if filled through a JSON schema | review gate, domain models, 2026-10-13 | Needs an owner decision; no retro node yet | Fill `asm` deterministically from the evidence diff, or carry it in a FILE envelope referenced by path; record in §15.2 and D-017 | open (owner) |
+| F-20 | `RunEvent.payload`, `GateRequest.payload` and `GateDecision.edits` are free-form dicts; code or secrets could end up in event JSON | review gate, domain models, 2026-10-13 | The model layer cannot enforce it | With persistence: cap the payload size and route code and bulky data to `payload_ref`; unit test | open |
+| F-21 | `SprintTopology` compares a `pipelines` key with `pipeline.hash` only when the hash is set; a pipeline with `hash=None` can sit under any key | delta review gate, domain models, 2026-10-13 | Belongs with rule T2 | The T2 validator checks `key == spec_hash(pipeline)` for every pipeline; unit test | open |
 
 ## Parked ideas (not scheduled)
 

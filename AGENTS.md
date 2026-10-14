@@ -4,7 +4,7 @@ Shared instructions for every coding agent working on this repo. Codex reads thi
 
 A local-first agentic system that **creates or edits multi-file assembly projects** from a natural-language request. In a Streamlit UI the user picks an assembler dialect (NASM, GAS; later FASM, MASM, ...) and a target preset (arch / OS / ABI / format), chooses create or edit, and describes the goal. A **Meta-Agentic Scrum** engine on LangGraph turns the request into a spec, contracts and tests, then runs bounded sprints whose loop graphs the AI composes from registered building blocks, until the project builds and passes its tests in a sandbox.
 
-**Status (2026-10-13): Phase 0 in progress — repository and environment done; code skeleton not started.** What exists: the design docs, the agent configuration (Claude Code and Codex), the conda scripts, hash-locked dependencies, baseline tests, and `src/barthelona/__init__.py`. Everything else in the docs is planned. Check `docs/roadmap.md` before assuming a module or command exists.
+**Status (2026-10-13): Phase 0 in progress — repository and environment done; code skeleton started.** What exists: the design docs, the agent configuration (Claude Code and Codex), the conda scripts, hash-locked dependencies, baseline tests, the domain models (`src/barthelona/domain/`) and the `python -m barthelona` entry point (`version`, `schema`). Everything else in the docs is planned. Check `docs/roadmap.md` before assuming a module or command exists.
 
 ## Language
 
@@ -59,6 +59,7 @@ Agents prefix each command with `.\scripts\dev.ps1` / `scripts/dev.sh`; in an ac
 
 | Task | Command | Available |
 | --- | --- | --- |
+| Version / domain JSON schemas | `python -m barthelona version`, `python -m barthelona schema [Document]` | now |
 | Lint / format / types | `ruff check .`, `ruff format .`, `mypy` | now |
 | Tests | `python -m pytest` (default excludes the `wsl`, `llm` and `slow` markers) | now (baseline tests only) |
 | Environment health | `.\scripts\doctor.ps1 [-StartWsl]` (or the `env-doctor` skill) | now |
