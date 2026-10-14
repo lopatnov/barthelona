@@ -16,6 +16,9 @@
 .PARAMETER BarthelonaEnvName
     Environment name (alias: -Name). Default: barthelona.
 #>
+# conda documents `conda shell.powershell hook | Out-String | Invoke-Expression` as its activation path;
+# the text comes from the user's own conda install, never from the repo or .env.
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingInvokeExpression', '', Justification = 'conda shell hook')]
 param([Alias('Name')][string]$BarthelonaEnvName = 'barthelona')
 
 if ($MyInvocation.InvocationName -ne '.') {

@@ -11,7 +11,7 @@ usage() { sed -n '2,6p' "$0"; exit "${1:-0}"; }
 DEPS=dev
 RECREATE=0
 NAME=barthelona
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
   case "$1" in
     dev|runtime) DEPS="$1" ;;
     --recreate) RECREATE=1 ;;
@@ -24,7 +24,7 @@ done
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONDA="${CONDA_EXE:-$(command -v conda || true)}"
-if [ -z "$CONDA" ]; then
+if [[ -z "$CONDA" ]]; then
   echo "conda not found. Install Miniconda or put conda on PATH." >&2
   exit 1
 fi
@@ -36,15 +36,15 @@ case "$(uname -s)" in
 esac
 
 LOCK="$REPO_ROOT/requirements/$DEPS.$PLAT.lock"
-[ -f "$LOCK" ] || { echo "lock file not found: $LOCK (run scripts/lock.ps1)" >&2; exit 1; }
+[[ -f "$LOCK" ]] || { echo "lock file not found: $LOCK (run scripts/lock.ps1)" >&2; exit 1; }
 
 env_exists() { "$CONDA" env list | awk '{print $1}' | grep -qx "$NAME"; }
 
-if env_exists && [ "$RECREATE" -eq 1 ] && [ "$(basename "${CONDA_PREFIX:-}")" = "$NAME" ]; then
+if env_exists && [[ "$RECREATE" -eq 1 ]] && [[ "$(basename "${CONDA_PREFIX:-}")" = "$NAME" ]]; then
   echo "Environment '$NAME' is active in this shell. Run 'conda deactivate' (or use a new terminal), then retry --recreate." >&2
   exit 1
 fi
-if env_exists && [ "$RECREATE" -eq 1 ]; then
+if env_exists && [[ "$RECREATE" -eq 1 ]]; then
   echo "Removing environment '$NAME'..."
   "$CONDA" env remove --name "$NAME" --yes
 fi

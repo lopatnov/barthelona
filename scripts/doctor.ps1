@@ -46,7 +46,8 @@ if (-not $envPrefix) {
 if (-not $envPrefix) {
     $condaCmd = Get-Command conda.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($condaCmd) {
-        try { $envPrefix = @((& $condaCmd.Source env list --json | Out-String | ConvertFrom-Json).envs | Where-Object { (Split-Path -Leaf $_) -eq 'barthelona' })[0] } catch { }
+        try { $envPrefix = @((& $condaCmd.Source env list --json | Out-String | ConvertFrom-Json).envs | Where-Object { (Split-Path -Leaf $_) -eq 'barthelona' })[0] }
+        catch { Report 'warn' 'conda env list' $_.Exception.Message }
     }
 }
 $envPy = $null

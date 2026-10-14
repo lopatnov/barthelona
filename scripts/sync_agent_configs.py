@@ -87,6 +87,11 @@ def existing_files() -> set[Path]:
     return found
 
 
+def _inside_mirror(path: Path) -> bool:
+    resolved = path.resolve()
+    return any(resolved.is_relative_to(root.resolve()) for root in (SKILLS_DST, AGENTS_DST))
+
+
 def main(argv: list[str]) -> int:
     want = expected_files()
     have = existing_files()
@@ -102,6 +107,12 @@ def main(argv: list[str]) -> int:
             return 1
         print("Codex mirror is up to date")
         return 0
+    escaping = [p for p in (*stale, *extra) if not _inside_mirror(p)]
+    if escaping:
+        # A symlinked skill file or directory would make the sync write or delete outside the repo.
+        for p in escaping:
+            print(f"refusing: {p} resolves outside {SKILLS_DST} and {AGENTS_DST}")
+        return 1
     for p in stale:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_bytes(want[p])
