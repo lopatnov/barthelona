@@ -16,7 +16,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from barthelona.executors._types import Command, ExecLimits, ExecResult, ExecutorId
 
@@ -64,6 +64,13 @@ class WslExecutor:
         this to ``~/.cache/barthelona/runs/<run_id>/<attempt>/`` before each
         run (architecture §12).
     """
+
+    # Declared here so mypy sees the types on non-Windows hosts where __init__
+    # raises before the assignments are reached (sys.platform check is exhaustive).
+    _container: str
+    _distro: str
+    _work_dir: str
+    _process: subprocess.Popen[bytes] | None
 
     def __init__(
         self,
@@ -164,7 +171,7 @@ class WslExecutor:
             env=env,
         )
 
-    def _send(self, request: dict[str, object]) -> dict[str, object]:
+    def _send(self, request: dict[str, object]) -> dict[str, Any]:
         self._ensure_started()
         assert self._process is not None  # noqa: S101  -- None only before _ensure_started(); unreachable here
         assert self._process.stdin is not None  # noqa: S101  -- PIPE set in _ensure_started(); always non-None
@@ -173,7 +180,7 @@ class WslExecutor:
         self._process.stdin.write(line)
         self._process.stdin.flush()
         response_line = self._process.stdout.readline()
-        return dict(json.loads(response_line))  # type: ignore[arg-type]
+        return dict(json.loads(response_line))
 
     def close(self) -> None:
         if self._process is not None:

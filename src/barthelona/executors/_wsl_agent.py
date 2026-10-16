@@ -150,7 +150,8 @@ def _validate_tar_paths(argv: list[str]) -> bool:
 
 
 def _handle(request: dict[str, object]) -> dict[str, object]:
-    argv: list[str] = [str(a) for a in (request.get("cmd") or [])]
+    cmd_raw = request.get("cmd")
+    argv: list[str] = [str(a) for a in (cmd_raw if isinstance(cmd_raw, list) else [])]
     if not argv:
         return {"returncode": 1, "stdout": "", "stderr": "empty cmd", "elapsed": 0.0}
 
@@ -213,7 +214,8 @@ def _handle(request: dict[str, object]) -> dict[str, object]:
 
     stdin_b64 = request.get("stdin")
     stdin_bytes = base64.b64decode(str(stdin_b64)) if stdin_b64 else None
-    timeout = float(request.get("timeout") or 30.0)
+    timeout_raw = request.get("timeout")
+    timeout = float(timeout_raw if isinstance(timeout_raw, (int, float)) else 30.0)
 
     t0 = time.monotonic()
     try:
