@@ -735,13 +735,22 @@ Side effects are idempotent, keyed by run, task and attempt.
 ## 12. Toolchain layer
 
 **Protocols** (`toolchains/`, `executors/`):
-- `Dialect`:
+- `Dialect` (planned, Phase 1+):
   - attributes: `id`, `exts`, `comment_prefix`, `local_label_re`;
   - `targets()`, `tools(target)`;
   - `syntax_check(src, target)`, `assemble(src, out, target, defines)`, `preprocess(src, target)`. Each returns a `Command`;
   - `parse(result, workdir) -> list[Diagnostic]`;
   - `includes(text)`;
   - `render_interface(registry, module)`, `render_stub(symbol)`.
+- `DialectAdapter` (**Phase 0 subset**, `toolchains/dialect.py`): a structural Protocol that covers only
+  the commands needed by the verification ladder (V0–V2).  It returns raw argv tuples
+  (`tuple[str, ...]`) instead of full `Command` objects; the ladder wraps them with
+  `docker exec bart-tc` before dispatching.  Method names differ from the planned
+  `Dialect` protocol intentionally: `syntax_check_argv`, `assemble_argv`,
+  `parse_diagnostics`.  When `contracts.yaml` and the full target abstraction land,
+  `DialectAdapter` will be superseded by `Dialect`; adapters will be migrated to accept
+  the `target: TargetProfile` and `defines: Mapping[str, str]` parameters and return
+  `Command`.
 - `Linker`: `link(objs, out, target, kind)` and `parse(...)`.
 - `Executor`:
   - `id`: `tc`, `sandbox`, `emu`, or (later) `windows-native`;
