@@ -8,6 +8,7 @@ from barthelona.toolchains import ToolInfo, probe_image_digest, probe_tools, run
 
 def _fake_exec(image_digest: str = "sha256:tc000") -> FakeExecutor:
     """FakeExecutor wired with docker-exec wrappers for probe_tools."""
+
     # probe_tools sends `docker exec bart-tc <tool> --version`
     # and `docker exec bart-tc which <tool>`.
     def _docker_version(tool: str, version_line: str) -> tuple[tuple[str, ...], ExecResult]:

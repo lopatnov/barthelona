@@ -22,9 +22,7 @@ class ToolchainLock(BaseModel):
     (dialect, target) → executor pairs and the UI can show what is installed.
     """
 
-    toolchain_image_digest: str = Field(
-        description="Digest of the bart-tc Docker image (e.g. 'sha256:…')."
-    )
+    toolchain_image_digest: str = Field(description="Digest of the bart-tc Docker image (e.g. 'sha256:…').")
     runner_image_digest: str = Field(
         description="Digest of the bart-run Docker image (e.g. 'sha256:…').",
         default="",

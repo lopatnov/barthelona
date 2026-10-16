@@ -44,9 +44,7 @@ def test_which_command_auto() -> None:
 
 def test_docker_inspect_auto() -> None:
     exc = FakeExecutor(image_digest="sha256:abc123")
-    result = exc.run(
-        Command(argv=("docker", "inspect", "--format", "{{index .RepoDigests 0}}", "bart-tc"))
-    )
+    result = exc.run(Command(argv=("docker", "inspect", "--format", "{{index .RepoDigests 0}}", "bart-tc")))
     assert result.returncode == 0
     assert b"sha256:abc123" in result.stdout
 

@@ -39,16 +39,25 @@ _RUN_IMAGE_PREFIX = "bart-run"
 # Mandatory sandbox flags applied to every docker run (architecture §12, invariant 2).
 # The caller must NOT supply any docker flags; it provides only the image and command.
 _SANDBOX_FLAGS: tuple[str, ...] = (
-    "--network", "none",
+    "--network",
+    "none",
     "--read-only",
-    "--cap-drop", "ALL",
-    "--security-opt", "no-new-privileges",
-    "--user", "65534:65534",
-    "--memory", "256m",
-    "--memory-swap", "256m",
-    "--pids-limit", "64",
-    "--cpus", "1",
-    "--tmpfs", "/tmp:size=16m",  # noqa: S108 -- docker --tmpfs flag, not a host path
+    "--cap-drop",
+    "ALL",
+    "--security-opt",
+    "no-new-privileges",
+    "--user",
+    "65534:65534",
+    "--memory",
+    "256m",
+    "--memory-swap",
+    "256m",
+    "--pids-limit",
+    "64",
+    "--cpus",
+    "1",
+    "--tmpfs",
+    "/tmp:size=16m",  # noqa: S108 -- docker --tmpfs flag, not a host path
     "--rm",
 )
 
@@ -71,8 +80,7 @@ def _is_allowed(argv: list[str]) -> bool:
             # For docker run: caller must pass [docker, run, <image>, *cmd] with no flags.
             # Full validation happens in _build_docker_run_argv.
             return not (
-                prefix == ("docker", "run")
-                and (len(argv) < 3 or not argv[2].startswith(_RUN_IMAGE_PREFIX))
+                prefix == ("docker", "run") and (len(argv) < 3 or not argv[2].startswith(_RUN_IMAGE_PREFIX))
             )
     return False
 

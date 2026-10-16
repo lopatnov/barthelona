@@ -142,9 +142,7 @@ class WslExecutor:
 
     def collect(self) -> bytes:
         """Return a tar archive of the per-run work directory contents."""
-        result = self._send(
-            {"cmd": ["tar", "-cf", "-", "-C", self._work_dir, "."]}
-        )
+        result = self._send({"cmd": ["tar", "-cf", "-", "-C", self._work_dir, "."]})
         if result["returncode"] != 0:
             raise RuntimeError(f"collect() failed: {result.get('stderr', '')!r}")
         return base64.b64decode(result.get("stdout", ""))

@@ -14,6 +14,7 @@ from barthelona.executors import _wsl_agent as agent  # agent module lives in th
 # _is_allowed
 # ---------------------------------------------------------------------------
 
+
 def test_docker_exec_bartc_allowed() -> None:
     assert agent._is_allowed(["docker", "exec", "bart-tc", "nasm", "--version"])
 
@@ -50,6 +51,7 @@ def test_empty_argv_rejected() -> None:
 # _build_docker_run_argv — sandbox flags are injected by agent
 # ---------------------------------------------------------------------------
 
+
 def test_build_docker_run_injects_sandbox_flags() -> None:
     result = agent._build_docker_run_argv(["docker", "run", "bart-run", "echo", "ok"])
     assert result is not None
@@ -83,6 +85,7 @@ def test_build_docker_run_rejects_too_short() -> None:
 # _handle — full request handling
 # ---------------------------------------------------------------------------
 
+
 def test_handle_empty_cmd_returns_error() -> None:
     result = agent._handle({"cmd": []})
     assert result["returncode"] == 1
@@ -100,9 +103,7 @@ def test_handle_docker_run_with_flags_rejected() -> None:
 
 
 def test_handle_cwd_outside_cache_rejected(tmp_path: Path) -> None:
-    result = agent._handle(
-        {"cmd": ["tar", "-cf", "-", "."], "cwd": str(tmp_path)}
-    )
+    result = agent._handle({"cmd": ["tar", "-cf", "-", "."], "cwd": str(tmp_path)})
     assert result["returncode"] == 1
     assert "cache root" in str(result["stderr"])
 
@@ -116,8 +117,10 @@ def test_handle_tar_c_outside_cache_rejected() -> None:
 # _is_safe_path
 # ---------------------------------------------------------------------------
 
+
 def test_is_safe_path_cache_root_subdir() -> None:
     import os
+
     cache = os.path.expanduser("~/.cache/barthelona/runs/x/1")
     assert agent._is_safe_path(cache)
 
@@ -134,8 +137,10 @@ def test_is_safe_path_home_dir_returns_false() -> None:
 # _validate_tar_paths
 # ---------------------------------------------------------------------------
 
+
 def test_validate_tar_paths_safe_c_dir() -> None:
     import os
+
     safe = os.path.expanduser("~/.cache/barthelona/work")
     assert agent._validate_tar_paths(["-xf", "-", "-C", safe])
 
