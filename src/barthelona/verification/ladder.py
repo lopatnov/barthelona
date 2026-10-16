@@ -1,4 +1,4 @@
-"""Verification ladder V0–V2 runner (architecture §13, Phase 0).
+"""Verification ladder V0-V2 runner (architecture §13, Phase 0).
 
 The ladder is the central acceptance criterion: assembly oracles decide,
 models propose (invariant 1).  This module implements the deterministic
@@ -133,7 +133,7 @@ def run_v1(
     """V1: assemble each source file; return the result and a list of object paths.
 
     Phase 0 note: the ``nm``/registry symbol check (architecture §13.1 — exports
-    exact, undefined ⊆ imports ∪ allow-list) is deferred until ``contracts.yaml``
+    exact, undefined is a subset of imports union allow-list) is deferred until ``contracts.yaml``
     is populated.  This level currently only assembles.
     """
     t0 = time.monotonic()

@@ -9,7 +9,6 @@ from barthelona.toolchains.dialect import DialectAdapter
 from barthelona.toolchains.gas import GasAttAdapter, GasIntelAdapter
 from barthelona.toolchains.nasm import NasmAdapter
 
-
 # ---------------------------------------------------------------------------
 # Protocol conformance
 # ---------------------------------------------------------------------------

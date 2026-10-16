@@ -153,7 +153,7 @@ def verify(
         typer.Option("--work-dir", help="WSL path for staged files."),
     ] = "~/.cache/barthelona/verify-tmp",
 ) -> None:
-    """Run the verification ladder (V0–V2) on the assembly sources in WORKSPACE.
+    """Run the verification ladder (V0-V2) on the assembly sources in WORKSPACE.
 
     Requires Windows with WSL and a running bart-tc Docker container.
 

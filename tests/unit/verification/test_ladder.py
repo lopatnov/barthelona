@@ -5,18 +5,16 @@ Uses FakeExecutor and NasmAdapter to avoid WSL / Docker at test time.
 
 from __future__ import annotations
 
-import tarfile
 import io
+import tarfile
 from pathlib import Path
 
-import pytest
-
-from barthelona.domain.enums import Level, ObjFormat, Linker
-from barthelona.domain.verification import LevelResult, Severity
+from barthelona.domain.enums import Level
+from barthelona.domain.verification import Severity
 from barthelona.executors._types import ExecResult
 from barthelona.executors.fake import FakeExecutor
-from barthelona.toolchains.nasm import NasmAdapter
 from barthelona.toolchains.gas import GasAttAdapter
+from barthelona.toolchains.nasm import NasmAdapter
 from barthelona.verification.ladder import run_ladder, run_v0, run_v1, run_v2
 
 _WORK = "~/.cache/barthelona/verify-tmp"
@@ -66,7 +64,9 @@ class TestRunV0:
 
     def test_one_file_fails(self, tmp_path: Path) -> None:
         fail_argv = _nasm_v0_argv("hello.asm")
-        responses = {fail_argv: ExecResult(returncode=1, stdout=b"", stderr=b"error: syntax error", elapsed=0.0)}
+        responses = {
+            fail_argv: ExecResult(returncode=1, stdout=b"", stderr=b"error: syntax error", elapsed=0.0)
+        }
         executor = FakeExecutor(responses=responses)
         result = run_v0(executor, NasmAdapter(), [_HELLO], _WORK, container=_CONTAINER)
         assert result.status == "fail"
@@ -141,7 +141,9 @@ class TestRunV2:
 
     def test_failure_on_linker_error(self) -> None:
         fail_argv = _ld_argv("hello.o")
-        responses = {fail_argv: ExecResult(returncode=1, stdout=b"", stderr=b"ld: undefined symbol", elapsed=0.0)}
+        responses = {
+            fail_argv: ExecResult(returncode=1, stdout=b"", stderr=b"ld: undefined symbol", elapsed=0.0)
+        }
         executor = FakeExecutor(responses=responses)
         result = run_v2(executor, [f"{_WORK}/hello.o"], _WORK, container=_CONTAINER)
         assert result.status == "fail"
