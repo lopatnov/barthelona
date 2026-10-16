@@ -1152,7 +1152,7 @@ Not candidates for the main model:
   - each role uses one tool-free completion; MVP roles make no tool-calling loops.
 
 ### 16.4 Context assembly
-Blocks are ordered from stable to volatile, so llama.cpp/LM Studio can reuse the cached prefix and a cloud cache breakpoint can sit after block 3:
+Blocks are ordered from stable to volatile, so llama.cpp/LM Studio can reuse the cached prefix and a cloud cache breakpoint can sit after block 3 (D-038):
 1. role and output format;
 2. dialect rule card;
 3. project card: target and ABI row;
@@ -1175,6 +1175,9 @@ Blocks are ordered from stable to volatile, so llama.cpp/LM Studio can reuse the
 - **Drop order when over budget:** lowest-scored doc chunks, then lessons, then repo-map depth, then callee contracts.
 - **Token counting:** the model's tokenizer where available, otherwise characters / 3.5 with a 15% margin.
 - **Hidden tests never appear in prompts.**
+- **Stable-prefix constraint (D-038):** blocks 1–3 must be byte-for-byte identical across all calls that share the same dialect, arch and policy version within a sprint run, so the provider can reuse the KV cache. The context assembler computes a `stable_prefix_hash` and raises an error if it changes mid-run. Block 3 is at most 25% of the context window; the assembler raises a hard error rather than silently truncating.
+- **Semantic response caching is not used** (D-038). Each coding call is unique per code state. A false cache hit would corrupt a workspace without detection.
+- **Provider prefix-cache marker:** for Anthropic, `cache_control: {"type": "ephemeral"}` is placed on the last block of the stable prefix (block 3). For LM Studio/vLLM, no marker is needed; the provider's automatic prefix caching fires when the prefix matches. The gateway logs `cache_hit` and `cache_tokens_saved` per call (D-024).
 
 ### 16.5 Claude specifics (verified 2026-10)
 - **Prices** per million input/output tokens; all have a 1M-token context:
