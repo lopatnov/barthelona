@@ -797,6 +797,7 @@ Normalization:
 - **Agent allowlist:**
   - `docker exec bart-tc …`;
   - `docker run … bart-run …`, with the sandbox flags fixed by the agent, not by the caller;
+  - `docker inspect --format … <image>` — exactly one target, restricted to `bart-tc` or `bart-run*` (used by `barthelona probe` to record image digests);
   - `tar`, `sha256sum`.
   - Every path must be under `~/.cache/barthelona/`.
 - **Text hygiene:**

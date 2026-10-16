@@ -85,6 +85,16 @@ class FakeExecutor:
         self._staged = sources
 
     def run(self, cmd: Command, limits: ExecLimits | None = None) -> ExecResult:
+        lim = limits or ExecLimits()
+        raw = self._dispatch(cmd)
+        return ExecResult(
+            returncode=raw.returncode,
+            stdout=raw.stdout[: lim.max_stdout_bytes],
+            stderr=raw.stderr[: lim.max_stderr_bytes],
+            elapsed=raw.elapsed,
+        )
+
+    def _dispatch(self, cmd: Command) -> ExecResult:
         if cmd.argv in self._responses:
             return self._responses[cmd.argv]
 

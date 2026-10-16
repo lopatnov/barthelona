@@ -39,6 +39,14 @@ def test_sha256sum_allowed() -> None:
     assert agent._is_allowed(["sha256sum", "file.bin"])
 
 
+def test_docker_inspect_allowed() -> None:
+    assert agent._is_allowed(["docker", "inspect", "--format", "{{index .RepoDigests 0}}", "bart-tc"])
+
+
+def test_docker_inspect_run_image_allowed() -> None:
+    assert agent._is_allowed(["docker", "inspect", "--format", "{{index .RepoDigests 0}}", "bart-run"])
+
+
 def test_unknown_command_rejected() -> None:
     assert not agent._is_allowed(["bash", "-c", "echo hi"])
 
@@ -111,6 +119,71 @@ def test_handle_cwd_outside_cache_rejected(tmp_path: Path) -> None:
 def test_handle_tar_c_outside_cache_rejected() -> None:
     result = agent._handle({"cmd": ["tar", "-xf", "-", "-C", "/tmp/evil"]})
     assert result["returncode"] == 1
+
+
+# ---------------------------------------------------------------------------
+# _validate_docker_inspect_argv
+# ---------------------------------------------------------------------------
+
+
+def test_docker_inspect_bartc_allowed() -> None:
+    assert agent._validate_docker_inspect_argv(["docker", "inspect", "--format", "{{x}}", "bart-tc"])
+
+
+def test_docker_inspect_bart_run_allowed() -> None:
+    assert agent._validate_docker_inspect_argv(["docker", "inspect", "--format", "{{x}}", "bart-run"])
+
+
+def test_docker_inspect_arbitrary_image_rejected() -> None:
+    assert not agent._validate_docker_inspect_argv(["docker", "inspect", "--format", "{{x}}", "ubuntu"])
+
+
+def test_docker_inspect_multi_target_rejected() -> None:
+    # Multi-target: appending an allowed name must not allow the other target.
+    argv = ["docker", "inspect", "--format", "{{x}}", "ubuntu", "bart-tc"]
+    assert not agent._validate_docker_inspect_argv(argv)
+
+
+def test_handle_docker_inspect_bartc_returns_success_format() -> None:
+    result = agent._handle({"cmd": ["docker", "inspect", "--format", "{{index .RepoDigests 0}}", "bart-tc"]})
+    # On a system without Docker this returns non-zero, but must not be rejected by the agent itself
+    assert "allow-list" not in str(result.get("stderr", ""))
+
+
+def test_handle_docker_inspect_arbitrary_image_rejected() -> None:
+    result = agent._handle({"cmd": ["docker", "inspect", "--format", "{{x}}", "ubuntu"]})
+    assert result["returncode"] == 1
+    assert "bart-tc" in str(result["stderr"])
+
+
+# ---------------------------------------------------------------------------
+# _validate_sha256sum_argv
+# ---------------------------------------------------------------------------
+
+
+def test_validate_sha256sum_relative_path_ok() -> None:
+    assert agent._validate_sha256sum_argv(["sha256sum", "file.bin"])
+
+
+def test_validate_sha256sum_cache_root_ok() -> None:
+    import os
+
+    safe = os.path.expanduser("~/.cache/barthelona/work/file.bin")
+    assert agent._validate_sha256sum_argv(["sha256sum", safe])
+
+
+def test_validate_sha256sum_outside_cache_rejected() -> None:
+    assert not agent._validate_sha256sum_argv(["sha256sum", "/etc/passwd"])
+
+
+def test_validate_sha256sum_flag_skipped() -> None:
+    assert agent._validate_sha256sum_argv(["sha256sum", "--check", "-"])
+
+
+def test_handle_sha256sum_outside_cache_rejected() -> None:
+    result = agent._handle({"cmd": ["sha256sum", "/etc/passwd"]})
+    assert result["returncode"] == 1
+    assert "cache root" in str(result["stderr"])
 
 
 # ---------------------------------------------------------------------------
