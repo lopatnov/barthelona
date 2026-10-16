@@ -35,7 +35,7 @@ Template: Context (optional), Decision, Rationale, Alternatives considered, Cons
 | [D-026](D-026-development-time-claude-code-configuration-is.md) | Development-time Claude Code configuration is separate from the product runtime | Proposed | amended by D-032, D-033 |
 | [D-027](D-027-documentation-corpus-handling.md) | Documentation corpus handling | Proposed |  |
 | [D-028](D-028-ai-composed-sprint-graphs.md) | AI-composed sprint graphs: composition levels, multi-unit loop budgets, mid-sprint re-planning | Proposed | amends D-001, D-004 |
-| [D-029](D-029-multi-provider-model-catalog.md) | Multi-provider model catalog (Anthropic, OpenAI, Google Gemini, DeepSeek) in config/models.yaml | Proposed | amends D-011, D-012, D-014 |
+| [D-029](D-029-multi-provider-model-catalog.md) | Multi-provider model catalog (Anthropic, OpenAI, Google Gemini, DeepSeek) in config/models.yaml | Proposed | amends D-011, D-012, D-014; amended by D-038 |
 | [D-030](D-030-provider-resilience-and-optional-budgets.md) | Provider resilience and optional budgets | Proposed | amends D-014, D-015 |
 | [D-031](D-031-dependencies-in-pyproject-locked-per-platform.md) | Dependencies are declared in pyproject.toml and hash-locked per platform | Proposed | amends D-023 |
 | [D-032](D-032-shared-agent-instructions-and-codex-mirror.md) | Shared agent instructions (AGENTS.md), a generated Codex mirror, and the `.reference/` policy | Proposed | amends D-026; amended by D-033 |
@@ -44,3 +44,4 @@ Template: Context (optional), Decision, Rationale, Alternatives considered, Cons
 | [D-035](D-035-agents-commit-push-and-merge-without-approval.md) | Coding agents commit, push and merge their own PRs without owner approval | Proposed | amends D-033 |
 | [D-036](D-036-opt-in-local-training-data-collection.md) | Opt-in, local collection of training data from code-producing attempts | Proposed |  |
 | [D-037](D-037-issues-for-findings-and-phase-reviews.md) | Every finding becomes a GitHub issue; each phase ends with a full review | Proposed | amends D-033 |
+| [D-038](D-038-qwen3-cloud-provider-via-qwencloud.md) | Add Qwen3 as a cloud provider via Alibaba QwenCloud | Proposed | amends D-029 |
