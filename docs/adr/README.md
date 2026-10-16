@@ -44,3 +44,4 @@ Template: Context (optional), Decision, Rationale, Alternatives considered, Cons
 | [D-035](D-035-agents-commit-push-and-merge-without-approval.md) | Coding agents commit, push and merge their own PRs without owner approval | Proposed | amends D-033 |
 | [D-036](D-036-opt-in-local-training-data-collection.md) | Opt-in, local collection of training data from code-producing attempts | Proposed |  |
 | [D-037](D-037-issues-for-findings-and-phase-reviews.md) | Every finding becomes a GitHub issue; each phase ends with a full review | Proposed | amends D-033 |
+| [D-038](D-038-compile-down-asm-generation-strategy.md) | Compile-down strategy: compile C/Rust to assembly as an alternative `implement_symbol` path | Proposed | |
