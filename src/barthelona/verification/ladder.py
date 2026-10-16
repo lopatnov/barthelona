@@ -103,9 +103,7 @@ def run_v0(
         argv = _docker_exec(container, adapter.syntax_check_argv(staged))
         result = executor.run(Command(argv=argv), lim)
         if result.returncode != 0:
-            diagnostics.append(
-                _make_error_diagnostic(result.stderr, path.name, DiagnosticLevel.V0)
-            )
+            diagnostics.append(_make_error_diagnostic(result.stderr, path.name, DiagnosticLevel.V0))
         else:
             diagnostics.extend(
                 _set_level(d, DiagnosticLevel.V0)
@@ -152,9 +150,7 @@ def run_v1(
         )
         result = executor.run(Command(argv=argv), lim)
         if result.returncode != 0:
-            diagnostics.append(
-                _make_error_diagnostic(result.stderr, path.name, DiagnosticLevel.V1)
-            )
+            diagnostics.append(_make_error_diagnostic(result.stderr, path.name, DiagnosticLevel.V1))
         else:
             object_paths.append(staged_obj)
             diagnostics.extend(
@@ -293,8 +289,17 @@ def run_ladder(
 
 
 def _level_index(level: Level) -> int:
-    order = {Level.V0: 0, Level.V1: 1, Level.V2: 2, Level.V3: 3,
-             Level.V4: 4, Level.V5: 5, Level.V6: 6, Level.V7: 7, Level.V8: 8}
+    order = {
+        Level.V0: 0,
+        Level.V1: 1,
+        Level.V2: 2,
+        Level.V3: 3,
+        Level.V4: 4,
+        Level.V5: 5,
+        Level.V6: 6,
+        Level.V7: 7,
+        Level.V8: 8,
+    }
     return order.get(level, 99)
 
 

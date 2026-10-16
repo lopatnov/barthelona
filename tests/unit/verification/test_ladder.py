@@ -36,9 +36,14 @@ def _nasm_v0_argv(name: str) -> tuple[str, ...]:
 def _nasm_v1_argv(name: str) -> tuple[str, ...]:
     stem = Path(name).stem
     return (
-        "docker", "exec", _CONTAINER,
-        "nasm", "-f", "elf64",
-        "-o", f"{_WORK}/{stem}.o",
+        "docker",
+        "exec",
+        _CONTAINER,
+        "nasm",
+        "-f",
+        "elf64",
+        "-o",
+        f"{_WORK}/{stem}.o",
         f"{_WORK}/{name}",
     )
 
@@ -116,9 +121,7 @@ class TestRunV1:
         fail_argv = _nasm_v1_argv("hello.asm")
         responses = {fail_argv: ExecResult(returncode=1, stdout=b"", stderr=b"asm failed", elapsed=0.0)}
         executor = FakeExecutor(responses=responses)
-        result, obj_paths = run_v1(
-            executor, NasmAdapter(), [_HELLO, _WORLD], _WORK, container=_CONTAINER
-        )
+        result, obj_paths = run_v1(executor, NasmAdapter(), [_HELLO, _WORLD], _WORK, container=_CONTAINER)
         assert result.status == "fail"
         # world.asm still assembled successfully
         assert any("world.o" in p for p in obj_paths)

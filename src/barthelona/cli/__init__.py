@@ -132,9 +132,7 @@ def _detect_dialect(workspace: Path) -> str:
         return Dialect.NASM
     if s_count > 0:
         return Dialect.GAS_ATT
-    raise typer.BadParameter(
-        f"no .asm or .s files found in {workspace}; specify --dialect explicitly"
-    )
+    raise typer.BadParameter(f"no .asm or .s files found in {workspace}; specify --dialect explicitly")
 
 
 @app.command()
