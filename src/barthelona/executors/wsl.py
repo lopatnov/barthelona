@@ -159,7 +159,7 @@ class WslExecutor:
         env = dict(os.environ)
         env["WSL_UTF8"] = "1"
         self._process = subprocess.Popen(  # noqa: S603  -- argv list; wsl.exe is a trusted Windows binary
-            ["wsl.exe", "-d", self._distro, "-e", "python3", "-u", str(_AGENT_WSL_PATH)],
+            ["wsl.exe", "-d", self._distro, "-e", "python3", "-u", str(_AGENT_WSL_PATH)],  # noqa: S607 -- wsl.exe is on PATH on every Windows edition; a full path would break portability
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
