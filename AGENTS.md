@@ -16,7 +16,7 @@ A local-first agentic system that **creates or edits multi-file assembly project
 | Topic | File |
 | --- | --- |
 | Architecture (authoritative) | `docs/architecture.md`: §5 Scrum mapping and pattern map, §9 topology DSL and AI-composed graphs, §13 verification, §16 models, providers and resilience |
-| Decisions | `docs/adr/README.md` (D-001…D-035, all Proposed until the owner accepts) |
+| Decisions | `docs/adr/README.md` (D-001…D-038, all Proposed until the owner accepts) |
 | Phases, exit criteria, open owner decisions, follow-ups | `docs/roadmap.md` |
 | Setup, operations, troubleshooting | `docs/runbook.md` |
 | Model catalog, role chains, budgets | `config/models.yaml` |
@@ -139,7 +139,9 @@ Edit skills and agents only under `.claude/`; the post-edit hook (or `python scr
 - **Facts.** Verify version-, price- or date-sensitive facts with `docs-researcher` and cite URLs. For library behavior, the installed lock-pinned source in the `barthelona` env outranks docs and memory.
 - **Research before building.** For a new node type, dialect, verification check, gateway behavior or design choice (not a mechanical move or an obvious bug), first spend up to ~10 tool calls on prior art (`.reference/`, `asm_doc/`, installed source, official docs). Record 2-4 "Prior art:" lines in the ADR or roadmap item, or "none found".
 - **Done** means: the `verify` skill and its done checklist pass; the review gate ran if its paths are touched; your "Found while here" list (problems noticed outside the task, one line each with a recommendation) was shown to the owner. Agreed items become separate commits.
-- **Deferred is not dropped.** Every deferred item (yours, the owner's, a reviewer's) gets a row in `docs/roadmap.md` Follow-ups before the task is called done.
+- **Findings become GitHub issues** (D-037). A problem or bug you find (yours, a reviewer's, a bot's, Found while here) gets an issue at once. Fix in-scope ones in the task's PR: `Fixes #N` plus a line naming the extra issues it fixes.
+- **Deferred is not dropped.** Every deferred item (yours, the owner's, a reviewer's) keeps its issue and gets a row in `docs/roadmap.md` Follow-ups citing it before the task is called done.
+- **Phase review** (D-037). When a phase meets its exit criteria, review the whole before the next phase: run and smoke-test the code end to end; style and best practices; project docs (what it is, how to use it); process docs (install, configure, run, debug from the docs alone). Every finding becomes an issue.
 - **Code quality** follows Robert C. Martin, Luciano Ramalho, Brett Slatkin and Dan Bader (owner, 2026-10-14); the practices are in `.claude/rules/python.md`.
 - **Findings are fixed at the cause**, not argued away. `# noqa`, `# type: ignore`, `pytest.skip` and `xfail` need a one-sentence inline reason.
 - **Lessons land where they act**, in the same session and in one place: a guard hook (mechanically detectable), a path-scoped rule (a file area), a skill step (a procedure) or `docs/runbook.md` §8 (an environment symptom). A lesson that recurs after being written as prose becomes a hook or a test. Invariants, permissions, guard hooks and the review-gate paths change only on the owner's explicit decision.

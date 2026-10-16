@@ -1,4 +1,4 @@
-# D-037 Add Qwen3 as a cloud provider via Alibaba DashScope International
+# D-038 Add Qwen3 as a cloud provider via Alibaba QwenCloud
 
 ## Context
 
@@ -16,9 +16,9 @@ tokenizer advantage is largest for user-supplied text in the `main` (intake/loca
 
 ## Decision
 
-Add `dashscope` as a fifth cloud provider in `config/models.yaml`, using the Alibaba DashScope
-International OpenAI-compatible endpoint (`dashscope-intl.aliyuncs.com`). Register three Qwen3
-models:
+Add `dashscope` as a fifth cloud provider in `config/models.yaml`, using the Alibaba QwenCloud
+OpenAI-compatible endpoint (`maas.qwencloudapi.com`). Keys are created at
+`home.qwencloud.com/api-keys` and set in `DASHSCOPE_API_KEY`. Register three Qwen3 models:
 
 | Catalog key | API model id | Price class | Thinking |
 | --- | --- | --- | --- |
@@ -32,7 +32,7 @@ disabled as the second entry in the `main` and `worker` chains of the `cloud` pr
 `qwen-turbo` is registered but set `enabled: false` until output quality is verified.
 
 `DASHSCOPE_BASE_URL` can be overridden in `.env` to point to OpenRouter
-(`https://openrouter.ai/api/v1`) as an alternative if the DashScope endpoint is unreachable.
+(`https://openrouter.ai/api/v1`) as an alternative if the QwenCloud endpoint is unreachable.
 
 ## Rationale
 
@@ -44,13 +44,13 @@ disabled as the second entry in the `main` and `worker` chains of the `cloud` pr
   and OpenAI, Alibaba has not publicly restricted use of its models based on geopolitical origin.
 - **MoE cost.** Qwen3-30B-A3B activates only ~3B parameters, giving mid-tier quality at near-
   cheap pricing — a good fit for the `worker` role.
-- **Architecture fit.** DashScope's OpenAI-compatible endpoint means the existing
+- **Architecture fit.** QwenCloud's OpenAI-compatible endpoint means the existing
   `OpenAIChatBackend` handles it with no new SDK or backend code. The provider normalizes to the
   same `json_object` path as DeepSeek (Pydantic validation + repair).
 
 ## Alternatives considered
 
-- **OpenRouter only** — simpler key management, but a 5–10 % markup over DashScope direct.
+- **OpenRouter only** — simpler key management, but a 5–10 % markup over QwenCloud direct.
   Kept as an opt-in via `DASHSCOPE_BASE_URL` override.
 - **Self-hosted Qwen3 on `cloud_gpu`** — already in the catalog as `cloud_gpu`; the comment
   there already names Qwen3-Coder-30B-A3B as the example model. Not a substitute for API
@@ -58,20 +58,22 @@ disabled as the second entry in the `main` and `worker` chains of the `cloud` pr
 - **Replace Anthropic with Qwen3 as primary planner** — not done yet: Opus 5.5 remains better
   benchmarked for complex multi-step reasoning; Qwen3-235B is placed second to try it as a
   fallback and gather empirical data.
+- **DashScope International (dashscope-intl.aliyuncs.com)** — this is a different Alibaba cloud
+  portal than QwenCloud. Keys from home.qwencloud.com are bound to maas.qwencloudapi.com and
+  are not interchangeable with DashScope International keys.
 
 ## Consequences
 
-- A new env var `DASHSCOPE_API_KEY` is required to enable this provider. Missing key = provider
-  disabled, same as the existing providers.
+- A new env var `DASHSCOPE_API_KEY` (set from `home.qwencloud.com/api-keys`) is required to
+  enable this provider. Missing key = provider disabled, same as the existing providers.
 - Pricing figures in `config/models.yaml` are approximate (source: third-party aggregator
-  anotherwrapper.com; the official rate card is the DashScope Model Studio console). See
-  issue #24 "Verify Qwen3 pricing on DashScope International" to track the authoritative
-  numbers before setting a dollar budget on this provider.
+  anotherwrapper.com; verify against the QwenCloud console). See issue #24 "Verify Qwen3 pricing
+  on QwenCloud" to track the authoritative numbers before setting a dollar budget.
 - The gateway must normalize `enable_thinking → extra_body.enable_thinking` for Qwen3 calls
   and must strip `<think>…</think>` from Qwen3 cloud responses (same strip_think logic as local
   models). This is a Phase 1 gateway implementation item.
 - The gateway config loader must expand `${VAR:-default}` patterns in `base_url` values so the
-  DashScope override works (and `LAN_LMSTUDIO_BASE_URL`, `OLLAMA_BASE_URL`, `CLOUD_GPU_BASE_URL`
+  QwenCloud override works (and `LAN_LMSTUDIO_BASE_URL`, `OLLAMA_BASE_URL`, `CLOUD_GPU_BASE_URL`
   can use the same pattern). See issue #25.
 - `reasoning_content` echoing in multi-turn tool loops applies to Qwen3 exactly as for
   DeepSeek.

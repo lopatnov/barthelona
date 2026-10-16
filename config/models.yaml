@@ -119,7 +119,7 @@ providers:
   dashscope:
     kind: openai_chat              # official `openai` SDK with base_url; SDK retries off (max_retries=0)
     api_key_env: DASHSCOPE_API_KEY
-    base_url: ${DASHSCOPE_BASE_URL:-https://dashscope-intl.aliyuncs.com/compatible-mode/v1}
+    base_url: ${DASHSCOPE_BASE_URL:-https://maas.qwencloudapi.com/compatible-mode/v1}
     local: false
     network: internet
     enabled: true
@@ -127,12 +127,13 @@ providers:
     structured_output: json_object # NO json_schema verified on DashScope; validate with Pydantic and repair
     timeout_s: 900
     notes: >-
-      Thinking toggled via extra_body.enable_thinking (bool); default is ON for Qwen3 models.
+      API keys from home.qwencloud.com/api-keys (DASHSCOPE_API_KEY). Endpoint:
+      maas.qwencloudapi.com (qwencloud.com portal). Thinking toggled via
+      extra_body.enable_thinking (bool); default is ON for Qwen3 models.
       Thinking output appears as <think>…</think> in content; strip_think must be applied.
       Echo reasoning_content in multi-turn tool loops. Set DASHSCOPE_BASE_URL to
-      https://openrouter.ai/api/v1 (with OpenRouter key as DASHSCOPE_API_KEY) if DashScope
-      International is unreachable from your region. No sampling parameters. Pricing is
-      approximate; see issue #24 before setting a dollar budget on this provider.
+      https://openrouter.ai/api/v1 to use OpenRouter instead. No sampling parameters.
+      Pricing is approximate; see issue #24 before setting a dollar budget on this provider.
 
   deepseek:
     kind: openai_chat              # official `openai` SDK with base_url; SDK retries off (max_retries=0)

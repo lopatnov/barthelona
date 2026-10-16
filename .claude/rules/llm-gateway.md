@@ -30,7 +30,7 @@ paths:
     - Thinking is on by default.
     - `reasoning_content` must be echoed in tool loops.
 - **Gateway bootstrap — env-var expansion in `base_url`:** the `dashscope` provider's `base_url` uses `${DASHSCOPE_BASE_URL:-default}` syntax. The gateway's config loader must resolve `${VAR:-default}` patterns in every `base_url` value at startup (`os.environ.get(VAR, default)`). No other provider currently uses this syntax — see issue #25.
-- **DashScope / Qwen3 quirks the backend normalizes:**
+- **QwenCloud / Qwen3 quirks the backend normalizes:**
   - Enable thinking with `extra_body.enable_thinking=True`; disable with `False`. Thinking is ON by default for Qwen3 models — always set it explicitly.
   - Thinking output appears in a `<think>…</think>` block inside the first content item; apply `strip_think` (same as local models).
   - Echo `reasoning_content` in multi-turn tool loops, identical to DeepSeek.
