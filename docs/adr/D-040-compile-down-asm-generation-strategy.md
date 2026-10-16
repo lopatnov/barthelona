@@ -1,4 +1,4 @@
-# D-038: Compile-down strategy: compile C/Rust to assembly as an alternative `implement_symbol` path
+# D-040: Compile-down strategy: compile C/Rust to assembly as an alternative `implement_symbol` path
 
 - Status: Proposed
 - Date: 2026-10-16
