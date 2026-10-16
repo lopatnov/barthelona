@@ -182,7 +182,7 @@ class WslExecutor:
             try:
                 self._process.stdin and self._process.stdin.close()
                 self._process.wait(timeout=5)
-            except Exception:  # noqa: BLE001  -- best-effort shutdown; kill on any error
+            except Exception:  # best-effort shutdown; kill on any error
                 self._process.kill()
             self._process = None
 

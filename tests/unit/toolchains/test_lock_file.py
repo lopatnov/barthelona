@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from barthelona.toolchains import ToolInfo, ToolchainLock, read_lock_file, write_lock_file
+from barthelona.toolchains import ToolchainLock, ToolInfo, read_lock_file, write_lock_file
 
 
 def _make_lock() -> ToolchainLock:
@@ -70,7 +70,7 @@ def test_read_missing_file_raises(tmp_path: Path) -> None:
 def test_read_invalid_json_raises(tmp_path: Path) -> None:
     lock_path = tmp_path / "toolchains.lock.json"
     lock_path.write_text("not json", encoding="utf-8")
-    with pytest.raises(Exception):  # json.JSONDecodeError
+    with pytest.raises(json.JSONDecodeError):
         read_lock_file(lock_path)
 
 

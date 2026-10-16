@@ -6,14 +6,9 @@ directly in Python.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-import pytest
-
-# Import the agent as a module (it lives in the package).
-from barthelona.executors import _wsl_agent as agent
-
+from barthelona.executors import _wsl_agent as agent  # agent module lives in the package
 
 # ---------------------------------------------------------------------------
 # _is_allowed

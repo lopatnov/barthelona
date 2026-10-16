@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from barthelona.executors import Command, ExecResult, FakeExecutor
+from barthelona.executors import ExecResult, FakeExecutor
 from barthelona.toolchains import ToolInfo, probe_image_digest, probe_tools, run_probe
 
 
@@ -12,7 +12,9 @@ def _fake_exec(image_digest: str = "sha256:tc000") -> FakeExecutor:
     # and `docker exec bart-tc which <tool>`.
     def _docker_version(tool: str, version_line: str) -> tuple[tuple[str, ...], ExecResult]:
         argv = ("docker", "exec", "bart-tc", tool, "--version")
-        return argv, ExecResult(returncode=0, stdout=(version_line + "\n").encode(), stderr=b"", elapsed=0.001)
+        return argv, ExecResult(
+            returncode=0, stdout=(version_line + "\n").encode(), stderr=b"", elapsed=0.001
+        )
 
     def _docker_which(tool: str, path: str) -> tuple[tuple[str, ...], ExecResult]:
         argv = ("docker", "exec", "bart-tc", "which", tool)
@@ -41,7 +43,7 @@ def _fake_exec(image_digest: str = "sha256:tc000") -> FakeExecutor:
     )
     run_inspect_argv = ("docker", "inspect", "--format", "{{index .RepoDigests 0}}", "bart-run")
     responses[run_inspect_argv] = ExecResult(
-        returncode=0, stdout=("sha256:run000\n").encode(), stderr=b"", elapsed=0.001
+        returncode=0, stdout=b"sha256:run000\n", stderr=b"", elapsed=0.001
     )
 
     return FakeExecutor(responses=responses, image_digest=image_digest)
@@ -102,8 +104,6 @@ def test_run_probe_produces_toolchain_lock() -> None:
 
 
 def test_run_probe_timestamp_is_utc() -> None:
-    from datetime import UTC
-
     exc = _fake_exec()
     lock = run_probe(exc)
     assert lock.probed_at.tzinfo is not None

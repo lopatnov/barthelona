@@ -27,13 +27,12 @@ from __future__ import annotations
 
 import base64
 import json
-import os
 import subprocess
 import sys
 import time
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
-_CACHE_ROOT = os.path.expanduser("~/.cache/barthelona")
+_CACHE_ROOT = str(Path("~/.cache/barthelona").expanduser())
 _TC_CONTAINER = "bart-tc"
 _RUN_IMAGE_PREFIX = "bart-run"
 
@@ -49,7 +48,7 @@ _SANDBOX_FLAGS: tuple[str, ...] = (
     "--memory-swap", "256m",
     "--pids-limit", "64",
     "--cpus", "1",
-    "--tmpfs", "/tmp:size=16m",
+    "--tmpfs", "/tmp:size=16m",  # noqa: S108 -- docker --tmpfs flag, not a host path
     "--rm",
 )
 
@@ -69,12 +68,12 @@ def _is_allowed(argv: list[str]) -> bool:
     """
     for prefix in _ALLOWED_PREFIXES:
         if tuple(argv[: len(prefix)]) == prefix:
-            if prefix == ("docker", "run"):
-                # Caller must pass [docker, run, <image>, *cmd] with no flags.
-                # Full validation happens in _build_docker_run_argv.
-                if len(argv) < 3 or not argv[2].startswith(_RUN_IMAGE_PREFIX):
-                    return False
-            return True
+            # For docker run: caller must pass [docker, run, <image>, *cmd] with no flags.
+            # Full validation happens in _build_docker_run_argv.
+            return not (
+                prefix == ("docker", "run")
+                and (len(argv) < 3 or not argv[2].startswith(_RUN_IMAGE_PREFIX))
+            )
     return False
 
 
@@ -103,9 +102,9 @@ def _build_docker_run_argv(argv: list[str]) -> list[str] | None:
 def _is_safe_path(path: str) -> bool:
     """Return True when *path* is under the cache root after full resolution."""
     try:
-        resolved = PurePosixPath(os.path.realpath(os.path.expanduser(path)))
+        resolved = PurePosixPath(Path(path).expanduser().resolve())
         return str(resolved).startswith(_CACHE_ROOT)
-    except Exception:  # noqa: BLE001  -- any resolution failure means the path is unsafe
+    except Exception:  # any resolution failure means the path is unsafe
         return False
 
 
@@ -131,11 +130,13 @@ def _validate_tar_paths(argv: list[str]) -> bool:
             continue
         # Only validate absolute or home-relative paths; relative ones are
         # resolved against cwd (checked by _handle()) and are safe.
-        if not arg.startswith("-") and arg != "-" and (
-            arg.startswith("/") or arg.startswith("~")
+        if (
+            not arg.startswith("-")
+            and arg != "-"
+            and (arg.startswith("/") or arg.startswith("~"))
+            and not _is_safe_path(arg)
         ):
-            if not _is_safe_path(arg):
-                return False
+            return False
         i += 1
     return True
 
@@ -173,7 +174,7 @@ def _handle(request: dict[str, object]) -> dict[str, object]:
         return {
             "returncode": 1,
             "stdout": "",
-            "stderr": f"tar path argument outside cache root",
+            "stderr": "tar path argument outside cache root",
             "elapsed": 0.0,
         }
 
@@ -191,9 +192,9 @@ def _handle(request: dict[str, object]) -> dict[str, object]:
     if argv[0] == "tar":
         try:
             c_idx = argv.index("-C")
-            extract_dir = os.path.expanduser(argv[c_idx + 1])
-            if extract_dir.startswith(_CACHE_ROOT):
-                os.makedirs(extract_dir, exist_ok=True)
+            extract_dir = Path(argv[c_idx + 1]).expanduser()
+            if str(extract_dir).startswith(_CACHE_ROOT):
+                extract_dir.mkdir(parents=True, exist_ok=True)
         except (ValueError, IndexError, OSError):
             pass
 
@@ -231,7 +232,7 @@ def _handle(request: dict[str, object]) -> dict[str, object]:
             "stderr": base64.b64encode(f"timeout after {timeout}s".encode()).decode(),
             "elapsed": elapsed,
         }
-    except Exception as exc:  # noqa: BLE001  -- all unhandled process errors reported as returncode -1
+    except Exception as exc:  # all unhandled process errors reported as returncode -1
         elapsed = time.monotonic() - t0
         return {
             "returncode": -1,

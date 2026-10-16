@@ -14,10 +14,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from barthelona.toolchains._types import ToolInfo, ToolchainLock
+from barthelona.toolchains._types import ToolchainLock, ToolInfo
 
 if TYPE_CHECKING:
-    from barthelona.executors._types import Command, ExecLimits
     from barthelona.executors.protocol import Executor
 
 _DEFAULT_TOOLS = ("nasm", "as", "ld", "gcc", "nm", "make", "gdb")

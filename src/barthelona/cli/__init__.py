@@ -75,7 +75,7 @@ def probe(
     try:
         with executor:
             lock = run_probe(executor)
-    except Exception as exc:  # noqa: BLE001  -- surface all probe errors to the user as a single message
+    except Exception as exc:  # surface all probe errors to the user as a single message
         _err.print(f"[bold red]probe failed:[/bold red] {exc}")
         raise typer.Exit(1) from exc
 

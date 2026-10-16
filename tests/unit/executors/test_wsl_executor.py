@@ -32,7 +32,7 @@ def test_wsl_unavailable_error_raised_on_non_windows() -> None:
     if sys.platform == "win32":
         pytest.skip("test only meaningful on non-Windows")
 
-    from barthelona.executors import WslUnavailableError, WslExecutor
+    from barthelona.executors import WslExecutor, WslUnavailableError
 
     with pytest.raises(WslUnavailableError):
         WslExecutor()

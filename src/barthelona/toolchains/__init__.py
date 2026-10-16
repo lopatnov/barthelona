@@ -14,7 +14,7 @@ Public surface
 :func:`read_lock_file`  Load a :class:`ToolchainLock` from JSON.
 """
 
-from barthelona.toolchains._types import ToolInfo, ToolchainLock
+from barthelona.toolchains._types import ToolchainLock, ToolInfo
 from barthelona.toolchains.probe import (
     probe_image_digest,
     probe_tools,
