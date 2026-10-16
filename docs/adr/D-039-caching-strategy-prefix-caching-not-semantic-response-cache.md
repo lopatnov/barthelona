@@ -1,4 +1,4 @@
-# D-038: Caching strategy: provider prefix caching over semantic response caching
+# D-039: Caching strategy: provider prefix caching over semantic response caching
 
 - Status: Proposed
 - Date: 2026-10-16
@@ -43,8 +43,11 @@ provider-side caching effective.
 
 Provider integration:
 - **Anthropic**: add `cache_control: {"type": "ephemeral"}` to the last content block of the stable
-  prefix. Cached tokens cost ~10% of normal input token price after the first call.
-  (https://platform.claude.com/docs/en/home, checked 2026-10-13)
+  prefix. Cache reads cost **5% of base input price** for Opus 5.5 and Sonnet 5.5 (e.g. $0.20/MTok
+  and $0.10/MTok respectively), and **10% for most other models** (e.g. Haiku 5.5). Minimum
+  cacheable prefix: **512 tokens** for Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.1; 1024–4096 tokens
+  for older models.
+  (https://platform.claude.com/docs/en/build-with-claude/prompt-caching, checked 2026-10-16)
 - **LM Studio / vLLM**: no SDK change needed; automatic prefix caching reuses the KV cache when
   the prompt prefix matches. Effective only when the model stays loaded and the prefix is identical.
 - **OpenAI, Gemini, DeepSeek**: caching support varies by tier and model; the gateway should
