@@ -63,6 +63,9 @@ Current status (2026-10-14): **Phase 0 in progress** — repository and environm
 - Policy v2: templates `candidates` (E2) and the `trace_capture` slot (V7).
 - **L1 on by default** if the bench shows no regression; **L2** (AI composes whole pipelines from node types) behind a flag for strong tiers.
 - Retrospective report and overlay changes with revert in the UI; lesson candidates stored, not yet injected.
+- _(experimental, gated by bench)_ `compile_high_level` node type: LLM generates C,
+  `gcc -O2 -S` inside `bart-tc` produces the `.s` patch; GAS presets first; enabled only
+  if bench ≥ direct-codegen + 5 pts on Phase 2 holdout split (D-040, #follow-up).
 
 **Exit criteria**
 - Mutation corpus: 100% of bad cases detected, 0 false positives.
@@ -105,6 +108,7 @@ Each has a recommended default that the docs already assume. Change any of them 
 | 9 | Which human gates are manual by default? | G1, G2, G4 manual; G3 auto when green (autopilot checkbox); G5 always manual | Control vs throughput for long local runs |
 | 10 | Where do workspaces live? | `<repo>/workspaces/` (gitignored), overridable by `BARTHELONA_WORKSPACES` and per project in the UI | Each workspace is its own git repo |
 | 11 | Maximum composition level per profile? | Phase 1: L0 by default, L1 opt-in per run; from Phase 2: L1 by default if the bench agrees; L2 only for hybrid/cloud after the Phase 2 bench | How much graph design is delegated to which model |
+| 12 | Dialect strategy for `compile_high_level` node on NASM presets? | (a) treat gcc -S output as a GAS module in the same project (mixed dialect, simplest), or (b) use `objdump -M intel` + a converter to produce NASM-compatible syntax (complex), or (c) restrict this node to GAS presets only for v1 | Compiler output is GAS syntax; NASM projects cannot assemble it directly (D-040) |
 
 ## Follow-ups (deferred items)
 
@@ -148,6 +152,8 @@ Ideas that are not defects. At each phase start, move every row into that phase'
 
 | Idea | Raised | Trigger | Why parked |
 | --- | --- | --- | --- |
+| Compile-down strategy (`compile_high_level` node, D-040): LLM writes C → `gcc -O2 -S` in `bart-tc` → assembly patch; bench-gated; requires owner decision on NASM dialect (open decision 12) | 2026-10-16, research thread | Phase 2 (L2 node types) | Phase 0/1 still in progress; bench gate not yet in place |
+| Four HF papers (2610.17953, 2505.11480, 2603.08706, 2605.21470) on LLM+compiler topics could inform the compile-down design; network blocked in cloud container during research | 2026-10-16, research thread | Before implementing D-040 | Read from the owner's machine; Aleksandr provided the links |
 | `verify-runner` agent (cheap model, read-only, no git-state changes) behind `verify` via `context: fork`, with ENV vs CODE triage for `wsl`/`llm` tests | 2026-10-13, conduit review | `pytest -m wsl` or `barthelona verify` output gets long (Phase 0) | Gate output is short today |
 | `bench-runner` agent + `bench` skill: fixed method, NOT RUN instead of guesses, holdout never read, cost cap required for cloud profiles | 2026-10-13, conduit review | Bake-off harness exists (Phase 0) | Harness not built |
 | `implementation-architect` agent (advisory plans, never edits) + soft 400 / hard 800 code-line limit per module, measured by a script | 2026-10-13, conduit review | First multi-module deliverable, or a module past 300 lines | No code yet |
