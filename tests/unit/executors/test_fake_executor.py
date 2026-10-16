@@ -84,9 +84,17 @@ def test_custom_tools_override_defaults() -> None:
     assert b"2.99" in result.stdout
 
 
-def test_limits_unused_on_fake() -> None:
+def test_limits_truncate_stdout() -> None:
     exc = FakeExecutor()
-    lim = ExecLimits(timeout=5.0, max_stdout_bytes=10)
+    lim = ExecLimits(timeout=5.0, max_stdout_bytes=4)
     result = exc.run(Command(argv=("nasm", "--version")), lim)
-    # FakeExecutor does not truncate; limits are accepted without error.
     assert result.returncode == 0
+    assert len(result.stdout) == 4
+
+
+def test_limits_truncate_stderr() -> None:
+    override = ExecResult(returncode=1, stdout=b"", stderr=b"error message here", elapsed=0.0)
+    exc = FakeExecutor(responses={("bad",): override})
+    lim = ExecLimits(max_stderr_bytes=5)
+    result = exc.run(Command(argv=("bad",)), lim)
+    assert result.stderr == b"error"

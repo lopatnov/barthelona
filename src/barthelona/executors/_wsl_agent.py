@@ -15,6 +15,8 @@ Allowlist (only these command prefixes are permitted):
   - ``docker exec bart-tc …``
   - ``docker run <bart-run*> …``  — sandbox flags are FIXED by this agent;
     the caller supplies only the image name and command, never docker options.
+  - ``docker inspect --format … <bart-tc|bart-run*>``  — image name is
+    restricted to the toolchain and runner images.
   - ``tar …``
   - ``sha256sum …``
 
@@ -64,6 +66,7 @@ _SANDBOX_FLAGS: tuple[str, ...] = (
 _ALLOWED_PREFIXES: tuple[tuple[str, ...], ...] = (
     ("docker", "exec", _TC_CONTAINER),
     ("docker", "run"),
+    ("docker", "inspect"),
     ("tar",),
     ("sha256sum",),
 )
@@ -105,6 +108,32 @@ def _build_docker_run_argv(argv: list[str]) -> list[str] | None:
         return None
     cmd_args = argv[3:]
     return ["docker", "run", *_SANDBOX_FLAGS, image, *cmd_args]
+
+
+def _validate_docker_inspect_argv(argv: list[str]) -> bool:
+    """Check that docker inspect targets exactly one allowed image.
+
+    Only ``bart-tc`` (the toolchain container) and images whose name starts
+    with ``bart-run`` (the runner image prefix) may be inspected; exactly one
+    target is permitted to prevent multi-target calls from enumerating
+    arbitrary images alongside an allowed name.
+
+    ``--format VALUE`` and ``-f VALUE`` are each two tokens; the value is
+    consumed so it is not mistaken for an image target.
+    """
+    args = argv[2:]
+    targets: list[str] = []
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a in ("--format", "-f"):
+            i += 2  # skip flag and its value
+        elif a.startswith("-"):
+            i += 1
+        else:
+            targets.append(a)
+            i += 1
+    return len(targets) == 1 and (targets[0] == _TC_CONTAINER or targets[0].startswith(_RUN_IMAGE_PREFIX))
 
 
 def _is_safe_path(path: str) -> bool:
@@ -149,6 +178,22 @@ def _validate_tar_paths(argv: list[str]) -> bool:
     return True
 
 
+def _validate_sha256sum_argv(argv: list[str]) -> bool:
+    """Check that sha256sum file arguments are inside the cache root.
+
+    Relative paths are resolved against cwd, which is checked separately in
+    ``_handle``; only absolute and home-relative paths are fenced here.
+    Flags (anything starting with ``-``) and the stdin sentinel ``-`` are
+    skipped.
+    """
+    for arg in argv[1:]:  # argv[0] is "sha256sum"
+        if arg.startswith("-"):
+            continue
+        if (arg.startswith("/") or arg.startswith("~")) and not _is_safe_path(arg):
+            return False
+    return True
+
+
 def _handle(request: dict[str, object]) -> dict[str, object]:
     cmd_raw = request.get("cmd")
     argv: list[str] = [str(a) for a in (cmd_raw if isinstance(cmd_raw, list) else [])]
@@ -184,6 +229,24 @@ def _handle(request: dict[str, object]) -> dict[str, object]:
             "returncode": 1,
             "stdout": "",
             "stderr": "tar path argument outside cache root",
+            "elapsed": 0.0,
+        }
+
+    # Restrict docker inspect to the toolchain and runner images.
+    if argv[:2] == ["docker", "inspect"] and not _validate_docker_inspect_argv(argv):
+        return {
+            "returncode": 1,
+            "stdout": "",
+            "stderr": "docker inspect only allowed for bart-tc and bart-run* images",
+            "elapsed": 0.0,
+        }
+
+    # Fence sha256sum file arguments to the cache root.
+    if argv[0] == "sha256sum" and not _validate_sha256sum_argv(argv):
+        return {
+            "returncode": 1,
+            "stdout": "",
+            "stderr": "sha256sum path argument outside cache root",
             "elapsed": 0.0,
         }
 
