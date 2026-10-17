@@ -12,6 +12,7 @@ paths:
   - idiomatic Python over ported idioms: comprehensions, context managers, `enumerate`/`zip`/`itertools`, dataclasses or Pydantic over ad hoc dicts, `StrEnum` over string constants;
   - errors raise specific exceptions with a message that names the bad value; no bare `except`, no silent fallbacks (designed fallbacks emit an event with the reason);
   - a comment says why, not what; delete dead code instead of commenting it out.
+- Size limits (AGENTS.md "Code size limits"): at most 400 code lines per file (warning above 250; comments, docstrings, blanks and tests excluded), and ruff's `C901`/`PLR0912`/`PLR0915` keep functions small. Split a growing module by responsibility before it hits the warning.
 - Pydantic v2 models live in `src/barthelona/domain/`. That package does no I/O; it holds data models and pure validation only.
 - Use `async` in `engine/` and `nodes/`. Never block the event loop with `subprocess.run`; use the executor layer.
 - `subprocess` takes argv lists only, never `shell=True`. Use `pathlib`. Open text files with `encoding="utf-8", newline="\n"`.
