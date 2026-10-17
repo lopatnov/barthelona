@@ -11,6 +11,7 @@ import pytest
 
 from barthelona.contracts import CodegenError, check_generated, render_all, render_module_inc, tamper_result
 from barthelona.contracts.cgen import c_type, render_contracts_h, render_harness
+from barthelona.contracts.stubs import render_stub
 from barthelona.domain.contracts import (
     ContractRegistry,
     RegisterContract,
@@ -77,6 +78,41 @@ def test_rendered_module_matches_golden(dialect: Dialect, folder: str, stem: str
     assert render_module_inc(_registry(dialect), stem) == golden
 
 
+@pytest.mark.parametrize(
+    ("dialect", "folder", "extension"), [(Dialect.NASM, "nasm", ".asm"), (Dialect.GAS_INTEL, "gas", ".s")]
+)
+@pytest.mark.parametrize("stem", ["main", "math"])
+def test_rendered_stub_matches_golden(dialect: Dialect, folder: str, extension: str, stem: str) -> None:
+    golden = (_GOLDEN / folder / "stubs" / f"{stem}{extension}").read_text(encoding="utf-8")
+    assert render_stub(_registry(dialect), stem) == golden
+
+
+def test_a_module_without_functions_has_no_stub() -> None:
+    assert render_stub(_registry(), "os") is None
+
+
+def test_att_stubs_do_not_switch_to_intel_syntax() -> None:
+    stub = render_stub(_registry(Dialect.GAS_ATT), "math")
+    assert stub is not None
+    assert ".intel_syntax" not in stub
+
+
+def test_stubs_export_functions_only_and_trap() -> None:
+    stub = render_stub(_registry(), "math")
+    assert stub is not None
+    assert "global counter" not in stub
+    assert "global hidden" not in stub
+    assert "ud2" in stub
+
+
+def test_render_all_places_stubs_under_gen_stubs() -> None:
+    files = render_all(_registry())
+    assert {path for path in files if path.startswith("gen/stubs/")} == {
+        "gen/stubs/main.asm",
+        "gen/stubs/math.asm",
+    }
+
+
 def test_module_never_imports_what_it_defines() -> None:
     text = render_module_inc(_registry(), "math")
     assert "extern add_one" not in text
@@ -130,7 +166,7 @@ def test_missing_file_is_flagged(tmp_path: Path) -> None:
 
 def test_extra_file_is_flagged(tmp_path: Path) -> None:
     _write_all(tmp_path, _registry())
-    (tmp_path / "gen" / "stubs").mkdir()
+    (tmp_path / "gen" / "stubs").mkdir(exist_ok=True)
     (tmp_path / "gen" / "stubs" / "hack.asm").write_text("; x\n", encoding="utf-8", newline="\n")
     result = tamper_result(_registry(), tmp_path)
     assert result.status == "fail"
