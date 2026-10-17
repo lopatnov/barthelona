@@ -33,7 +33,7 @@ def test_the_project_has_three_modules_and_loadable_contracts(
     modules = {Path(symbol.module).name for symbol in registry.symbols.values()}
     assert modules == {f"main{extension}", f"io{extension}", f"math{extension}"}
     assert {path.name for path in directory.glob(f"*{extension}")} == modules
-    assert {Level.V5, Level.V6} == {test.level for test in tests}
+    assert {test.level for test in tests} == {Level.V5, Level.V6}
 
 
 @pytest.mark.docker
