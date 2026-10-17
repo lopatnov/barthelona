@@ -19,10 +19,12 @@ from __future__ import annotations
 
 import io
 import tarfile
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from barthelona.contracts.codegen import render_all
 from barthelona.domain.contracts import ContractRegistry
 from barthelona.domain.enums import DiagnosticLevel, Level, Linker, ObjFormat
 from barthelona.domain.verification import Diagnostic, LevelResult, Severity, TestCase
@@ -40,12 +42,18 @@ def default_registry() -> CheckRegistry:
     return registry
 
 
-def _make_tar(source_files: list[Path]) -> bytes:
-    """Bundle *source_files* into a tar archive, each at the root level."""
+def _make_tar(source_files: list[Path], generated: Mapping[str, str]) -> bytes:
+    """Bundle *source_files* (each at the root level) and the generated files (at their ``gen/`` paths)."""
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:") as archive:
         for path in source_files:
             archive.add(path, arcname=path.name)
+        for name, text in sorted(generated.items()):
+            data = text.encode("utf-8")
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            info.mode = 0o644
+            archive.addfile(info, io.BytesIO(data))
     return buf.getvalue()
 
 
@@ -83,21 +91,30 @@ async def _run_level(
     return await check.run(ctx)
 
 
-async def run_ladder(  # NOSONAR S107: one optional knob per ladder input; grouping waits for the V5 API
+@dataclass
+class LadderOptions:
+    """The optional inputs of :func:`run_ladder`; the defaults describe a plain NASM/ELF64 build."""
+
+    obj_format: ObjFormat = ObjFormat.ELF64
+    linker: Linker = Linker.LD
+    entry: str = "_start"
+    family: str = NATIVE_ASM
+    contracts: ContractRegistry | None = (
+        None  # V1 compares nm symbols with it; V5 generates harnesses from it
+    )
+    sandbox: Executor | None = None  # bart-run; V5 and V6 are unsupported without it
+    tests: list[TestCase] = field(default_factory=list)  # V5 runs c_harness cases, V6 the io_golden ones
+    checks: CheckRegistry | None = None  # the built-in registry when omitted
+
+
+async def run_ladder(
     up_to: Level,
     executor: Executor,
     adapter: DialectAdapter,
     source_files: list[Path],
     run_id: str,
     attempt: int = 0,
-    obj_format: ObjFormat = ObjFormat.ELF64,
-    linker: Linker = Linker.LD,
-    entry: str = "_start",
-    family: str = NATIVE_ASM,
-    contracts: ContractRegistry | None = None,
-    sandbox: Executor | None = None,
-    tests: list[TestCase] | None = None,
-    checks: CheckRegistry | None = None,
+    options: LadderOptions | None = None,
 ) -> list[LevelResult]:
     """Run the ladder from V0 up to *up_to* and return one result per level.
 
@@ -114,41 +131,34 @@ async def run_ladder(  # NOSONAR S107: one optional knob per ladder input; group
         Ordered list of local source file paths to stage and assemble.
     run_id, attempt:
         Identify the session's work directory (D-043); parallel attempts never share one.
-    obj_format, linker, entry:
-        Target settings the checks read from the context.
-    family:
-        Target family whose checks are used (``native-asm``).
-    contracts:
-        Contract registry; when given, V1 also compares each object's ``nm`` symbols with it.
-    sandbox:
-        Executor for generated binaries (``bart-run``); V6 is unsupported without it.
-    tests:
-        Test cases; V6 runs the ``io_golden`` ones.
-    checks:
-        Check registry; the built-in one when omitted.
+    options:
+        Target settings, contracts, tests, sandbox and check registry (see :class:`LadderOptions`).
+        With contracts, the generated ``gen/`` files are staged next to the sources.
     """
     if not source_files:
         return []
 
-    checks = checks or default_registry()
+    opts = options or LadderOptions()
+    checks = opts.checks or default_registry()
     session = await executor.open_session(run_id, attempt)
-    await session.stage(_make_tar(source_files))
+    generated = render_all(opts.contracts, opts.tests) if opts.contracts is not None else {}
+    await session.stage(_make_tar(source_files, generated))
     ctx = LadderContext(
         session=session,
         adapter=adapter,
         source_files=source_files,
-        obj_format=obj_format,
-        linker=linker,
-        entry=entry,
-        contracts=contracts,
-        sandbox=await sandbox.open_session(run_id, attempt) if sandbox is not None else None,
-        tests=tests or [],
+        obj_format=opts.obj_format,
+        linker=opts.linker,
+        entry=opts.entry,
+        contracts=opts.contracts,
+        sandbox=await opts.sandbox.open_session(run_id, attempt) if opts.sandbox is not None else None,
+        tests=opts.tests,
     )
 
     results: list[LevelResult] = []
     failed = False
     for level in levels_through(up_to):
-        result = await _run_level(checks, family, level, ctx, failed)
+        result = await _run_level(checks, opts.family, level, ctx, failed)
         results.append(result)
         failed = failed or result.status == "fail"
     return results

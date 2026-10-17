@@ -18,7 +18,7 @@ from barthelona.executors.fake import FakeExecutor
 from barthelona.executors.protocol import Session
 from barthelona.toolchains.gas import GasAttAdapter
 from barthelona.toolchains.nasm import NasmAdapter
-from barthelona.verification.ladder import dod_satisfied, levels_through, run_ladder
+from barthelona.verification.ladder import LadderOptions, dod_satisfied, levels_through, run_ladder
 from barthelona.verification.native_asm import run_v0, run_v1, run_v2
 from barthelona.verification.registry import CheckRegistry, LadderContext, Unsupported
 
@@ -255,7 +255,9 @@ class TestRegistry:
     async def test_level_without_check_is_unsupported(self, tmp_path: Path) -> None:
         sources = _make_real_source(tmp_path)
         registry = _registry(_StubCheck(Level.V0))
-        results = await run_ladder(Level.V1, FakeExecutor(), NasmAdapter(), sources, _RUN, checks=registry)
+        results = await run_ladder(
+            Level.V1, FakeExecutor(), NasmAdapter(), sources, _RUN, options=LadderOptions(checks=registry)
+        )
         assert [r.status for r in results] == ["pass", "unsupported"]
 
     async def test_unsupported_check_does_not_run_and_does_not_stop_the_walk(self, tmp_path: Path) -> None:
@@ -263,7 +265,9 @@ class TestRegistry:
         v1 = _StubCheck(Level.V1, unsupported="no such thing")
         v2 = _StubCheck(Level.V2)
         registry = _registry(_StubCheck(Level.V0), v1, v2)
-        results = await run_ladder(Level.V2, FakeExecutor(), NasmAdapter(), sources, _RUN, checks=registry)
+        results = await run_ladder(
+            Level.V2, FakeExecutor(), NasmAdapter(), sources, _RUN, options=LadderOptions(checks=registry)
+        )
         assert [r.status for r in results] == ["pass", "unsupported", "pass"]
         assert results[1].diagnostics[0].message == "no such thing"
         assert not v1.ran
@@ -274,7 +278,9 @@ class TestRegistry:
         trace = _StubCheck(Level.V1)
         trace.always_run = True
         registry = _registry(_StubCheck(Level.V0, status="fail"), trace, _StubCheck(Level.V2))
-        results = await run_ladder(Level.V2, FakeExecutor(), NasmAdapter(), sources, _RUN, checks=registry)
+        results = await run_ladder(
+            Level.V2, FakeExecutor(), NasmAdapter(), sources, _RUN, options=LadderOptions(checks=registry)
+        )
         assert [r.status for r in results] == ["fail", "pass", "skipped"]
         assert not dod_satisfied(levels_through(Level.V2), results)
 

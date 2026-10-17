@@ -18,6 +18,7 @@ from barthelona.executors._types import Command, ExecLimits, ExecResult
 from barthelona.executors.protocol import Session
 from barthelona.toolchains.dialect import DialectAdapter
 from barthelona.verification.golden import GoldenIoCheck
+from barthelona.verification.harness import HarnessCheck
 from barthelona.verification.registry import NATIVE_ASM, CheckRegistry, LadderContext, Unsupported
 
 _LINKER_CMD: dict[Linker, str] = {
@@ -231,6 +232,6 @@ class LinkCheck:
 
 
 def register_native_asm(registry: CheckRegistry) -> None:
-    """Register V0-V2 and V6 for the ``native-asm`` family."""
-    for check in (SyntaxCheck(), AssembleCheck(), LinkCheck(), GoldenIoCheck()):
+    """Register V0-V2, V5 and V6 for the ``native-asm`` family."""
+    for check in (SyntaxCheck(), AssembleCheck(), LinkCheck(), HarnessCheck(), GoldenIoCheck()):
         registry.register(NATIVE_ASM, check)
