@@ -1039,6 +1039,7 @@ Examples of pitfalls: NASM `default rel` and `wrt ..plt`; GAS `.intel_syntax nop
 Rules:
 - Each module gets `gen/<module>.inc` containing its exports and only its own imports. A module never declares `extern` for a symbol it defines.
 - Generated files carry a hash header (`<comment> GENERATED ... barthelona-gen v1 body-sha256=<hex>`, the hash covers the body) and are committed, so the project builds without barthelona. The tamper gate regenerates `gen/` from the registry and flags every missing, edited or extra file (`tamper.missing`, `tamper.edited`, `tamper.extra`); `barthelona verify --contracts` runs it first and stops on failure.
+- `gen/contracts.h` holds the C prototypes of global functions (register types `u8`..`u64`, `i8`..`i64`, `usize`, `char`, pointers to them) and consts and struct offsets as enum constants. Each `c_harness` test at V5 gets `gen/harness/<id>.c`: it calls the function with the integer inputs in declared order and exits 1 if the first output differs from `expect.ret`.
 - When a contract hash changes, dependent modules are marked stale.
 
 ### 15.2 Lessons (evidence-gated experience log)

@@ -3,21 +3,26 @@
 from __future__ import annotations
 
 import hashlib
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
 
 from barthelona.contracts import CodegenError, check_generated, render_all, render_module_inc, tamper_result
+from barthelona.contracts.cgen import c_type, render_contracts_h, render_harness
 from barthelona.domain.contracts import (
     ContractRegistry,
+    RegisterContract,
     StructDef,
     StructField,
     Symbol,
     SymbolKind,
     Visibility,
 )
-from barthelona.domain.enums import ABI, OS, Arch, Dialect, Linker, ObjFormat, RunEnv
+from barthelona.domain.enums import ABI, OS, Arch, Dialect, Level, Linker, ObjFormat, RunEnv
 from barthelona.domain.project import TargetProfile
+from barthelona.domain.verification import Expectation, TestCase, TestKind, TestOrigin
 
 _GOLDEN = Path(__file__).parents[2] / "codegen_golden"
 
@@ -37,7 +42,13 @@ def _registry(dialect: Dialect = Dialect.NASM) -> ContractRegistry:
         "main_loop": Symbol(
             name="main_loop", kind=SymbolKind.FUNC, module="src/main.asm", calls=["add_one", "sys_exit"]
         ),
-        "add_one": Symbol(name="add_one", kind=SymbolKind.FUNC, module="src/math.asm"),
+        "add_one": Symbol(
+            name="add_one",
+            kind=SymbolKind.FUNC,
+            module="src/math.asm",
+            inputs=[RegisterContract(reg="rdi", type="u64")],
+            outputs=[RegisterContract(reg="rax", type="u64")],
+        ),
         "counter": Symbol(name="counter", kind=SymbolKind.DATA, module="src/math.asm"),
         "hidden": Symbol(
             name="hidden", kind=SymbolKind.FUNC, module="src/math.asm", visibility=Visibility.LOCAL
@@ -139,3 +150,146 @@ def test_symlink_in_gen_is_flagged_even_if_target_matches(tmp_path: Path) -> Non
     link.unlink()
     link.symlink_to(real)
     assert [d.code for d in check_generated(registry, tmp_path)] == ["tamper.edited"]
+
+
+def _harness_case(**overrides: object) -> TestCase:
+    fields: dict[str, object] = {
+        "id": "add_one_basic",
+        "kind": TestKind.C_HARNESS,
+        "symbol": "add_one",
+        "level": Level.V5,
+        "inputs": {"rdi": 41},
+        "expect": Expectation(ret=42),
+        "origin": TestOrigin.USER,
+    }
+    return TestCase.model_validate(fields | overrides)
+
+
+def test_contracts_h_matches_golden() -> None:
+    golden = (_GOLDEN / "c" / "contracts.h").read_text(encoding="utf-8")
+    assert render_contracts_h(_registry()) == golden
+
+
+def test_harness_matches_golden() -> None:
+    golden = (_GOLDEN / "c" / "add_one_basic.c").read_text(encoding="utf-8")
+    assert render_harness(_registry(), _harness_case()) == golden
+
+
+def test_render_all_includes_header_and_harness() -> None:
+    files = render_all(_registry(), [_harness_case()])
+    assert "gen/contracts.h" in files
+    assert "gen/harness/add_one_basic.c" in files
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"symbol": "nope"}, "not in the registry"),
+        ({"expect": Expectation()}, "needs expect.ret"),
+        ({"inputs": {}}, "input rdi"),
+        ({"inputs": {"rdi": "x"}}, "must be an integer"),
+        ({"expect": Expectation(ret=1, stdout="x")}, "checks only expect.ret"),
+        ({"inputs": {"rdi": 1, "rsi": 2}}, "not inputs of add_one"),
+        ({"inputs": {"rdi": -1}}, "does not fit u64"),
+        ({"expect": Expectation(ret=2**64)}, "does not fit u64"),
+    ],
+)
+def test_bad_harness_case_is_refused(overrides: dict[str, object], message: str) -> None:
+    with pytest.raises(CodegenError, match=message):
+        render_harness(_registry(), _harness_case(**overrides))
+
+
+@pytest.mark.parametrize(
+    ("type_name", "expected"),
+    [("u64", "uint64_t"), ("char*", "char *"), ("u8 **", "uint8_t **"), ("void", "void")],
+)
+def test_c_type(type_name: str, expected: str) -> None:
+    assert c_type(type_name) == expected
+
+
+def test_c_type_rejects_unknown() -> None:
+    with pytest.raises(CodegenError, match="no C type"):
+        c_type("mystery")
+
+
+def test_tamper_covers_harness_files(tmp_path: Path) -> None:
+    registry, tests = _registry(), [_harness_case()]
+    for path, text in render_all(registry, tests).items():
+        (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / path).write_text(text, encoding="utf-8", newline="\n")
+    assert check_generated(registry, tmp_path, tests) == []
+    assert [d.code for d in check_generated(registry, tmp_path)] == ["tamper.extra"]
+
+
+@pytest.mark.skipif(shutil.which("gcc") is None, reason="needs gcc in PATH")
+def test_generated_c_compiles_and_runs(tmp_path: Path) -> None:
+    for path, text in render_all(_registry(), [_harness_case()]).items():
+        (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / path).write_text(text, encoding="utf-8", newline="\n")
+    (tmp_path / "impl.c").write_text(
+        '#include "gen/contracts.h"\nuint64_t add_one(uint64_t rdi) { return rdi + 1; }\n',
+        encoding="utf-8",
+        newline="\n",
+    )
+    exe = tmp_path / "t"
+    build = ["gcc", "-Wall", "-Werror", "-o", str(exe), "impl.c", "gen/harness/add_one_basic.c"]
+    subprocess.run(build, cwd=tmp_path, check=True)
+    assert subprocess.run([str(exe)], check=False).returncode == 0
+
+
+def test_custom_abi_function_has_no_prototype_and_no_harness() -> None:
+    registry = _registry()
+    registry.symbols["add_one"] = registry.symbols["add_one"].model_copy(update={"abi": "custom"})
+    assert "// add_one: no prototype" in render_contracts_h(registry)
+    with pytest.raises(CodegenError, match="custom ABI"):
+        render_harness(registry, _harness_case())
+
+
+def test_duplicate_harness_ids_are_refused() -> None:
+    with pytest.raises(CodegenError, match="unique"):
+        render_all(_registry(), [_harness_case(), _harness_case(id="ADD_ONE_BASIC")])
+
+
+def _with_symbol(**update: object) -> ContractRegistry:
+    registry = _registry()
+    registry.symbols["add_one"] = registry.symbols["add_one"].model_copy(update=update)
+    return registry
+
+
+_U64 = RegisterContract(reg="rax", type="u64")
+
+
+@pytest.mark.parametrize(
+    ("update", "message"),
+    [
+        ({"inputs": [RegisterContract(reg="rsi", type="u64")]}, "not in rdi"),
+        ({"inputs": [RegisterContract(reg="xmm0", type="u64")]}, "not in rdi"),
+        ({"inputs": [RegisterContract(reg="rdi", type="char*")]}, "non-integer"),
+        ({"outputs": []}, "exactly one value in rax"),
+        ({"outputs": [RegisterContract(reg="rdx", type="u64")]}, "exactly one value in rax"),
+        ({"outputs": [_U64, RegisterContract(reg="rdx", type="u64")]}, "exactly one value"),
+        ({"flags_out": {"CF": "carry"}}, "flags cannot be observed"),
+    ],
+)
+def test_harness_refuses_contracts_c_cannot_reproduce(update: dict[str, object], message: str) -> None:
+    registry = _with_symbol(**update)
+    inputs = {item.reg: 1 for item in registry.symbols["add_one"].inputs}
+    with pytest.raises(CodegenError, match=message):
+        render_harness(registry, _harness_case(inputs=inputs))
+
+
+def test_win64_uses_its_own_argument_registers() -> None:
+    registry = _with_symbol(inputs=[RegisterContract(reg="ecx", type="u32")])
+    registry = registry.model_copy(update={"target": registry.target.model_copy(update={"abi": ABI.WIN64})})
+    case = _harness_case(inputs={"ecx": 41})
+    assert "add_one(41ULL)" in render_harness(registry, case)
+    sysv_style = _registry().model_copy(update={"target": registry.target})
+    with pytest.raises(CodegenError, match="not in rcx"):
+        render_harness(sysv_style, _harness_case())
+
+
+def test_large_constants_do_not_use_enum() -> None:
+    registry = _registry().model_copy(update={"consts": {"BIG": 2**32, "HUGE": 2**63}})
+    text = render_contracts_h(registry)
+    assert "#define BIG 4294967296LL" in text
+    assert f"#define HUGE {2**63}ULL" in text

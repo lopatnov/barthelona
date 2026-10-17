@@ -6,19 +6,14 @@ Output is deterministic, LF-only and carries a hash header so that any edit is d
 
 from __future__ import annotations
 
-import hashlib
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
+from barthelona.contracts._gen import GEN_DIR, CodegenError, stamp
+from barthelona.contracts.cgen import c_harness_cases, render_contracts_h, render_harness
 from barthelona.contracts.symbols import called_imports, expected_exports, module_stem
 from barthelona.domain.contracts import ContractRegistry, StructDef, SymbolKind
 from barthelona.domain.enums import Dialect
-
-GEN_DIR = "gen"
-HEADER_MARK = "barthelona-gen v1 body-sha256="
-
-
-class CodegenError(ValueError):
-    """The registry cannot be rendered for its dialect."""
+from barthelona.domain.verification import TestCase
 
 
 def _nasm_struct(name: str, struct: StructDef) -> list[str]:
@@ -78,11 +73,17 @@ def render_module_inc(registry: ContractRegistry, stem: str) -> str:
         comment, body_of = _RENDERERS[registry.target.dialect]
     except KeyError:
         raise CodegenError(f"no codegen for dialect {registry.target.dialect.value!r}") from None
-    body = "".join(f"{line}\n" for line in body_of(registry, stem))
-    digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
-    return f"{comment} GENERATED from contracts.yaml, do not edit. {HEADER_MARK}{digest}\n{body}"
+    return stamp(comment, [*body_of(registry, stem)])
 
 
-def render_all(registry: ContractRegistry) -> dict[str, str]:
+def render_all(registry: ContractRegistry, tests: Sequence[TestCase] = ()) -> dict[str, str]:
     """Every generated file, keyed by its path relative to the workspace root."""
-    return {f"{GEN_DIR}/{stem}.inc": render_module_inc(registry, stem) for stem in _module_stems(registry)}
+    files = {f"{GEN_DIR}/{stem}.inc": render_module_inc(registry, stem) for stem in _module_stems(registry)}
+    files[f"{GEN_DIR}/contracts.h"] = render_contracts_h(registry)
+    cases = c_harness_cases(tests)
+    ids = [case.id.casefold() for case in cases]
+    if len(set(ids)) != len(ids):
+        raise CodegenError("c_harness test ids must be unique, ignoring case")
+    for case in cases:
+        files[f"{GEN_DIR}/harness/{case.id}.c"] = render_harness(registry, case)
+    return files
