@@ -867,7 +867,7 @@ Normalization:
 | V8 | Real Windows (Windows Sandbox), opt-in, later | 30–60 s | Windows Sandbox |
 | T, M | Tamper gate after every apply; minimality gate in edit mode | ms | worker |
 
-**Levels are registered checks (D-046).** The ids V0 to V8 are stable names; each is implemented by a `LevelCheck` (`level`, `supports(target)`, `async run(ctx)`) registered per target family, so a family such as WebAssembly can supply its own V3 or V4. `run_ladder` walks the registry in order: an unsupported level returns `unsupported` with a reason, a failed level makes later ones `skipped`, and a required level that is not `pass` means the work is not done. Checks take the whole module list and batch their commands. The Phase 0 code (`_LEVEL_ORDER`, `run_v0` to `run_v2`) is the pre-registry form (issue #66).
+**Levels are registered checks (D-046).** The ids V0 to V8 are stable names; each is implemented by a `LevelCheck` (`level`, `supports(ctx)`, `async run(ctx)`) registered per target family, so a family such as WebAssembly can supply its own V3 or V4. `run_ladder` walks the registry in order: an unsupported level returns `unsupported` with a reason, a failed level makes later ones `skipped`, and a required level that is not `pass` means the work is not done. Checks take the whole module list; batching their commands is follow-up F-52. With a contract registry, V1 compares `nm -P -g` output with it: a module's defined globals must equal its registry exports, and its undefined symbols must be the `calls` of its symbols, `extern` registry symbols, or the allow-list.
 
 V3 checks:
 - the rsp delta along every path; stack balanced at every `ret`;

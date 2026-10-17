@@ -34,6 +34,7 @@ jobs:
       - run: ruff format --check .
       - run: mypy
       - run: python -m pytest
+      - run: python scripts/check_file_sizes.py
       - run: python scripts/sync_agent_configs.py --check
       - run: python scripts/deps_fingerprint.py --check
 

@@ -221,13 +221,13 @@ def _rejection(message: str) -> dict[str, object]:
 
 
 def _prepare_tar_destination(argv: list[str]) -> None:
-    """Create the ``-C`` directory of a tar extract inside the cache root."""
+    """Create the ``-C`` destination of a tar extract when it lies under the cache root."""
     try:
         extract_dir = Path(argv[argv.index("-C") + 1]).expanduser()
         if str(extract_dir).startswith(_CACHE_ROOT):
             extract_dir.mkdir(parents=True, exist_ok=True)
     except (ValueError, IndexError, OSError):
-        pass  # no -C or an unusable path: tar itself reports the failure
+        pass
 
 
 def _handle(request: dict[str, object]) -> dict[str, object]:

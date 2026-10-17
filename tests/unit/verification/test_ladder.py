@@ -9,14 +9,18 @@ import io
 import tarfile
 from pathlib import Path
 
-from barthelona.domain.enums import Level
-from barthelona.domain.verification import Severity
+from barthelona.domain.contracts import ContractRegistry, Symbol, SymbolKind
+from barthelona.domain.enums import ABI, OS, Arch, Dialect, Level, Linker, ObjFormat, RunEnv
+from barthelona.domain.project import TargetProfile
+from barthelona.domain.verification import LevelResult, Severity
 from barthelona.executors._types import ExecResult
 from barthelona.executors.fake import FakeExecutor
 from barthelona.executors.protocol import Session
 from barthelona.toolchains.gas import GasAttAdapter
 from barthelona.toolchains.nasm import NasmAdapter
-from barthelona.verification.ladder import run_ladder, run_v0, run_v1, run_v2
+from barthelona.verification.ladder import dod_satisfied, run_ladder
+from barthelona.verification.native_asm import run_v0, run_v1, run_v2
+from barthelona.verification.registry import CheckRegistry, LadderContext, Unsupported
 
 _RUN = "t"
 _WORK = f"/fake/work/{_RUN}/0"  # FakeExecutor session directory for (run, attempt 0)
@@ -216,3 +220,152 @@ class TestRunLadder:
         src.write_text("; stub\n", encoding="utf-8")
         results = await run_ladder(Level.V0, FakeExecutor(), GasAttAdapter(), [src], _RUN)
         assert results[0].status == "pass"
+
+
+# ---------------------------------------------------------------------------
+# registry behaviour (D-046)
+# ---------------------------------------------------------------------------
+
+
+class _StubCheck:
+    always_run = False
+
+    def __init__(self, level: Level, status: str = "pass", unsupported: str | None = None) -> None:
+        self.level = level
+        self._status = status
+        self._unsupported = unsupported
+        self.ran = False
+
+    def supports(self, ctx: LadderContext) -> Unsupported | None:
+        return Unsupported(self._unsupported) if self._unsupported else None
+
+    async def run(self, ctx: LadderContext) -> LevelResult:
+        self.ran = True
+        return LevelResult(level=self.level, status=self._status, secs=0.0)  # type: ignore[arg-type]  # test stub passes a valid literal
+
+
+def _registry(*checks: _StubCheck) -> CheckRegistry:
+    registry = CheckRegistry()
+    for check in checks:
+        registry.register("native-asm", check)
+    return registry
+
+
+class TestRegistry:
+    async def test_level_without_check_is_unsupported(self, tmp_path: Path) -> None:
+        sources = _make_real_source(tmp_path)
+        registry = _registry(_StubCheck(Level.V0))
+        results = await run_ladder(Level.V1, FakeExecutor(), NasmAdapter(), sources, _RUN, checks=registry)
+        assert [r.status for r in results] == ["pass", "unsupported"]
+
+    async def test_unsupported_check_does_not_run_and_does_not_stop_the_walk(self, tmp_path: Path) -> None:
+        sources = _make_real_source(tmp_path)
+        v1 = _StubCheck(Level.V1, unsupported="no such thing")
+        v2 = _StubCheck(Level.V2)
+        registry = _registry(_StubCheck(Level.V0), v1, v2)
+        results = await run_ladder(Level.V2, FakeExecutor(), NasmAdapter(), sources, _RUN, checks=registry)
+        assert [r.status for r in results] == ["pass", "unsupported", "pass"]
+        assert results[1].diagnostics[0].message == "no such thing"
+        assert not v1.ran
+        assert v2.ran
+
+    async def test_always_run_check_runs_after_failure_but_does_not_clear_it(self, tmp_path: Path) -> None:
+        sources = _make_real_source(tmp_path)
+        trace = _StubCheck(Level.V1)
+        trace.always_run = True
+        registry = _registry(_StubCheck(Level.V0, status="fail"), trace, _StubCheck(Level.V2))
+        results = await run_ladder(Level.V2, FakeExecutor(), NasmAdapter(), sources, _RUN, checks=registry)
+        assert [r.status for r in results] == ["fail", "pass", "skipped"]
+        assert not dod_satisfied(Level.V2, results)
+
+    async def test_duplicate_registration_is_rejected(self) -> None:
+        registry = _registry(_StubCheck(Level.V0))
+        try:
+            registry.register("native-asm", _StubCheck(Level.V0))
+        except ValueError as exc:
+            assert "V0" in str(exc)
+        else:
+            raise AssertionError("duplicate registration was accepted")
+
+
+class TestDodSatisfied:
+    async def test_all_levels_passed(self, tmp_path: Path) -> None:
+        results = await run_ladder(Level.V2, FakeExecutor(), NasmAdapter(), _make_real_source(tmp_path), _RUN)
+        assert dod_satisfied(Level.V2, results)
+
+    async def test_unsupported_required_level_is_not_done(self, tmp_path: Path) -> None:
+        results = await run_ladder(Level.V3, FakeExecutor(), NasmAdapter(), _make_real_source(tmp_path), _RUN)
+        assert results[-1].status == "unsupported"
+        assert not dod_satisfied(Level.V3, results)
+        assert dod_satisfied(Level.V2, results)
+
+    def test_missing_level_is_not_done(self) -> None:
+        assert not dod_satisfied(Level.V1, [LevelResult(level=Level.V0, status="pass", secs=0.0)])
+
+
+# ---------------------------------------------------------------------------
+# V1 symbol check against the contract registry (#45)
+# ---------------------------------------------------------------------------
+
+
+def _contracts_for(*, export: str) -> ContractRegistry:
+    target = TargetProfile(
+        preset="linux-x64-nasm-static",
+        dialect=Dialect.NASM,
+        arch=Arch.X86_64,
+        os=OS.LINUX,
+        abi=ABI.SYSV64,
+        obj_format=ObjFormat.ELF64,
+        link=Linker.LD,
+        run_env=RunEnv.DOCKER_NATIVE,
+    )
+    symbol = Symbol(name=export, kind=SymbolKind.FUNC, module="hello.asm")
+    return ContractRegistry(version=1, target=target, symbols={export: symbol})
+
+
+def _nm_argv(name: str) -> tuple[str, ...]:
+    return ("nm", "-P", "-g", f"{_WORK}/{Path(name).stem}.o")
+
+
+def _nm_responses(returncode: int, stdout: bytes, stderr: bytes) -> dict[tuple[str, ...], ExecResult]:
+    return {
+        _nm_argv("hello.asm"): ExecResult(returncode=returncode, stdout=stdout, stderr=stderr, elapsed=0.0)
+    }
+
+
+class TestV1Symbols:
+    async def test_matching_symbols_pass(self) -> None:
+        responses = {
+            _nm_argv("hello.asm"): ExecResult(returncode=0, stdout=b"greet T 0\n", stderr=b"", elapsed=0.0)
+        }
+        session = await _session(FakeExecutor(responses=responses))
+        result, _ = await run_v1(session, NasmAdapter(), [_HELLO], contracts=_contracts_for(export="greet"))
+        assert result.status == "pass"
+
+    async def test_unregistered_export_fails(self) -> None:
+        responses = {
+            _nm_argv("hello.asm"): ExecResult(returncode=0, stdout=b"rogue T 0\n", stderr=b"", elapsed=0.0)
+        }
+        session = await _session(FakeExecutor(responses=responses))
+        result, _ = await run_v1(session, NasmAdapter(), [_HELLO], contracts=_contracts_for(export="greet"))
+        assert result.status == "fail"
+        assert {d.symbol for d in result.diagnostics} == {"rogue", "greet"}
+
+    async def test_nm_failure_is_fatal(self) -> None:
+        responses = {
+            _nm_argv("hello.asm"): ExecResult(returncode=1, stdout=b"", stderr=b"nm: bad file", elapsed=0.0)
+        }
+        session = await _session(FakeExecutor(responses=responses))
+        result, _ = await run_v1(session, NasmAdapter(), [_HELLO], contracts=_contracts_for(export="greet"))
+        assert result.status == "fail"
+        assert "bad file" in result.diagnostics[0].message
+
+    async def test_no_contracts_skips_nm(self) -> None:
+        responses = {
+            _nm_argv("hello.asm"): ExecResult(
+                returncode=1, stdout=b"", stderr=b"nm must not run", elapsed=0.0
+            )
+        }
+        session = await _session(FakeExecutor(responses=responses))
+        result, _ = await run_v1(session, NasmAdapter(), [_HELLO])
+        assert result.status == "pass"
