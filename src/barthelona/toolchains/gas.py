@@ -47,9 +47,8 @@ class GasIntelAdapter:
         stdout: bytes,
         stderr: bytes,
         source: str,
-    ) -> list[Diagnostic]:
-        # TODO: implement after capturing real GAS output in
-        # tests/fixtures/diagnostics/gas/<version>/ (AGENTS.md testing policy)
+    ) -> list[Diagnostic]:  # NOSONAR S1172: Protocol signature; parameters are used once #46 lands
+        # Stub until real tool output is captured as fixtures (AGENTS.md testing policy); tracked in #46.
         return []
 
 
@@ -83,7 +82,6 @@ class GasAttAdapter:
         stdout: bytes,
         stderr: bytes,
         source: str,
-    ) -> list[Diagnostic]:
-        # TODO: implement after capturing real GAS output in
-        # tests/fixtures/diagnostics/gas/<version>/ (AGENTS.md testing policy)
+    ) -> list[Diagnostic]:  # NOSONAR S1172: Protocol signature; parameters are used once #46 lands
+        # Stub until real tool output is captured as fixtures (AGENTS.md testing policy); tracked in #46.
         return []

@@ -167,12 +167,7 @@ def _validate_tar_paths(argv: list[str]) -> bool:
             continue
         # Only validate absolute or home-relative paths; relative ones are
         # resolved against cwd (checked by _handle()) and are safe.
-        if (
-            not arg.startswith("-")
-            and arg != "-"
-            and (arg.startswith("/") or arg.startswith("~"))
-            and not _is_safe_path(arg)
-        ):
+        if not arg.startswith("-") and arg != "-" and arg.startswith(("/", "~")) and not _is_safe_path(arg):
             return False
         i += 1
     return True
@@ -189,9 +184,26 @@ def _validate_sha256sum_argv(argv: list[str]) -> bool:
     for arg in argv[1:]:  # argv[0] is "sha256sum"
         if arg.startswith("-"):
             continue
-        if (arg.startswith("/") or arg.startswith("~")) and not _is_safe_path(arg):
+        if arg.startswith(("/", "~")) and not _is_safe_path(arg):
             return False
     return True
+
+
+def _validate_request(argv: list[str], cwd_raw: object) -> str | None:
+    """Return the rejection message for *argv* / *cwd_raw*, or ``None`` when allowed."""
+    if not _is_allowed(argv):
+        return f"command not on allow-list: {argv[0]!r}"
+    if argv[:2] == ["docker", "run"] and _build_docker_run_argv(argv) is None:
+        return "invalid docker run: supply only image and command; docker flags are injected by the agent"
+    if argv[0] == "tar" and not _validate_tar_paths(argv[1:]):
+        return "tar path argument outside cache root"
+    if argv[:2] == ["docker", "inspect"] and not _validate_docker_inspect_argv(argv):
+        return "docker inspect only allowed for bart-tc and bart-run* images"
+    if argv[0] == "sha256sum" and not _validate_sha256sum_argv(argv):
+        return "sha256sum path argument outside cache root"
+    if cwd_raw and not _is_safe_path(str(cwd_raw)):
+        return f"cwd outside cache root: {str(cwd_raw)!r}"
+    return None
 
 
 def _handle(request: dict[str, object]) -> dict[str, object]:
@@ -200,65 +212,18 @@ def _handle(request: dict[str, object]) -> dict[str, object]:
     if not argv:
         return {"returncode": 1, "stdout": "", "stderr": "empty cmd", "elapsed": 0.0}
 
-    if not _is_allowed(argv):
-        return {
-            "returncode": 1,
-            "stdout": "",
-            "stderr": f"command not on allow-list: {argv[0]!r}",
-            "elapsed": 0.0,
-        }
-
-    # Reconstruct docker run with hardcoded sandbox flags; reject caller-supplied flags.
+    error = _validate_request(argv, request.get("cwd"))
+    if error is not None:
+        return {"returncode": 1, "stdout": "", "stderr": error, "elapsed": 0.0}
     if argv[:2] == ["docker", "run"]:
+        # Reconstruct docker run with hardcoded sandbox flags; fail closed if the rebuild is refused.
         rebuilt = _build_docker_run_argv(argv)
         if rebuilt is None:
-            return {
-                "returncode": 1,
-                "stdout": "",
-                "stderr": (
-                    "invalid docker run: supply only image and command; "
-                    "docker flags are injected by the agent"
-                ),
-                "elapsed": 0.0,
-            }
+            return {"returncode": 1, "stdout": "", "stderr": "invalid docker run", "elapsed": 0.0}
         argv = rebuilt
-
-    # Fence path arguments inside tar invocations.
-    if argv[0] == "tar" and not _validate_tar_paths(argv[1:]):
-        return {
-            "returncode": 1,
-            "stdout": "",
-            "stderr": "tar path argument outside cache root",
-            "elapsed": 0.0,
-        }
-
-    # Restrict docker inspect to the toolchain and runner images.
-    if argv[:2] == ["docker", "inspect"] and not _validate_docker_inspect_argv(argv):
-        return {
-            "returncode": 1,
-            "stdout": "",
-            "stderr": "docker inspect only allowed for bart-tc and bart-run* images",
-            "elapsed": 0.0,
-        }
-
-    # Fence sha256sum file arguments to the cache root.
-    if argv[0] == "sha256sum" and not _validate_sha256sum_argv(argv):
-        return {
-            "returncode": 1,
-            "stdout": "",
-            "stderr": "sha256sum path argument outside cache root",
-            "elapsed": 0.0,
-        }
 
     cwd_raw = request.get("cwd")
     cwd: str | None = str(cwd_raw) if cwd_raw else None
-    if cwd and not _is_safe_path(cwd):
-        return {
-            "returncode": 1,
-            "stdout": "",
-            "stderr": f"cwd outside cache root: {cwd!r}",
-            "elapsed": 0.0,
-        }
 
     # For tar extract operations, create the destination directory first.
     if argv[0] == "tar":

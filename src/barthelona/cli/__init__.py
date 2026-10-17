@@ -10,7 +10,7 @@ import typer
 from rich.console import Console
 
 import barthelona
-from barthelona.domain import DOCUMENTS, Verdict
+from barthelona.domain import DOCUMENTS, LevelResult, Verdict
 from barthelona.domain.enums import Dialect, Level, ObjFormat
 from barthelona.toolchains.dialect import DialectAdapter
 from barthelona.training import DatasetError, DatasetReader, TrainingDataSettings, count_verdicts
@@ -135,6 +135,19 @@ def _detect_dialect(workspace: Path) -> str:
     raise typer.BadParameter(f"no .asm or .s files found in {workspace}; specify --dialect explicitly")
 
 
+_STATUS_ICON: dict[str, str] = {"pass": "✓", "skipped": "—"}
+
+
+def _report(results: list[LevelResult]) -> int:
+    """Print each ladder level and its diagnostics; return the process exit code."""
+    for r in results:
+        _out.print(f"  {_STATUS_ICON.get(r.status, '✗')} {r.level}: {r.status} ({r.secs:.2f}s)")
+        for d in r.diagnostics:
+            loc = f"{d.file}:{d.line}" if d.file and d.line else (d.file or "")
+            _out.print(f"    {d.severity} [{d.level}] {loc} {d.message}", markup=False)
+    return 1 if any(r.status == "fail" for r in results) else 0
+
+
 @app.command()
 def verify(
     workspace: Annotated[Path, typer.Argument(help="Directory containing source files.")],
@@ -199,17 +212,7 @@ def verify(
         _err.print(f"[bold red]verify failed:[/bold red] {exc}")
         raise typer.Exit(1) from exc
 
-    exit_code = 0
-    for r in results:
-        icon = "✓" if r.status == "pass" else ("—" if r.status == "skipped" else "✗")
-        _out.print(f"  {icon} {r.level}: {r.status} ({r.secs:.2f}s)")
-        for d in r.diagnostics:
-            loc = f"{d.file}:{d.line}" if d.file and d.line else (d.file or "")
-            _out.print(f"    {d.severity} [{d.level}] {loc} {d.message}", markup=False)
-        if r.status == "fail":
-            exit_code = 1
-
-    raise typer.Exit(exit_code)
+    raise typer.Exit(_report(results))
 
 
 def main() -> None:
