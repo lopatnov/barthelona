@@ -67,7 +67,8 @@ _SANDBOX_FLAGS: tuple[str, ...] = (
     "--cpus",
     "1",
     "--tmpfs",
-    "/tmp:size=16m",  # noqa: S108 -- docker --tmpfs flag, not a host path
+    # A docker --tmpfs flag value inside the container, not a host path.
+    "/tmp:size=16m",  # noqa: S108
     "--rm",
 )
 
@@ -219,6 +220,16 @@ def _rejection(message: str) -> dict[str, object]:
     return {"returncode": 1, "stdout": "", "stderr": message, "elapsed": 0.0, "rejected": True}
 
 
+def _prepare_tar_destination(argv: list[str]) -> None:
+    """Create the ``-C`` directory of a tar extract inside the cache root."""
+    try:
+        extract_dir = Path(argv[argv.index("-C") + 1]).expanduser()
+        if str(extract_dir).startswith(_CACHE_ROOT):
+            extract_dir.mkdir(parents=True, exist_ok=True)
+    except (ValueError, IndexError, OSError):
+        pass  # no -C or an unusable path: tar itself reports the failure
+
+
 def _handle(request: dict[str, object]) -> dict[str, object]:
     cmd_raw = request.get("cmd")
     argv: list[str] = [str(a) for a in (cmd_raw if isinstance(cmd_raw, list) else [])]
@@ -238,20 +249,11 @@ def _handle(request: dict[str, object]) -> dict[str, object]:
     cwd_raw = request.get("cwd")
     cwd: str | None = str(cwd_raw) if cwd_raw else None
 
-    # For tar extract operations, create the destination directory first.
     if argv[0] == "tar":
-        try:
-            c_idx = argv.index("-C")
-            extract_dir = Path(argv[c_idx + 1]).expanduser()
-            if str(extract_dir).startswith(_CACHE_ROOT):
-                extract_dir.mkdir(parents=True, exist_ok=True)
-        except (ValueError, IndexError, OSError):
-            pass
+        _prepare_tar_destination(argv)
 
-    env: dict[str, str] | None = None
     raw_env = request.get("env")
-    if isinstance(raw_env, dict):
-        env = {str(k): str(v) for k, v in raw_env.items()}
+    env = {str(k): str(v) for k, v in raw_env.items()} if isinstance(raw_env, dict) else None
 
     stdin_b64 = request.get("stdin")
     stdin_bytes = base64.b64decode(str(stdin_b64)) if stdin_b64 else None

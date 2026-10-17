@@ -39,10 +39,12 @@ class FakeSession:
     def path(self, name: str) -> str:
         return f"{self._work_dir}/{name}"
 
-    async def stage(self, sources: bytes) -> None:
+    async def stage(self, sources: bytes) -> None:  # NOSONAR S7503: Session protocol
         self._owner._staged = sources
 
-    async def run(self, cmd: Command, limits: ExecLimits | None = None) -> ExecResult:
+    async def run(  # NOSONAR S7503: Session protocol
+        self, cmd: Command, limits: ExecLimits | None = None
+    ) -> ExecResult:
         lim = limits or ExecLimits()
         raw = self._owner._dispatch(cmd)
         return ExecResult(
@@ -52,7 +54,7 @@ class FakeSession:
             elapsed=raw.elapsed,
         )
 
-    async def collect(self) -> bytes:
+    async def collect(self) -> bytes:  # NOSONAR S7503: Session protocol
         return b""
 
 
@@ -105,13 +107,15 @@ class FakeExecutor:
     def may_run_untrusted(self) -> bool:
         return self._may_run_untrusted
 
-    async def open_session(self, run_id: str, attempt: int) -> FakeSession:
+    async def open_session(  # NOSONAR S7503: Executor protocol
+        self, run_id: str, attempt: int
+    ) -> FakeSession:
         return FakeSession(self, f"/fake/work/{run_id}/{attempt}")
 
-    async def image_digest(self, image: str) -> str:
+    async def image_digest(self, image: str) -> str:  # NOSONAR S7503 S1172: Executor protocol
         return self._image_digest
 
-    async def aclose(self) -> None:
+    async def aclose(self) -> None:  # NOSONAR S7503: Executor protocol
         return None
 
     def _dispatch(self, cmd: Command) -> ExecResult:

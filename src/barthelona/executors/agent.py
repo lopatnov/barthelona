@@ -121,5 +121,5 @@ class AgentExecutor:
             .strip()
         )
 
-    async def aclose(self) -> None:
+    async def aclose(self) -> None:  # NOSONAR S7503: async is part of the Executor protocol
         self._link.close()

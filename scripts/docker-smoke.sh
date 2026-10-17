@@ -25,5 +25,5 @@ run=(docker run --rm --network none --read-only --cap-drop ALL
     --ulimit nofile=64 --ulimit fsize=16777216
     --tmpfs /tmp:size=16m -v "$work:/work:ro" bart-run)
 out="$("${run[@]}" timeout -s KILL 10 /work/hello)"
-[ "$out" = "ok" ] || { echo "unexpected output: $out" >&2; exit 1; }
+[[ "$out" = "ok" ]] || { echo "unexpected output: $out" >&2; exit 1; }
 echo "docker smoke test passed"
