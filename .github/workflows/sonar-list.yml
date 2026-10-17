@@ -1,0 +1,14 @@
+name: sonar-list
+on:
+  push:
+    branches: [claude/sonar-open-issues-0jqpq3]
+permissions:
+  contents: read
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print open SonarCloud issues
+        run: |
+          curl -fsS "https://sonarcloud.io/api/issues/search?componentKeys=lopatnov_barthelona&issueStatuses=OPEN,CONFIRMED&ps=500" -o issues.json
+          python3 -c "import json;d=json.load(open('issues.json'));print('TOTAL',d['total']);[print(i['rule'],i['severity'],i['component'].split(':',1)[-1],i.get('line'),i['message'],sep=' | ') for i in d['issues']]"
