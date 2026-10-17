@@ -105,13 +105,15 @@ def test_the_report_has_a_row_per_arm_and_a_paired_line() -> None:
         for seed in (0, 1, 2)
     ]
     lines = format_report(results)
-    assert lines[1].startswith("single") and lines[2].startswith("fix")
+    rows = [line.split()[0] for line in lines[1:3]]
+    assert rows == ["single", "fix"]
     assert lines[-1].startswith("fix vs single: +")
 
 
 def test_an_unknown_arm_has_no_summary() -> None:
+    results = [_result("gcd", "single", 0, green=True)]
     with pytest.raises(BenchError, match="nope"):
-        summarize([_result("gcd", "single", 0, green=True)], "nope")
+        summarize(results, "nope")
 
 
 def test_adapters_follow_the_dialect() -> None:

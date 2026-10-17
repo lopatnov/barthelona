@@ -27,6 +27,7 @@ _out = Console(soft_wrap=True, highlight=False)
 _err = Console(stderr=True, soft_wrap=True, highlight=False)
 
 _BENCH_PROFILE = "bench"
+_DEFAULT_PROFILE = "local-only"  # the bake-off measures local models
 
 
 def _arms(names: list[str], fix_iterations: int) -> list[Arm]:
@@ -59,7 +60,6 @@ def run(
     model: Annotated[
         str | None, typer.Option(help="Catalog model key; default is the profile's chain.")
     ] = None,
-    profile: Annotated[str, typer.Option(help="Catalog profile when --model is not given.")] = "local-only",
     catalog_path: Annotated[Path, typer.Option("--catalog", help="Model catalog.")] = Path(
         "config/models.yaml"
     ),
@@ -67,7 +67,6 @@ def run(
     output: Annotated[Path, typer.Option(help="JSONL file the results are appended to.")] = Path(
         "var/bench/results.jsonl"
     ),
-    workdir: Annotated[Path, typer.Option(help="Where attempts are written.")] = Path("var/bench/work"),
     temperature: Annotated[float, typer.Option(help="Sampling temperature (local models only).")] = 0.2,
     max_tokens: Annotated[int, typer.Option(help="Reply cap per attempt.")] = 4096,
     transport: Annotated[str, typer.Option(help="auto, wsl or local.")] = "auto",
@@ -77,7 +76,7 @@ def run(
     from barthelona.cli import _make_executor
 
     try:
-        catalog, resolved = _catalog(catalog_path, profile, model)
+        catalog, resolved = _catalog(catalog_path, _DEFAULT_PROFILE, model)
         tasks = [t for t in load_suite(bench_root, suite, dialect) if not task or t.id in task]
         prompts = load_prompts(bench_root)
     except (CatalogError, BenchError, OSError) as exc:
@@ -102,7 +101,7 @@ def run(
                 gateway,
                 LadderVerifier(executor),
                 prompts,
-                workdir,
+                output.parent / "work",
                 RunSettings(temperature=temperature, max_tokens=max_tokens),
                 record,
             )
