@@ -89,8 +89,11 @@ bench shows a gain over the direct-codegen path or the `candidates` node.
   diagnostic than asm errors.
 - **Godbolt API** is useful for manual exploration during development but cannot be
   used from `bart-tc` (no network, D-010).  Use local gcc/clang.
-- **Benchmark gate**: do not enable by default; enable only after bench shows ≥5 point
-  gain over the direct path on the Phase 2 holdout split.
+- **Benchmark gate**: do not enable by default; enable only after a paired comparison
+  on the Phase 2 holdout split shows a gain over the direct path whose interval
+  excludes zero at the bench size (a fixed 5-point margin is below what a 20 to 60
+  task bench can detect; plan review 2026-10-17, #101). The Phase 0 bake-off measures
+  a C-then-`gcc -S` arm first (#100).
 
 ## Alternatives considered
 
