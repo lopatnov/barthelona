@@ -11,9 +11,9 @@
 ## Decision
 
 1. Level ids V0 to V8 stay the stable names used by the DoD table, the UI and training data. Their implementations become **registered checks**:
-   - `LevelCheck` protocol: `level`, `supports(target) -> Supported | Unsupported(reason)`, `async run(ctx) -> LevelResult`.
+   - `LevelCheck` protocol: `level`, `supports(ctx) -> Unsupported(reason) | None` (the context carries the target settings; `None` means supported), `async run(ctx) -> LevelResult`.
    - The registry is keyed by target family (for example `native-asm`, later `wasm`). A family may register a different check for the same level.
-2. `run_ladder(ctx, up_to)` walks the registry in level order. A level the family does not support yields `LevelResult(status="unsupported", reason=...)`, never a silent skip. A failed level makes the later levels `skipped`, except checks registered `always_run`; an `always_run` check never turns an earlier failure into a pass.
+2. `run_ladder(ctx, up_to)` walks the registry in level order. A level the family does not support yields `LevelResult(status="unsupported")` with the reason as a note diagnostic, never a silent skip. A failed level makes the later levels `skipped`, except checks registered `always_run`; an `always_run` check never turns an earlier failure into a pass.
 3. **Required levels** are all levels up to the story kind's bound in `TargetProfile.dod`, with the family's substitutions. **A required level that is not `pass` means the work is not done.** DoD evaluation is "required levels are a subset of the passed levels". An oracle that cannot run does not pass (AGENTS.md goal order).
 4. A check receives the whole module list in its context and may batch its commands (one executor call per level, not per file; each call costs about 150 ms, §3).
 5. Parsing diagnostics belongs to the dialect or tool adapter, not to the check. The check gets argv and a parser from the adapter.
