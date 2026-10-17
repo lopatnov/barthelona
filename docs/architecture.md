@@ -764,18 +764,18 @@ Side effects are idempotent, keyed by run, task and attempt.
   - `render_interface(registry, module)`, `render_stub(symbol)`.
 - `DialectAdapter` (**Phase 0 subset**, `toolchains/dialect.py`): a structural Protocol that covers only
   the commands needed by the verification ladder (V0–V2).  It returns raw argv tuples
-  (`tuple[str, ...]`) instead of full `Command` objects; the ladder wraps them with
-  `docker exec bart-tc` before dispatching.  Method names differ from the planned
+  (`tuple[str, ...]`) instead of full `Command` objects; the ladder passes them to the session,
+  and the `tc` executor wraps them in `docker exec bart-tc`.  Method names differ from the planned
   `Dialect` protocol intentionally: `syntax_check_argv`, `assemble_argv`,
   `parse_diagnostics`.  When `contracts.yaml` and the full target abstraction land,
   `DialectAdapter` will be superseded by `Dialect`; adapters will be migrated to accept
   the `target: TargetProfile` and `defines: Mapping[str, str]` parameters and return
   `Command`.
 - `Linker`: `link(objs, out, target, kind)` and `parse(...)`.
-- `Executor` (target contract, D-043; the Phase 0 code is still the synchronous form with `stage()`, `run()`, `collect()` and a mutable work directory, issue #63):
+- `Executor` (D-043, implemented in `executors/`: `Executor`/`Session` protocols, `AgentExecutor`, `WslTransport`, `LocalTransport`, `FakeExecutor`):
   - `id`: `tc`, `sandbox`, `emu`, or (later) `windows-native`;
   - `may_run_untrusted`;
-  - `probe()` and `open_session(run_id, attempt) -> Session`; a `Session` owns one work directory and offers `async stage(tar)`, `async run(cmd, limits) -> ExecResult`, `async collect()` and `close()`;
+  - `async open_session(run_id, attempt) -> Session` and `async image_digest(image)` (the probe runs tool `--version` commands through a session); a `Session` owns one work directory and offers `async stage(tar)`, `async run(cmd, limits) -> ExecResult`, and `async collect()`;
   - the executor owns its environment: callers pass the tool argv and the `tc` executor wraps it in `docker exec bart-tc`;
   - `AgentExecutor(transport)` with `WslTransport` (Windows) and `LocalTransport` (Linux host with Docker, same agent and allow-list); the agent protocol carries a request `id` on every message, handles requests concurrently and starts with a versioned `hello`.
 - `Command` is an argv tuple plus `cwd`, `env`, `stdin` and `timeout`. Shell strings never appear anywhere.

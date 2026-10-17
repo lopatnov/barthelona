@@ -6,30 +6,41 @@ never appear in engine or node code (invariant 9).
 
 Public surface
 --------------
-:class:`Executor`      The structural protocol every implementation satisfies.
+:class:`Executor`      Opens one :class:`Session` per run attempt (async, D-043).
+:class:`Session`       Owns an attempt's work directory: ``stage``, ``run``, ``collect``.
+:class:`AgentExecutor` Production executor: ``docker exec bart-tc`` through the
+                       stdlib agent, over a transport.
+:class:`WslTransport`  Reaches the agent through ``wsl.exe`` (Windows only;
+                       raises :class:`WslUnavailableError` elsewhere).
+:class:`LocalTransport` Spawns the same agent on a Linux host with Docker.
 :class:`FakeExecutor`  In-memory executor for unit tests.
-:class:`WslExecutor`   Production executor: routes through the WSL agent
-                       to ``bart-tc`` and ``bart-run`` Docker containers.
-                       Raises :class:`WslUnavailableError` on non-Windows hosts.
-:class:`WslUnavailableError`  Raised by WslExecutor on non-Windows platforms.
 :data:`ExecutorId`     Literal type identifying which environment is active.
 :class:`Command`       Frozen argv-plus-context value.
 :class:`ExecLimits`    Per-call resource caps.
 :class:`ExecResult`    Outcome of a single command.
 """
 
+from barthelona.executors._link import AgentTransport, ExecutorInfraError
 from barthelona.executors._types import Command, ExecLimits, ExecResult, ExecutorId
+from barthelona.executors.agent import AgentExecutor, ExecutorRejectedError
 from barthelona.executors.fake import FakeExecutor
-from barthelona.executors.protocol import Executor
-from barthelona.executors.wsl import WslExecutor, WslUnavailableError
+from barthelona.executors.local import LocalTransport
+from barthelona.executors.protocol import Executor, Session
+from barthelona.executors.wsl import WslTransport, WslUnavailableError
 
 __all__ = [
+    "AgentExecutor",
+    "AgentTransport",
     "Command",
     "ExecLimits",
     "ExecResult",
     "Executor",
     "ExecutorId",
+    "ExecutorInfraError",
+    "ExecutorRejectedError",
     "FakeExecutor",
-    "WslExecutor",
+    "LocalTransport",
+    "Session",
+    "WslTransport",
     "WslUnavailableError",
 ]

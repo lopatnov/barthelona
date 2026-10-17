@@ -4,12 +4,15 @@
 Deployed to ``~/.local/share/barthelona/agent.py`` by the worker before
 use.  The worker verifies its sha256 before starting it.
 
-Protocol (architecture §12):
+Protocol (architecture §12, D-043):
+- First output line: ``{"hello": {"protocol": 2, "cache_root": "/abs/path"}}``
 - Input  (stdin):  one JSON object per line
-  ``{"cmd": [...], "cwd": str|null, "env": {str: str}|null,
+  ``{"id": int, "cmd": [...], "cwd": str|null, "env": {str: str}|null,
     "stdin": base64|null, "timeout": float}``
-- Output (stdout): one JSON object per line
-  ``{"returncode": int, "stdout": base64, "stderr": base64, "elapsed": float}``
+- Output (stdout): one JSON object per line, echoing the request id
+  ``{"id": int, "returncode": int, "stdout": base64, "stderr": base64, "elapsed": float}``
+  A refused request carries ``"rejected": true`` and a plain-text ``stderr``.
+- Requests run concurrently in a bounded pool, so replies may arrive out of order.
 
 Allowlist (only these command prefixes are permitted):
   - ``docker exec bart-tc …``
@@ -31,9 +34,14 @@ import base64
 import json
 import subprocess
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path, PurePosixPath
 
+#: Bumped when the wire format changes; the host refuses a mismatched agent (D-043).
+PROTOCOL_VERSION = 2
+_MAX_CONCURRENCY = 4
 _CACHE_ROOT = str(Path("~/.cache/barthelona").expanduser())
 _TC_CONTAINER = "bart-tc"
 _RUN_IMAGE_PREFIX = "bart-run"
@@ -206,20 +214,25 @@ def _validate_request(argv: list[str], cwd_raw: object) -> str | None:
     return None
 
 
+def _rejection(message: str) -> dict[str, object]:
+    """A request the agent refused to run; ``stderr`` is plain text, not base64."""
+    return {"returncode": 1, "stdout": "", "stderr": message, "elapsed": 0.0, "rejected": True}
+
+
 def _handle(request: dict[str, object]) -> dict[str, object]:
     cmd_raw = request.get("cmd")
     argv: list[str] = [str(a) for a in (cmd_raw if isinstance(cmd_raw, list) else [])]
     if not argv:
-        return {"returncode": 1, "stdout": "", "stderr": "empty cmd", "elapsed": 0.0}
+        return _rejection("empty cmd")
 
     error = _validate_request(argv, request.get("cwd"))
     if error is not None:
-        return {"returncode": 1, "stdout": "", "stderr": error, "elapsed": 0.0}
+        return _rejection(error)
     if argv[:2] == ["docker", "run"]:
         # Reconstruct docker run with hardcoded sandbox flags; fail closed if the rebuild is refused.
         rebuilt = _build_docker_run_argv(argv)
         if rebuilt is None:
-            return {"returncode": 1, "stdout": "", "stderr": "invalid docker run", "elapsed": 0.0}
+            return _rejection("invalid docker run")
         argv = rebuilt
 
     cwd_raw = request.get("cwd")
@@ -280,24 +293,41 @@ def _handle(request: dict[str, object]) -> dict[str, object]:
         }
 
 
-def main() -> None:
-    for raw_line in sys.stdin.buffer:
-        line = raw_line.strip()
-        if not line:
-            continue
-        try:
-            request = json.loads(line)
-        except json.JSONDecodeError as exc:
-            response: dict[str, object] = {
-                "returncode": 1,
-                "stdout": "",
-                "stderr": f"bad JSON: {exc}",
-                "elapsed": 0.0,
-            }
-        else:
-            response = _handle(request)
-        sys.stdout.buffer.write(json.dumps(response, separators=(",", ":")).encode() + b"\n")
+def _reply(request_id: object, response: dict[str, object], lock: threading.Lock) -> None:
+    out = {"id": request_id, **response}
+    data = json.dumps(out, separators=(",", ":")).encode() + b"\n"
+    with lock:
+        sys.stdout.buffer.write(data)
         sys.stdout.buffer.flush()
+
+
+def _serve_line(line: bytes, lock: threading.Lock) -> None:
+    request_id: object = None
+    try:
+        request = json.loads(line)
+    except json.JSONDecodeError as exc:
+        response = _rejection(f"bad JSON: {exc}")
+    else:
+        if isinstance(request, dict):
+            request_id = request.get("id")
+            response = _handle(request)
+        else:
+            response = _rejection("request must be a JSON object")
+    _reply(request_id, response, lock)
+
+
+def main() -> None:
+    """Announce the protocol, then serve requests concurrently until stdin closes."""
+    lock = threading.Lock()
+    hello = {"hello": {"protocol": PROTOCOL_VERSION, "cache_root": _CACHE_ROOT}}
+    with lock:
+        sys.stdout.buffer.write(json.dumps(hello, separators=(",", ":")).encode() + b"\n")
+        sys.stdout.buffer.flush()
+    with ThreadPoolExecutor(max_workers=_MAX_CONCURRENCY) as pool:
+        for raw_line in sys.stdin.buffer:
+            line = raw_line.strip()
+            if line:
+                pool.submit(_serve_line, line, lock)
 
 
 if __name__ == "__main__":

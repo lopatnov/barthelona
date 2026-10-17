@@ -46,6 +46,22 @@ jobs:
         with:
           persist-credentials: false
       - run: scripts/docker-smoke.sh
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Install the hash-locked dev dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --require-hashes --no-deps -r requirements/dev.linux.lock
+          python -m pip install --disable-pip-version-check --no-deps -e .
+      - name: Start bart-tc with the cache root mounted (D-043 LocalTransport)
+        run: |
+          cache="$HOME/.cache/barthelona"
+          mkdir -p "$cache"
+          docker run -d --name bart-tc --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --tmpfs /tmp:size=16m \
+            --user "$(id -u):$(id -g)" -v "$cache:$cache" bart-tc
+      - name: Toolchain tests through the local agent
+        run: python -m pytest -m docker
 
   shell:
     runs-on: ubuntu-latest

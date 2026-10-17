@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import sys
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
 import typer
 from rich.console import Console
@@ -14,6 +16,10 @@ from barthelona.domain import DOCUMENTS, LevelResult, Verdict
 from barthelona.domain.enums import Dialect, Level, ObjFormat
 from barthelona.toolchains.dialect import DialectAdapter
 from barthelona.training import DatasetError, DatasetReader, TrainingDataSettings, count_verdicts
+
+if TYPE_CHECKING:
+    from barthelona.executors import AgentExecutor
+    from barthelona.toolchains import ToolchainLock
 
 app = typer.Typer(
     name="barthelona",
@@ -48,6 +54,48 @@ def schema(
     _out.print(json.dumps(cls.model_json_schema(), indent=2, sort_keys=True), markup=False)
 
 
+TransportOption = Annotated[
+    str,
+    typer.Option(
+        "--transport", help="How to reach the agent: auto, wsl (Windows) or local (Linux with Docker)."
+    ),
+]
+
+
+def _make_executor(transport: str, command: str) -> AgentExecutor:
+    """Build the toolchain executor for *transport*; exit with code 2 when it is unavailable."""
+    from barthelona.executors import AgentExecutor, LocalTransport, WslTransport, WslUnavailableError
+
+    kind = ("wsl" if sys.platform == "win32" else "local") if transport == "auto" else transport
+    try:
+        if kind == "wsl":
+            return AgentExecutor(WslTransport())
+        if kind == "local":
+            return AgentExecutor(LocalTransport())
+    except WslUnavailableError as exc:
+        _err.print(f"[bold red]{command} unavailable:[/bold red] {exc}")
+        raise typer.Exit(2) from exc
+    raise typer.BadParameter(f"unknown transport {transport!r}; choose auto, wsl or local")
+
+
+async def _probe(executor: AgentExecutor) -> ToolchainLock:
+    from barthelona.toolchains import run_probe
+
+    try:
+        return await run_probe(executor)
+    finally:
+        await executor.aclose()
+
+
+async def _verify(executor: AgentExecutor, **ladder_args: Any) -> list[LevelResult]:
+    from barthelona.verification import run_ladder
+
+    try:
+        return await run_ladder(executor=executor, **ladder_args)
+    finally:
+        await executor.aclose()
+
+
 @app.command()
 def probe(
     output: Annotated[
@@ -58,25 +106,20 @@ def probe(
             help="Where to write the lock file (default: config/toolchains.lock.json).",
         ),
     ] = Path("config/toolchains.lock.json"),
+    transport: TransportOption = "auto",
 ) -> None:
     """Probe the bart-tc container and write config/toolchains.lock.json.
 
-    Requires Windows with WSL and a running bart-tc Docker container.
+    Needs a running bart-tc Docker container, reached through WSL on Windows
+    or directly on a Linux host with Docker.
     """
-    from barthelona.executors import WslUnavailableError
-    from barthelona.executors.wsl import WslExecutor
-    from barthelona.toolchains import run_probe, write_lock_file
+    from barthelona.toolchains import write_lock_file
 
-    try:
-        executor = WslExecutor()
-    except WslUnavailableError as exc:
-        _err.print(f"[bold red]probe unavailable:[/bold red] {exc}")
-        raise typer.Exit(2) from exc
+    executor = _make_executor(transport, "probe")
 
     _out.print("Probing bart-tc container…")
     try:
-        with executor:
-            lock = run_probe(executor)
+        lock = asyncio.run(_probe(executor))
     except Exception as exc:  # surface all probe errors to the user as a single message
         _err.print(f"[bold red]probe failed:[/bold red] {exc}")
         raise typer.Exit(1) from exc
@@ -159,23 +202,23 @@ def verify(
         str | None,
         typer.Option("--dialect", "-d", help="Assembler dialect: nasm, gas-intel, gas-att."),
     ] = None,
-    work_dir: Annotated[
+    run_id: Annotated[
         str,
-        typer.Option("--work-dir", help="WSL path for staged files."),
-    ] = "~/.cache/barthelona/verify-tmp",
+        typer.Option(
+            "--run-id", help="Session name; staged files live under the cache root's runs/<run-id>/0."
+        ),
+    ] = "verify",
+    transport: TransportOption = "auto",
 ) -> None:
     """Run the verification ladder (V0-V2) on the assembly sources in WORKSPACE.
 
-    Requires Windows with WSL and a running bart-tc Docker container.
+    Needs a running bart-tc Docker container, reached through WSL on Windows
+    or directly on a Linux host with Docker.
 
     Phase 0 note: V1 only assembles; the nm/registry symbol check
     (architecture §13.1) is deferred until contracts.yaml is populated.
     Pass --dialect explicitly for Intel-syntax GAS files (gas-intel).
     """
-    from barthelona.executors import WslUnavailableError
-    from barthelona.executors.wsl import WslExecutor
-    from barthelona.verification import run_ladder
-
     if not workspace.is_dir():
         raise typer.BadParameter(f"{workspace} is not a directory")
 
@@ -191,23 +234,20 @@ def verify(
     if not source_files:
         raise typer.BadParameter(f"no {ext} files found in {workspace}")
 
-    try:
-        executor = WslExecutor()
-    except WslUnavailableError as exc:
-        _err.print(f"[bold red]verify unavailable:[/bold red] {exc}")
-        raise typer.Exit(2) from exc
+    executor = _make_executor(transport, "verify")
 
     _out.print(f"Verifying {len(source_files)} file(s) up to {up_to} ({resolved_dialect}) …")
     try:
-        with executor:
-            results = run_ladder(
+        results = asyncio.run(
+            _verify(
+                executor,
                 up_to=up_to,
-                executor=executor,
                 adapter=adapter,
                 source_files=source_files,
-                work_dir=work_dir,
+                run_id=run_id,
                 obj_format=ObjFormat.ELF64,
             )
+        )
     except Exception as exc:
         _err.print(f"[bold red]verify failed:[/bold red] {exc}")
         raise typer.Exit(1) from exc
