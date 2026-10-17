@@ -20,14 +20,15 @@ Current status (2026-10-14): **Phase 0 in progress** — repository and environm
 - Assemblers: NASM and GAS (Intel and AT&T) dialect adapters; ld/gcc linkers; diagnostics parsers with real captured fixtures.
 - Codegen: contract registry → `.inc` files, stubs, `contracts.h`, C harness, Makefile, with golden tests.
 - Verification: ladder levels V0, V1, V2, V5, V6 plus the tamper gate; first ABI mutation corpus entries; `barthelona verify`.
-- Models: minimal gateway (OpenAI-compatible backend + FakeGateway); bake-off harness (10 single-prompt tasks per candidate: tok/s, JSON-schema validity, pass@1).
+- Models: minimal gateway (OpenAI-compatible backend + FakeGateway); bake-off harness (10 single-prompt tasks per candidate: tok/s, JSON-schema validity, pass@1). **Run the bake-off and a bounded end-to-end spike (generate, assemble, test, fix) early in this phase, not last** (plan review, 2026-10-17, #100). Arms: single prompt; the **strong baseline** (single prompt plus up to N fix iterations fed with assembler and test output); a C-then-`gcc -O2 -S` arm (measurement only, no node; D-040); informational: a general coding agent driving `barthelona verify`.
+- Tooling: a stable `barthelona verify --json` output, so the oracles are usable without the engine.
 
 **Exit criteria**
 - Two hand-written 3-module projects (one NASM, one GAS) pass V0–V2, V5 and V6 through `barthelona verify`.
 - An all-stub skeleton generated from a sample `contracts.yaml` builds.
 - Parser and codegen tests are green.
 - A bake-off table exists; one main local model is chosen and loaded in LM Studio at 16K context.
-- The single-prompt baseline score is recorded.
+- The single-prompt and strong-baseline scores are recorded with their run-to-run noise (3 seeds or more, paired by task; #101).
 - The phase review (D-037) ran, and its blocking issues are fixed.
 
 ## Phase 1 — MVP vertical slice (about 3–4 weeks)
@@ -52,7 +53,7 @@ Current status (2026-10-14): **Phase 0 in progress** — repository and environm
 **Exit criteria**
 - Crash/resume spike passes (kill mid-task and during a gate; no finished node re-runs), or the interpreter fallback is adopted and passes the same test.
 - Graph tests green with FakeGateway: happy path, fix loop, stall, re-plan, escalation, refusal, provider failover, budget stop, tamper rejection.
-- Dev-split bench: the hybrid profile beats the single-prompt baseline by the margin set in Phase 0 (initial target +30 points); local-only recorded; zero tamper escapes; L0 vs L1 recorded.
+- Dev-split bench: the hybrid profile beats the **strong baseline** (single prompt plus fix iterations, not the bare single prompt) by a margin set in Phase 0 from the measured noise, with paired intervals that exclude zero (#101); local-only recorded; zero tamper escapes; L0 vs L1 recorded. A margin smaller than the bench size can detect is not a gate: grow the task set first.
 - The owner creates a 3-module NASM program from a Russian-language request through the UI and approves it at the gates.
 - Stance until Phase 2: increments are accepted on the MVP DoD (V0–V2 + V5/V6) and labelled **ABI-unverified** in the UI and the increment record, until the V3/V4 oracles and the mutation corpus are in place.
 - The phase review (D-037) ran, and its blocking issues are fixed.
@@ -62,18 +63,24 @@ Current status (2026-10-14): **Phase 0 in progress** — repository and environm
 **Goal:** stronger verification, plus the complete Meta-Agentic layer.
 
 **Deliverables**
-- V3 Capstone static ABI lint; V4 Unicorn ABI checker (canaries, alignment, red zone, DF, syscall allow-list, registry mocks, DWARF mapping; AVX routed to V5); full ABI mutation corpus.
+- V3 Capstone static ABI lint; the callee-saved canary trampoline in the V5 harness (F-56); V4 Unicorn ABI checker (canaries, alignment, red zone, DF, syscall allow-list, registry mocks, DWARF mapping; AVX routed to V5) **only for the mutation-corpus kinds that V3 plus the V5 canary cannot detect** (#102); full ABI mutation corpus.
+- Reference-implementation differential tests (C reference, random inputs through the generated harness) in the Definition of Done (#102).
 - Policy v2: templates `candidates` (E2) and the `trace_capture` slot (V7).
-- **L1 on by default** if the bench shows no regression; **L2** (AI composes whole pipelines from node types) behind a flag for strong tiers.
+- A local MCP server exposing the toolchain and verification tools (moved from Phase 5, plan review #100): the oracles stay useful to general coding agents even if the engine does not beat the baseline.
+
+**Phase 2 has two tracks that must not block each other** (plan review, 2026-10-17): **2a** is the oracle work above, **2b** the meta-agency below. 2b starts only after the L0 bench shows a failure class that graph composition could plausibly fix.
+
+**2b deliverables**
+- **L1 on by default** if the paired bench shows no regression; **L2** (AI composes whole pipelines from node types) behind a flag for strong tiers.
 - Retrospective report and overlay changes with revert in the UI; lesson candidates stored, not yet injected.
 - _(experimental, gated by bench)_ `compile_high_level` node type: LLM generates C,
   `gcc -O2 -S` inside `bart-tc` produces the `.s` patch; GAS presets first; enabled only
-  if bench ≥ direct-codegen + 5 pts on Phase 2 holdout split (D-040, #follow-up).
+  if its paired gain over direct codegen on the Phase 2 holdout split excludes zero at the bench size (D-040, #34, #101). The Phase 0 bake-off arm gives the first data.
 
 **Exit criteria**
-- Mutation corpus: 100% of bad cases detected, 0 false positives.
-- Every AI-composed topology either validates or falls back to L0; no run is blocked.
-- Bench: Phase 2 ≥ Phase 1 on dev and holdout; L2 enabled for a profile only if it beats L1 there. Results recorded in an ADR.
+- 2a: mutation corpus: 100% of bad cases detected, 0 false positives.
+- 2b: every AI-composed topology either validates or falls back to L0; no run is blocked.
+- Bench: Phase 2 ≥ Phase 1 on dev and holdout; L2 enabled for a profile only if it beats L1 there with a paired interval that excludes zero. Results recorded in an ADR.
 - The phase review (D-037) ran, and its blocking issues are fixed.
 
 ## Phase 3 — Edit mode for external projects, memory, optional vector search
@@ -90,7 +97,7 @@ Current status (2026-10-14): **Phase 0 in progress** — repository and environm
 
 ## Phase 5 — Policy Lab, gated research, extras
 
-**Deliverables:** Policy Lab (PolicyPatch → candidate version → A/B on holdout, ≥3 repeats, batch APIs → G6 activation/rollback); gated web research (approval, domain allowlist, low-trust candidates promoted only after a fix passes); optional advisory critic on a different model; OpenTelemetry → Phoenix; OpenVINO Model Server trial; AArch64/RISC-V via qemu-user; a local MCP server exposing barthelona's toolchain and verification tools (usable by Claude Code during development); KolibriOS if chosen.
+**Deliverables:** Policy Lab (PolicyPatch → candidate version → A/B on holdout, ≥3 repeats, batch APIs → G6 activation/rollback); gated web research (approval, domain allowlist, low-trust candidates promoted only after a fix passes); optional advisory critic on a different model; OpenTelemetry → Phoenix; OpenVINO Model Server trial; AArch64/RISC-V via qemu-user; KolibriOS if chosen. (The local MCP server moved to Phase 2a.)
 
 **Exit criteria:** at least one policy patch activated with a measured holdout gain; a rollback exercised; web-sourced knowledge never reaches prompts without the evidence step; the phase review (D-037) ran, and its blocking issues are fixed.
 
@@ -176,6 +183,12 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-55 | SonarCloud lists 4 new issues on PR #89 (gate passed); cloud threads cannot read them | PR #89, 2026-10-17 | Style findings only | Review locally with the Sonar tooling and fix at the cause | open (#90) |
 | F-56 | Codegen slices 1-2 (`gen/<module>.inc`, tamper gate, `contracts.h`, integer-only `gen/harness/<test>.c`) are in; still missing: stubs, Makefile, harness cases beyond integer arguments in the ABI slots (pointers, memory, struct returns, xmm, stack arguments, flags), a callee-saved canary trampoline for V5, register width vs type width and non-default `entry_align` checks, applying the slot check to contracts.h prototypes, naming the constant in out-of-range errors, a check that the `--tests` file is hash-frozen outside the writable workspace, a `header_gen` writer that writes `gen/` to a workspace, V5 polish from the #86 reviews (doubled case id in failure messages, gcc error tail instead of head, clearer diagnostic when the entry symbol is not in the registry, `CodegenError` surfaced as a V5 result instead of an exception, drop `-no-pie` if PIE-clean objects should be required, header comments in `tests/fixtures/harness/*.asm`, a typed `options` parameter in the CLI `_verify`), and stale-module marking on contract hash change. ABI review notes: NASM `global` has no ELF type (parity with GAS `.type` via `global f:function`), duplicate `equ`/`struc` if one source includes two `.inc`, constants named like registers or directives, `gen` itself as a symlink | #91, 2026-10-17 | Next codegen slice; V5 needs the harness | Prior art: none found in `.reference/`; layout follows architecture §15.1 |
 | F-57 | NASM V0 syntax check hard-codes `-f elf64`; flat binaries (`bin`) and non-ELF targets need an `obj_format` parameter on `syntax_check_argv` | PR #98 review, 2026-10-17 | First non-ELF64 NASM target | Thread `ObjFormat` through the ladder context to V0 | open (#99) |
+| F-58 | Bake-off baseline is a bare single prompt; the compile-down idea (D-040) has no data before Phase 2 | plan review, 2026-10-17 | Needs the bake-off harness | Strong baseline (single prompt plus fix iterations), a C-then-`gcc -S` arm, run early in Phase 0; Phase 0 and 1 wording updated | open (#100) |
+| F-59 | Bench size (20 tasks) cannot decide gates such as +30 or +5 points; no paired or multi-seed method | plan review, 2026-10-17 | Needs the bench harness | Paired by task, 3 seeds or more, intervals, minimum detectable effect per gate; roadmap gates reworded | open (#101) |
+| F-60 | Tests are LLM-written and frozen; no reference-implementation differential test; V4 may duplicate a V5 canary check; no speed or size measure | plan review, 2026-10-17 | Phase 2a work | Differential tests in the Definition of Done; V5 canary first, V4 only for kinds it misses; define a size or speed measure | open (#102) |
+| F-61 | Engine on Windows plus a WSL agent multiplies the execution layer (D-006) | plan review, 2026-10-17 | Owner decision; changes an ADR | One-day spike: engine in WSL or Linux, UI and LM Studio on Windows; compare | open (owner, #103) |
+| F-62 | Process weight: deferred items tracked twice, all 47 ADRs Proposed, review gate covers most of `src/` | plan review, 2026-10-17 | Touches gated files (`AGENTS.md`, `.claude/**`) | Issue as the single record, ADR acceptance sweep, narrower gate path list | open (owner, #104) |
+| F-63 | Scope: assembler product only, or an oracle-driven app builder with assembly as one target (proxy, games, scheduler ambitions) | owner question, 2026-10-17 | Changes F-36 / #61 | Decide A, B or C after the bake-off and the demo repo; B needs `new-adr` | open (owner, #105) |
 
 ## Parked ideas (not scheduled)
 
