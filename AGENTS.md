@@ -4,7 +4,7 @@ Shared instructions for every coding agent working on this repo. Codex reads thi
 
 A local-first agentic system that **creates or edits multi-file assembly projects** from a natural-language request. In a Streamlit UI the user picks an assembler dialect (NASM, GAS; later FASM, MASM, ...) and a target preset (arch / OS / ABI / format), chooses create or edit, and describes the goal. A **Meta-Agentic Scrum** engine on LangGraph turns the request into a spec, contracts and tests, then runs bounded sprints whose loop graphs the AI composes from registered building blocks, until the project builds and passes its tests in a sandbox.
 
-**Status (2026-10-13): Phase 0 in progress — repository and environment done; code skeleton not started.** What exists: the design docs, the agent configuration (Claude Code and Codex), the conda scripts, hash-locked dependencies, baseline tests, and `src/barthelona/__init__.py`. Everything else in the docs is planned. Check `docs/roadmap.md` before assuming a module or command exists.
+**Status (2026-10-14): Phase 0 in progress — repository and environment done; code skeleton started.** What exists: the design docs, the agent configuration (Claude Code and Codex), the conda scripts, hash-locked dependencies, baseline tests, the domain models (`src/barthelona/domain/`), the `var/app.sqlite` store (`src/barthelona/persistence/`) and the `python -m barthelona` entry point (`version`, `schema`). Everything else in the docs is planned. Check `docs/roadmap.md` before assuming a module or command exists.
 
 ## Language
 
@@ -16,7 +16,7 @@ A local-first agentic system that **creates or edits multi-file assembly project
 | Topic | File |
 | --- | --- |
 | Architecture (authoritative) | `docs/architecture.md`: §5 Scrum mapping and pattern map, §9 topology DSL and AI-composed graphs, §13 verification, §16 models, providers and resilience |
-| Decisions | `docs/adr/README.md` (D-001…D-034, all Proposed until the owner accepts) |
+| Decisions | `docs/adr/README.md` (D-001…D-038, all Proposed until the owner accepts) |
 | Phases, exit criteria, open owner decisions, follow-ups | `docs/roadmap.md` |
 | Setup, operations, troubleshooting | `docs/runbook.md` |
 | Model catalog, role chains, budgets | `config/models.yaml` |
@@ -60,6 +60,8 @@ Agents prefix each command with `.\scripts\dev.ps1` / `scripts/dev.sh`; in an ac
 
 | Task | Command | Available |
 | --- | --- | --- |
+| Version / domain JSON schemas | `python -m barthelona version`, `python -m barthelona schema [Document]` | now |
+| Training-data setting and sample counts (opt-in, D-036) | `python -m barthelona training status` | now |
 | Lint / format / types | `ruff check .`, `ruff format .`, `mypy` | now |
 | Tests | `python -m pytest` (default excludes the `wsl`, `llm` and `slow` markers) | now (baseline tests only) |
 | Environment health | `.\scripts\doctor.ps1 [-StartWsl]` (or the `env-doctor` skill) | now |
@@ -138,11 +140,14 @@ Edit skills and agents only under `.claude/`; the post-edit hook (or `python scr
 - **Facts.** Verify version-, price- or date-sensitive facts with `docs-researcher` and cite URLs. For library behavior, the installed lock-pinned source in the `barthelona` env outranks docs and memory.
 - **Research before building.** For a new node type, dialect, verification check, gateway behavior or design choice (not a mechanical move or an obvious bug), first spend up to ~10 tool calls on prior art (`.reference/`, `asm_doc/`, installed source, official docs). Record 2-4 "Prior art:" lines in the ADR or roadmap item, or "none found".
 - **Done** means: the `verify` skill and its done checklist pass; the review gate ran if its paths are touched; your "Found while here" list (problems noticed outside the task, one line each with a recommendation) was shown to the owner. Agreed items become separate commits.
-- **Deferred is not dropped.** Every deferred item (yours, the owner's, a reviewer's) gets a row in `docs/roadmap.md` Follow-ups before the task is called done.
+- **Findings become GitHub issues** (D-037). A problem or bug you find (yours, a reviewer's, a bot's, Found while here) gets an issue at once. Fix in-scope ones in the task's PR: `Fixes #N` plus a line naming the extra issues it fixes.
+- **Deferred is not dropped.** Every deferred item (yours, the owner's, a reviewer's) keeps its issue and gets a row in `docs/roadmap.md` Follow-ups citing it before the task is called done.
+- **Phase review** (D-037). When a phase meets its exit criteria, review the whole before the next phase: run and smoke-test the code end to end; style and best practices; project docs (what it is, how to use it); process docs (install, configure, run, debug from the docs alone). Every finding becomes an issue.
+- **Code quality** follows Robert C. Martin, Luciano Ramalho, Brett Slatkin and Dan Bader (owner, 2026-10-14); the practices are in `.claude/rules/python.md`.
 - **Findings are fixed at the cause**, not argued away. `# noqa`, `# type: ignore`, `pytest.skip` and `xfail` need a one-sentence inline reason.
 - **Lessons land where they act**, in the same session and in one place: a guard hook (mechanically detectable), a path-scoped rule (a file area), a skill step (a procedure) or `docs/runbook.md` §8 (an environment symptom). A lesson that recurs after being written as prose becomes a hook or a test. Invariants, permissions, guard hooks and the review-gate paths change only on the owner's explicit decision.
 - **Other sessions' work.** Claude Code and Codex may work on this checkout at the same time. Never revert, delete, reformat or stage files you did not change; mention unfamiliar changes. Before the first edit of handed-over work, run `handoff resume`.
 - **Tool gaps.** On a missing tool or permission, stop, say what is missing and what you tried, and hand back drafted commands or text. Never work around it by reading `.env`, dumping env vars, reading credential stores, installing packages or changing system settings. Never run commands that can prompt (`sudo` without `-n`, `apt` without `-y`, `docker login`, `gh auth login`); give the owner the exact command.
 - **Ask plainly:** short, self-contained, recommendation first. Stop and ask after about two hours without converging.
-- **Commits and pushes** only when the owner asks. Each `git push` is confirmed by the owner (a hook asks). Force-push, `--mirror` and deleting remote branches are never allowed. Never commit secrets: `.env*` (except `.env.example`), `.claude/settings.local.json` and `.reference/` stay untracked.
-- **Commit messages:** `<type>(<scope>): <subject>`, imperative, at most 72 characters. Types: feat, fix, docs, refactor, perf, test, build, chore. Scopes: engine, nodes, gateway, executors, toolchains, verification, contracts, knowledge, ui, policies, config, scripts, deps, adr, agents. The body says why and cites D-NNN and roadmap items. One coherent change per commit; stage explicit paths, never `git add -A` or `git add .`. The attribution trailer comes from the current tool's instructions, never from history. Never amend or rebase unless asked.
+- **Commits, pushes and merges** need no owner approval: agents commit and push their own feature branches, open PRs, and merge their own PRs once the PR's checks have reported and pass, review threads are resolved, the review gate passed and `verify` passes on the PR head; with no checks reported, the owner merges. Pushing to `main`/`master` (never run a bare `git push` while on them; the hook can't see the target), force-push, `--mirror`, deleting remote branches, rebase and `--amend` are blocked. Never commit secrets: `.env*` (except `.env.example`), `.claude/settings.local.json` and `.reference/` stay untracked.
+- **Commit messages:** `<type>(<scope>): <subject>`, imperative, at most 72 characters. Types: feat, fix, docs, refactor, perf, test, build, chore. Scopes: engine, nodes, gateway, executors, toolchains, verification, contracts, knowledge, ui, policies, config, scripts, deps, adr, agents. The body says why and cites D-NNN and roadmap items. One coherent change per commit; stage explicit paths, never `git add -A` or `git add .`. The attribution trailer comes from the current tool's instructions, never from history.

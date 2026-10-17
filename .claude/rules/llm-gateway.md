@@ -7,7 +7,7 @@ paths:
 # LLM gateway and prompting rules (docs/architecture.md §16, ADR D-011, D-012, D-029, D-030)
 
 - **Official SDKs only:** `openai` 3.x (Chat Completions for LM Studio/Ollama/DeepSeek; Responses API for OpenAI GPT-6), `anthropic` 1.x, `google-genai` 2.x. No LiteLLM. Use the `/claude-api` skill before writing Anthropic code.
-- **Model ids, prices and parameters** come from `config/models.yaml`, never from memory. When adding or changing a model, use `docs-researcher` to fetch the provider's official docs page (listed in the "Cloud provider API docs" row of AGENTS.md), then copy `base_url`, model ids and prices verbatim from there. Do not write a URL from memory, a secondary source, or a previous config: fetch it. Update `pricing_checked` with today's date.
+- **Model ids, prices and parameters** come from `config/models.yaml`, never from memory. When adding or changing a model, use `docs-researcher` to fetch the provider's official docs page (listed in the "Provider API docs" row of AGENTS.md), then copy `base_url`, model ids and prices verbatim from there. Do not write a URL from memory, a secondary source, or a previous config: fetch it. Update `pricing_checked` with today's date.
 - **Local endpoints** use `127.0.0.1`, never `localhost` (IPv6 resolution makes LM Studio hang).
 - **Sampling parameters** (`temperature`/`top_p`/`top_k`) go to local models only. Claude 5.x and GPT-6 (effort other than `none`) return 400; Gemini 3.x and DeepSeek thinking mode ignore or reject them. Use prompt variants for cloud diversity.
 - **Reasoning settings** come from the role-chain entry in `config/models.yaml` (e.g. `{model: claude-opus-5-5, effort: high}`) and are always sent explicitly.
@@ -29,6 +29,13 @@ paths:
     - `json_object` only, so validate with Pydantic and repair.
     - Thinking is on by default.
     - `reasoning_content` must be echoed in tool loops.
+- **Gateway bootstrap — env-var expansion in `base_url`:** the `dashscope` provider's `base_url` uses `${DASHSCOPE_BASE_URL:-default}` syntax. The gateway's config loader must resolve `${VAR:-default}` patterns in every `base_url` value at startup (`os.environ.get(VAR, default)`). No other provider currently uses this syntax — see issue #25.
+- **QwenCloud / Qwen3 quirks the backend normalizes:**
+  - Enable thinking with `extra_body.enable_thinking=True`; disable with `False`. Thinking is ON by default for Qwen3 models — always set it explicitly.
+  - Thinking output appears in a `<think>…</think>` block inside the first content item; apply `strip_think` (same as local models).
+  - Echo `reasoning_content` in multi-turn tool loops, identical to DeepSeek.
+  - No `json_schema` structured output confirmed on DashScope; use `json_object` (prompt must mention JSON), validate with Pydantic, repair up to 2 times.
+  - Handle `finish_reason: "stop"` normally; no `content_filter` documented yet — treat unexpected stops as a model-level error.
 - **Resilience:**
   - Classify every error as transient / terminal-for-provider / model-level / output-level.
   - Only transient errors are retried: backoff, full jitter, `Retry-After` as the minimum.

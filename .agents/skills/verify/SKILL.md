@@ -40,7 +40,8 @@ After the gates, mark each item done / n/a / open. Any open item means the task 
 - [ ] Each regression test was seen failing on the unfixed code, and its fixture separates buggy from correct behavior (e.g. rsp misaligned by exactly 8; a callee-saved register clobbered on only one return path). Each new ABI check detects its bad corpus entry and passes its good one.
 - [ ] After a scripted or bulk edit, or a `ruff format` reflow, the changed lines were re-read: a replace can silently match nothing.
 - [ ] Docs match the change: `docs/architecture.md`, `docs/adr/README.md`, `docs/runbook.md`, `config/models.yaml`, and the AGENTS.md Commands table ("Available" column) and repo map.
-- [ ] `docs/roadmap.md`: deliverables are ticked only with evidence (a test or a command); deferred items are added to Follow-ups.
+- [ ] `docs/roadmap.md`: deliverables are ticked only with evidence (a test or a command); deferred items are added to Follow-ups, each citing its GitHub issue.
+- [ ] Every finding has a GitHub issue (D-037); the PR fixes the in-scope ones with `Fixes #N` and names them in its description. If issues cannot be created here, the drafted issue text goes to the owner.
 - [ ] If hooks changed: `.claude/hooks/test-hooks.ps1` passed and `.claude/hooks/README.md` is updated.
 - [ ] Review gate (AGENTS.md "Who to call"): when gated paths are staged, the `architecture-guardian` verdict and its staged-diff hash are noted.
 - [ ] The "Found while here" list was shown to the owner, each item with a disposition.

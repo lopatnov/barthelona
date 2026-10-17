@@ -19,7 +19,7 @@ Get every fact from a command, never from memory. Run Python through the wrapper
    - Done: 1-3 bullets with paths; commit SHAs if committed, else "uncommitted: N paths".
    - Decided: D-NNN | open decision #N | none.
    - Learned: <lesson> -> <where it was recorded> | none.
-   - Deferred: F-N rows added to docs/roadmap.md Follow-ups | none.
+   - Deferred: F-N rows added to docs/roadmap.md Follow-ups, with their issues (#N) | none.
    - Verify: <one line: ruff, format, mypy, pytest counts>.
    - Next: <one concrete first action: a command or a file>.
    ```
@@ -32,7 +32,7 @@ Get every fact from a command, never from memory. Run Python through the wrapper
    - owner actions pending (roadmap open decision #, `.wslconfig`, model downloads, `sudo` steps);
    - the next step as one literal command or file;
    - for a Codex successor: Claude hooks do not run there, so it runs `ruff format`, keeps LF in shell and assembly files, and runs `python scripts/sync_agent_configs.py` itself.
-6. Do not commit unless the owner asked. Show the devlog diff.
+6. Commit the devlog entry as its own `docs` commit. Show the devlog diff.
 
 ## resume
 

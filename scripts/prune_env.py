@@ -16,6 +16,7 @@ from importlib import metadata
 from pathlib import Path
 
 KEEP = {"pip", "setuptools", "wheel", "barthelona"}
+LOCK_DIR = Path(__file__).resolve().parents[1] / "requirements"
 
 
 def canonical(name: str) -> str:
@@ -36,6 +37,10 @@ def main(argv: list[str]) -> int:
         print(__doc__)
         return 2
     lock = Path(argv[0])
+    if not lock.resolve().is_relative_to(LOCK_DIR):
+        # Uninstalling follows whatever the lock says, so only the repo's own locks are trusted.
+        print(f"refusing: {lock} is not a lock file under {LOCK_DIR}")
+        return 2
     want = locked_names(lock)
     if not want:
         print(f"no pinned packages found in {lock}; refusing to prune")

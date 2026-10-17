@@ -1,4 +1,4 @@
-# D-041: Adequacy and verifier check for dev threads and the product pipeline
+# D-042: Adequacy and verifier check for dev threads and the product pipeline
 
 - Status: Proposed
 - Date: 2026-10-16
@@ -23,24 +23,24 @@ This applies to both:
 
 ## Decision
 
-### 1. Dev-thread process (immediate, D-041a)
+### 1. Dev-thread process (immediate, D-042a)
 
 - `.claude/rules/llm-gateway.md` is strengthened: before writing any `base_url`, model id, or
   price into `config/models.yaml`, the agent must fetch the provider's official docs page (listed
-  in the "Cloud provider API docs" row of AGENTS.md) via `docs-researcher` and copy the value
+  in the "Provider API docs" row of AGENTS.md) via `docs-researcher` and copy the value
   verbatim. Memory, secondary sources, and previous config files are not sufficient.
 - AGENTS.md "Sources of truth" table now lists the six official provider doc URLs
   (Qwen, Anthropic, DeepSeek, OpenAI, Gemini, Qdrant) as a canonical row, so any session can
   find them without searching.
 
-### 2. Product pipeline: config-fact guard (Phase 1, D-041b)
+### 2. Product pipeline: config-fact guard (Phase 1, D-042b)
 
 When the gateway loads a provider entry from `config/models.yaml`, it validates the `base_url`
 against a compiled allow-list of known hostnames per provider. An unknown hostname is a startup
 error, not a runtime error. The allow-list lives in `config/provider_hosts.yaml` and is updated
 only with an ADR amendment.
 
-### 3. Product pipeline: cheap adequacy check (Phase 2, D-041c, gated by bench)
+### 3. Product pipeline: cheap adequacy check (Phase 2, D-042c, gated by bench)
 
 After the main coder produces a patch and before the V1–V6 ladder, a lightweight classifier
 checks whether the patch touches the files and symbols declared in the task scope. This catches
@@ -57,7 +57,7 @@ Per architecture §2.10 ("Measure before adding"), this node is **disabled by de
 enabled only after the hidden test benchmark shows a gain (fewer wasted oracle runs without
 dropping accepted work). It is gated by the same flag as L2 composition.
 
-### 4. Architecture pattern map update (Phase 2, D-041d)
+### 4. Architecture pattern map update (Phase 2, D-042d)
 
 Architecture §5.3 pattern map and §13 will be updated to include:
 - **Config-fact guard** as a deterministic startup check (§16.1 or §16.2).

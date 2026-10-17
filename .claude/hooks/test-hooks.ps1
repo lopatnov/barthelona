@@ -16,7 +16,8 @@ function Invoke-Hook([string]$hook, [hashtable]$payload, [string]$projectDir) {
     $env:CLAUDE_PROJECT_DIR = $projectDir
     $out = $json | powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hook 2>$null
     $code = $LASTEXITCODE
-    if ($code -eq 0 -and ("$out" -match '"permissionDecision":"ask"')) { return 'ask' }
+    # No hook asks any more (D-035); a permissionDecision in stdout is a regression and shows up as a mismatch.
+    if ("$out" -match '"permissionDecision"') { return 'ask' }
     return $code
 }
 
@@ -26,9 +27,12 @@ $gb = '/' + $root.Substring(0, 1).ToLower() + ($root.Substring(2) -replace '\\',
 $nl = "`n"
 $shellCases = @(
     # git
-    @('git push origin main', 'ask'), @('cd /c/projects/barthelona && git push', 'ask'), @("git -C $fwd push", 'ask'), @('git.exe push origin main', 'ask'),
+    @('git push origin main', 2), @('cd /c/projects/barthelona && git push', 0), @("git -C $fwd push", 0), @('git.exe push origin main', 2),
+    @('git push origin HEAD:main', 2), @('git push origin HEAD:refs/heads/master', 2), @('git push origin feature/main-menu', 0),
+    @('git rebase main', 2), @('git commit -a --amend', 2), @('git commit -m x', 0), @('git stash drop', 2), @('git stash clear', 2), @('git stash push -m wip', 0),
+    @('git checkout --force main', 2), @('git checkout main -f', 2), @('git checkout -b feature/x', 0), @('git switch --discard-changes main', 2), @('git switch -c feature/y', 0),
     @('git push --force origin main', 2), @('git push -f', 2), @('git push origin +main', 2), @('git push origin --delete feature', 2),
-    @('git push origin :feature', 2), @('git push --mirror', 2), @('git push -u origin setup/x', 'ask'), @('git push origin main && rm -rf docs', 2),
+    @('git push origin :feature', 2), @('git push --mirror', 2), @('git push -u origin setup/x', 0), @('git push origin feature/x && rm -rf docs', 2),
     @('git status --short', 0), @('git diff HEAD~1', 0), @('git reset --hard HEAD', 2), @('git clean -fdx', 2), @('git clean -n', 0),
     @('git checkout -- .', 2), @('git checkout -- src/a.py', 0), @('git restore .', 2), @('git rm -r --cached asm_doc', 0),
     @('git commit -m "hooks: block git push and git clean"', 0),

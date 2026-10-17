@@ -2,7 +2,7 @@
 
 Version 1.0 · 2026-10-13 · Status: proposed baseline, pending owner review (see `docs/roadmap.md` § Open decisions).
 
-Decisions are recorded as ADRs D-001 to D-034 in `docs/adr/` (index: `docs/adr/README.md`). This document supersedes the Gemini brainstorming draft, which is kept only in `docs/archive/` and is non-authoritative: its model names and statistics are partly fabricated or outdated.
+Decisions are recorded as ADRs D-001 to D-038 in `docs/adr/` (index: `docs/adr/README.md`). This document supersedes the Gemini brainstorming draft, which is kept only in `docs/archive/` and is non-authoritative: its model names and statistics are partly fabricated or outdated.
 
 How this document was produced: five web-verified research reports (Gemini-draft audit, orchestration stack, assembler toolchains, knowledge layer, Claude Code configuration), three competing architecture proposals (Scrum-faithful, verification-first, local-first pragmatist), and a judged synthesis that starts from the verification-first spine and keeps Meta-Agentic Scrum as the organizing model. Owner requirements added after the synthesis are folded in: AI-composed sprint graphs (§9.5), four cloud providers (§16.2), optional budgets and provider resilience (§16.6), and a pattern map (§5.3).
 
@@ -28,7 +28,7 @@ The result is a self-contained git repository that builds without barthelona.
 - Windows 11 Pro; Intel Core Ultra 7 155H with Intel Arc iGPU (no NVIDIA GPU); 32 GB RAM.
 - WSL2 Ubuntu 26.04 with Docker.
 - LM Studio, OpenAI-compatible, at `http://127.0.0.1:1234/v1`. Ollama is installed but not running by default.
-- Optional cloud providers (the owner holds keys for all four): Anthropic, OpenAI, Google Gemini, DeepSeek. They are interchangeable behind one gateway and configured in `config/models.yaml` (§16.2).
+- Optional cloud providers (the owner holds keys for five): Anthropic, OpenAI, Google Gemini, DeepSeek, and Alibaba QwenCloud / Qwen3 (added D-038; preferred for its Slavic-optimised tokenizer). They are interchangeable behind one gateway and configured in `config/models.yaml` (§16.2).
 - Qdrant runs in WSL Docker. Barthelona has its own instance (`docker/qdrant/compose.yaml`, `127.0.0.1:6343`, named volume; D-034), separate from the owner's `qdrant-db` on 6333. It is reachable only while the WSL VM is running.
 
 **Out of scope for v1:**
@@ -37,7 +37,7 @@ The result is a self-contained git repository that builds without barthelona.
 - multi-agent debate;
 - autonomous web research;
 - in-run rewriting of prompts or rules;
-- fine-tuning;
+- fine-tuning (the opt-in training-data collection that would feed it is in scope, §19, D-036);
 - KolibriOS (optional, later).
 
 ## 2. Principles
@@ -112,7 +112,7 @@ Measured costs:
 So the worker keeps one WSL agent and one toolchain container alive, and runs tests in batches.
 
 **Layering**, enforced by an import-linter test:
-- Order: `domain` ← {contracts, toolchains, executors, verification, knowledge, memory, llm, prompting, persistence, workspace, policy} ← `nodes` ← `engine` ← `cli`.
+- Order: `domain` ← {contracts, toolchains, executors, verification, knowledge, memory, llm, prompting, persistence, workspace, policy, training} ← `nodes` ← `engine` ← `cli`.
 - `ui` imports only `domain`, `persistence` and `config`.
 - Nothing imports `ui`.
 - The engine never imports Streamlit.
@@ -120,7 +120,8 @@ So the worker keeps one WSL agent and one toolchain container alive, and runs te
 ## 4. Domain model (Pydantic v2, `src/barthelona/domain/`)
 
 **General rules:**
-- Every model has a `schema_version` and serializes to JSON or YAML.
+- Every top-level document (`barthelona.domain.DOCUMENTS`; `python -m barthelona schema` lists them and prints their JSON schemas) has a `schema_version`; nested value objects take the version of the document that holds them. Every model serializes to JSON or YAML, has fields that cannot be reassigned (nested lists and dicts are not deep-frozen); `model_copy(update=...)` skips validation, so updates from untrusted input go through `model_validate` and rejects unknown keys. Hashes (`spec_hash`, `hash`) cover the canonical JSON without the model's own hash fields.
+- The models check field shapes and local consistency only (unique ids, a stopped run has a `StopReason`, sprint layers cover every task once, a sprint topology's tasks map to its pipelines) and absolute ceilings; the LLM-facing decoding schema is generated from the active policy (§9.4) and is tighter. Graph rules for topologies are validator rules T1–T10 (§9.4).
 - Every model an LLM fills is flat: no recursion, minimal `$ref`/`anyOf`, enums, and length limits. This lets grammar-constrained decoding work on local models.
 
 **Target and project**
@@ -177,8 +178,8 @@ So the worker keeps one WSL agent and one toolchain container alive, and runs te
 - `SprintPlan`: `sprint_no`, `goal`, `item_ids`, `tasks`, `layers` (list of task-id lists), `topology_request`, `budget`.
 - `Task`: `id`, `item_id`, `module`, `symbols`, `depends_on`, `write_scope` (globs), `role_hint`.
 - `TopologyRequest` (LLM-fillable; enums and bounded numbers only):
-  - per task: `{task_id, template_id, insertions{slot: [node_type]}, knobs{name: value}, loop_budgets{back_edge: {max_iters, max_wall_s, max_tokens, max_usd}}, unit_size: symbol|module|module_group}` (L1);
-  - or, at L2, `pipelines[TaskPipeline]` built from registered node types;
+  - per task: `{task_id, template_id, insertions{slot: [node_type]}, knobs{name: value}, loop_budgets{"src->dst": {max_iters, max_wall_s, max_tokens, max_usd}}, unit_size: symbol|module|module_group}` (L1);
+  - or, at L2, `pipelines{task_id: TaskPipeline}` built from registered node types (a request is either L1 or L2, never both);
   - `rationale`, at most 300 characters.
 - `SprintTopology`, `TaskPipeline`, `NodeSpec`, `EdgeSpec`, `LoopBound`: see §9.
 
@@ -235,7 +236,8 @@ So the worker keeps one WSL agent and one toolchain container alive, and runs te
   - `policy_version` (pinned);
   - `budget{wall_s, tokens, usd (optional, null = uncapped but metered), max_sprints, cloud_allowed, allowed_providers, autopilot}`;
   - `composition_level`: `L0|L1|L2` (§9.5);
-  - `status`, `stop_reason`.
+  - `status`: `queued|running|waiting_gate|draining|stopped`; `stop_reason` is set exactly when the run is stopped;
+  - `collect_training_data` (default false), pinned at run start from the training-data setting (§19, D-036).
 - `StopReason`: `green|budget_tokens|budget_time|budget_cost|max_attempts|max_sprints|human_abort|unsupported_target|refusal|no_model_available|infra_error`. `no_model_available` means every model in the role's chain, including the local one, is unavailable; the run drains to a resumable checkpoint.
 - `RunEvent`:
   - `run_id`, `seq`, `ts`, `ns`, `phase`, `sprint`, `task_id`, `node_id`;
@@ -246,6 +248,10 @@ So the worker keeps one WSL agent and one toolchain container alive, and runs te
   - `tokens_in`, `tokens_out`, `tokens_cached`;
   - `latency_ms`, `tok_per_s`, `schema_valid`, `repairs`, `usd`, `stop_reason`.
 - `GateRequest{gate_id, kind, run_id, payload, options}` and `GateDecision{gate_id, decision, edits, comment, at}`.
+
+**Training data** (§19, D-036)
+- `TrainingAttempt`: `run_id`, `seq`, `recorded_at`, `source` (`run|bench_dev`; the holdout has no value), `target`, `story_kind`, `task_id`, `node_id`, `role` (never `det`), `attempt`, `provider`, `model`, `model_hash`, `local`, `levels` (`LevelResult`s), `improves_on_seq` (an earlier, failed attempt this one retries). Its `verdict` is computed from `levels`: `rejected` if one failed, `accepted` if none failed and at least one passed, otherwise `not_verified` (skipped or unsupported levels confirm nothing).
+- `TrainingSample{attempt, prompt_sha256, response_sha256}`: the texts are files referenced by hash, never inline.
 
 ## 5. Meta-Agentic Scrum
 
@@ -503,7 +509,8 @@ An unsatisfiable contract goes to `contract_change` and G2.
   - `pipelines`: map of hash to TaskPipeline;
   - `task_pipeline`: map of task id to hash;
   - `post`: `[integration, verify_dod, review_gate]`;
-  - `budget`, `spec_hash`.
+  - `budget`, `spec_hash`;
+  - `revision` (K in `topology.rK.json`) and `composition_level` (the level actually used).
 
 ### 9.2 Template example (`module_create`; illustrative: the `abi_lint` insertion and the `trace_capture` slot arrive with policy v2)
 
@@ -728,13 +735,22 @@ Side effects are idempotent, keyed by run, task and attempt.
 ## 12. Toolchain layer
 
 **Protocols** (`toolchains/`, `executors/`):
-- `Dialect`:
+- `Dialect` (planned, Phase 1+):
   - attributes: `id`, `exts`, `comment_prefix`, `local_label_re`;
   - `targets()`, `tools(target)`;
   - `syntax_check(src, target)`, `assemble(src, out, target, defines)`, `preprocess(src, target)`. Each returns a `Command`;
   - `parse(result, workdir) -> list[Diagnostic]`;
   - `includes(text)`;
   - `render_interface(registry, module)`, `render_stub(symbol)`.
+- `DialectAdapter` (**Phase 0 subset**, `toolchains/dialect.py`): a structural Protocol that covers only
+  the commands needed by the verification ladder (V0–V2).  It returns raw argv tuples
+  (`tuple[str, ...]`) instead of full `Command` objects; the ladder wraps them with
+  `docker exec bart-tc` before dispatching.  Method names differ from the planned
+  `Dialect` protocol intentionally: `syntax_check_argv`, `assemble_argv`,
+  `parse_diagnostics`.  When `contracts.yaml` and the full target abstraction land,
+  `DialectAdapter` will be superseded by `Dialect`; adapters will be migrated to accept
+  the `target: TargetProfile` and `defines: Mapping[str, str]` parameters and return
+  `Command`.
 - `Linker`: `link(objs, out, target, kind)` and `parse(...)`.
 - `Executor`:
   - `id`: `tc`, `sandbox`, `emu`, or (later) `windows-native`;
@@ -790,6 +806,7 @@ Normalization:
 - **Agent allowlist:**
   - `docker exec bart-tc …`;
   - `docker run … bart-run …`, with the sandbox flags fixed by the agent, not by the caller;
+  - `docker inspect --format … <image>` — exactly one target, restricted to `bart-tc` or `bart-run*` (used by `barthelona probe` to record image digests);
   - `tar`, `sha256sum`.
   - Every path must be under `~/.cache/barthelona/`.
 - **Text hygiene:**
@@ -1038,7 +1055,7 @@ SQLite (`app.sqlite.lessons`) is the source of truth.
 
 | Backend | SDK | Serves |
 | --- | --- | --- |
-| `OpenAIChatBackend` | `openai` 3.x, Chat Completions with `base_url` | LM Studio, Ollama, llama.cpp, DeepSeek |
+| `OpenAIChatBackend` | `openai` 3.x, Chat Completions with `base_url` | LM Studio, Ollama, llama.cpp, DeepSeek, QwenCloud/Qwen3 |
 | `OpenAIResponsesBackend` | `openai` 3.x, Responses API | OpenAI (GPT-6 models need it for tool calls with reasoning) |
 | `AnthropicBackend` | `anthropic` 1.x | Claude |
 | `GeminiBackend` | `google-genai` 2.x | Gemini (the OpenAI-compatible endpoint's schema enforcement is unverified) |
@@ -1066,7 +1083,7 @@ The catalog is a committed YAML file with no secrets. It has six parts:
 - `budget` (all optional);
 - `resilience` parameters.
 
-Cloud models in the catalog (verified 2026-10-13; prices in USD per 1M tokens, input / cached input / output):
+Cloud models in the catalog (Anthropic/OpenAI/Google/DeepSeek verified 2026-10-13; QwenCloud/Qwen approximate, verify in QwenCloud console; prices in USD per 1M tokens, input / cached input / output):
 
 Price classes within a provider (`price_class` in the catalog; not to be confused with node roles):
 
@@ -1076,6 +1093,7 @@ Price classes within a provider (`price_class` in the catalog; not to be confuse
 | OpenAI | `gpt-6-astra` 10 / 1 / 50 | — | `gpt-6.1-sol` 2 / 0.10 / 10; `gpt-6-sol` 2 / 0.20 / 10 | `gpt-6-luna` 0.10 / 0.01 / 0.50 |
 | Google | — | `gemini-3.1-pro-preview` 2 / 0.20 / 12 (preview only) | `gemini-3.8-flash`, `gemini-3.6-flash` 0.75 / 0.075 / 3.75 (double on 2027-01-01) | `gemini-3.5-flash-lite` 0.30 / 0.03 / 2.50 |
 | DeepSeek | — | `deepseek-v4-pro` 1.32 / 0.044 / 3.96 (peak; off-peak −50%) | `deepseek-flash` 0.30 / 0.006 / 1.20 (peak; off-peak −50%) | `deepseek-flash` with thinking disabled |
+| QwenCloud (Qwen3) | — | `qwen3-235b-a22b` ~0.30 / — / ~3.00 (thinking) | `qwen3-30b-a3b` ~0.10 / — / ~0.44 | `qwen-turbo` ~0.05 / — / ~0.20 (disabled) |
 
 Long-context tiers (OpenAI above 272K input, Gemini Pro above 200K, Haiku above 100K), cache-write prices and DeepSeek's off-peak schedule are machine-readable `price` fields, so the ledger and budget reservations use the right rate.
 
@@ -1085,11 +1103,11 @@ Profiles. Every chain ends in `local_main`. The default is `hybrid`. Chain entri
 
 | Role | local-only | hybrid | cloud |
 | --- | --- | --- | --- |
-| main | local | local | Sonnet 5.5 → GPT-6.1 Sol → Gemini 3.8 Flash → DeepSeek Flash → local |
-| planner | local | Opus 5.5 (high) → GPT-6.1 Sol (high) → Gemini 3.1 Pro (high) → DeepSeek V4 Pro (high) → local | same as hybrid |
-| worker | local | local | Sonnet 5.5 → GPT-6.1 Sol → GPT-6 Sol → Gemini 3.8 Flash → Gemini 3.6 Flash → DeepSeek Flash → local |
+| main | local | local | Sonnet 5.5 → Qwen3-30B (no-think) → GPT-6.1 Sol → Gemini 3.8 Flash → DeepSeek Flash → local |
+| planner | local | Opus 5.5 (high) → Qwen3-235B (think) → GPT-6.1 Sol (high) → Gemini 3.1 Pro (high) → DeepSeek V4 Pro (high) → local | same as hybrid |
+| worker | local | local | Sonnet 5.5 → Qwen3-30B (no-think) → GPT-6.1 Sol → GPT-6 Sol → Gemini 3.8 Flash → Gemini 3.6 Flash → DeepSeek Flash → local |
 | cheap | local | local | Haiku 5.5 (low) → GPT-6 Luna (none) → Gemini 3.5 Flash-Lite (minimal) → DeepSeek Flash (thinking off) → local |
-| escalation (flagship-first) | local | Opus 5.5 (high) → GPT-6.1 Sol (xhigh) → Gemini 3.1 Pro (high) → DeepSeek V4 Pro (max) → local | Opus 5.5 (xhigh) → GPT-6 Astra (high) → Gemini 3.1 Pro (high) → DeepSeek V4 Pro (max) → local |
+| escalation (flagship-first) | local | Opus 5.5 (high) → Qwen3-235B (think) → GPT-6.1 Sol (xhigh) → Gemini 3.1 Pro (high) → DeepSeek V4 Pro (max) → local | Opus 5.5 (xhigh) → Qwen3-235B (think) → GPT-6 Astra (high) → Gemini 3.1 Pro (high) → DeepSeek V4 Pro (max) → local |
 
 The owner reorders chains freely; the order is a preference, not a dependency. The `cheap` role is reserved: no MVP node uses it yet.
 
@@ -1145,7 +1163,7 @@ Not candidates for the main model:
   - each role uses one tool-free completion; MVP roles make no tool-calling loops.
 
 ### 16.4 Context assembly
-Blocks are ordered from stable to volatile, so llama.cpp/LM Studio can reuse the cached prefix and a cloud cache breakpoint can sit after block 3:
+Blocks are ordered from stable to volatile, so llama.cpp/LM Studio can reuse the cached prefix and a cloud cache breakpoint can sit after block 3 (D-039):
 1. role and output format;
 2. dialect rule card;
 3. project card: target and ABI row;
@@ -1168,6 +1186,9 @@ Blocks are ordered from stable to volatile, so llama.cpp/LM Studio can reuse the
 - **Drop order when over budget:** lowest-scored doc chunks, then lessons, then repo-map depth, then callee contracts.
 - **Token counting:** the model's tokenizer where available, otherwise characters / 3.5 with a 15% margin.
 - **Hidden tests never appear in prompts.**
+- **Stable-prefix constraint (D-039):** blocks 1–3 must be byte-for-byte identical across all calls that share the same dialect, arch and policy version within a sprint run, so the provider can reuse the KV cache. The context assembler computes a `stable_prefix_hash` and raises an error if it changes mid-run. Block 3 is at most 25% of the context window; the assembler raises a hard error rather than silently truncating.
+- **Semantic response caching is not used** (D-039). Each coding call is unique per code state. A false cache hit would corrupt a workspace without detection.
+- **Provider prefix-cache marker:** for Anthropic, `cache_control: {"type": "ephemeral"}` is placed on the last block of the stable prefix (block 3). For LM Studio/vLLM, no marker is needed; the provider's automatic prefix caching fires when the prefix matches. The gateway logs `cache_hit` and `cache_tokens_saved` per call (D-024).
 
 ### 16.5 Claude specifics (verified 2026-10)
 - **Prices** per million input/output tokens; all have a 1M-token context:
@@ -1195,9 +1216,10 @@ Blocks are ordered from stable to volatile, so llama.cpp/LM Studio can reuse the
   - 529 `overloaded_error`, 500, 504: transient.
   - The SDK retries 408/409/429/5xx twice by default. The gateway sets `max_retries=0` and applies its own policy, so retries are not multiplied.
 - **Prompt caching:**
-  - the minimum cacheable prefix depends on the model (512–4096 tokens);
+  - the minimum cacheable prefix depends on the model: 512 tokens for Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1; 1024–4096 tokens for older models;
   - verify that `usage.cache_read_input_tokens` is greater than 0;
-  - cache reads cost $0.20 per million tokens on Opus 5.5 and Sonnet 5.5.
+  - cache reads cost $0.20/MTok for Opus 5.5 and $0.10/MTok for Sonnet 5.5 (5% of base input); 10% of base input for most other models.
+    (https://platform.claude.com/docs/en/build-with-claude/prompt-caching, checked 2026-10-16)
 - **Batch API:** 50% off. Use it for benchmark and Policy Lab runs.
 - **API keys** come only from environment variables. They never appear in logs or in Streamlit session state.
 
@@ -1263,7 +1285,7 @@ Caps exist per run, per month, and per provider. Spend history is kept in `app.s
 
 | Page | Contents |
 | --- | --- |
-| New request* | Mode, dialect, target preset (unsupported presets disabled with the reason), workspace or import path, description (RU/UK/EN), profile, cloud consent and allowed providers, optional dollar budget (empty = uncapped but metered), time and token limits (empty = profile default; never unlimited), composition level, autopilot. |
+| New request* | Mode, dialect, target preset (unsupported presets disabled with the reason), workspace or import path, description (RU/UK/EN), profile, cloud consent and allowed providers, optional dollar budget (empty = uncapped but metered), time and token limits (empty = profile default; never unlimited), composition level, autopilot, collect training data (defaults to the setting, §19). |
 | Approvals* | Gate inbox. Editable spec, test and contract tables; contract-delta view; diff view for G4. |
 | Sprint board* | Backlog, sprint and done columns. The current topology rendered with `st.graphviz_chart` from DOT, showing the chosen template, insertions, knobs and why. A story × level ladder matrix with clickable diagnostics. |
 | Live run* | Current phase and node, attempts, tok/s, ETA, spend per provider (and vs. the cap, if one is set), which model is actually serving each role, event log (including fallbacks such as "anthropic: billing_error → deepseek"), cancel button. |
@@ -1280,6 +1302,9 @@ UI language is English. Input in Russian or Ukrainian is accepted; the normalize
 
 **`var/` (gitignored):**
 - `app.sqlite` (WAL). Tables: `runs`, `commands`, `events`, `gates`, `llm_calls`, `exec_log`, `lessons`, `lesson_uses`, `overlay_changes`, `policy_pointer`, `metrics`, `bench_results`.
+  - Schema versions are tracked with `PRAGMA user_version`; migrations are append-only (`persistence/migrations.py`). Migration 1 creates the first five tables as STRICT tables; each later table arrives with its feature as a new migration.
+  - Each row stores the domain document as JSON (`Run`, `RunCommand`, `RunEvent`, `GateRequest`/`GateDecision`, `LLMCallRecord`) next to a few indexed columns, and every read validates it back into its model.
+  - Writes run in `BEGIN IMMEDIATE` transactions. Event numbers per run are contiguous from 0, commands are claimed exactly once, and a gate is resolved once with one of its offered options. Event payloads, gate payloads and gate-decision edits over 16 KiB are refused; bulky data goes under `runs/<run_id>/` and is referenced by `payload_ref`.
 - `checkpoints.sqlite`: LangGraph `AsyncSqliteSaver`.
 - `worker.lock`.
 - `runs/<run_id>/`:
@@ -1288,6 +1313,7 @@ UI language is English. Input in Russian or Ukrainian is accepted; the normalize
   - `exec/<seq>.{argv,out,err}`;
   - `report.md`.
 - `kb/`: `facts.sqlite`, `docs_fts.sqlite`, and `emb_cache.sqlite` (P3).
+- `training/` (only when training-data collection is on, §19): `samples.jsonl` and `texts/<aa>/<sha256>.txt`.
 - `policies/vN/` (runtime-created versions) and `bench/<suite>/<timestamp>/`.
 
 **A project workspace** is its own git repository at `<workspaces>/<slug>/`. The default root is `<repo>/workspaces/` (gitignored), configurable with `BARTHELONA_WORKSPACES`.
@@ -1331,6 +1357,13 @@ The baseline is the product's own event log, which also feeds the UI.
 
 Langfuse and LangSmith are excluded: self-hosting Langfuse is too heavy for this machine, and LangSmith is SaaS.
 
+**Training data (opt-in, D-036).** Runs can collect a dataset for training an assembly-programming model later; fine-tuning itself stays out of scope (§1).
+- **Setting:** `BARTHELONA_TRAINING_DATA_ENABLED` (default off) and `BARTHELONA_TRAINING_DATA_DIRECTORY` (default `var/training`), read from the process environment by `training.TrainingDataSettings`. The New request page offers a "Collect training data" checkbox that defaults to the setting; the choice is pinned as `Run.collect_training_data`. `python -m barthelona training status` prints the setting and the sample count per verdict.
+- **What:** one `TrainingSample` (§4) per code-producing model attempt, recorded after the tamper gate and the ladder have judged it, so the label comes from the oracles. Failed attempts are kept: a rejected attempt and the accepted retry that names it in `improves_on_seq` form a preference pair.
+- **Where:** local files only, never uploaded: `samples.jsonl` (metadata, one sample per line) and content-addressed `texts/<aa>/<sha256>.txt` for prompts and responses, so code stays out of JSON (invariant 5). Secrets are redacted before a text is written. The worker is the only writer.
+- **Not collected:** holdout benchmark attempts (no `SampleSource` value exists for them, `source` is required, and the engine hook refuses runs on holdout tasks) and deterministic nodes.
+- **Export** (Phase 1): `barthelona training export` writes trainer-ready files; by default it keeps only local-model samples, because provider terms may restrict training on cloud outputs.
+
 ## 20. Evaluation
 
 - **Unit tests** (no LLM, no WSL):
@@ -1373,6 +1406,7 @@ Langfuse and LangSmith are excluded: self-hosting Langfuse is too heavy for this
 | Secret leakage | Keys only in the environment; redacted from logs and events; never in Streamlit session state or containers |
 | Supply chain | Hash-locked requirements (`--require-hashes`); pinned image digests; no LiteLLM; AGPL PyMuPDF kept out of the product |
 | Cloud data egress | Per-run consent; the profile is shown on every run; local-only profile available |
+| Training data leaks secrets or leaves the machine | Off by default; local files only, never uploaded; secrets redacted before writing; holdout attempts never recorded (D-036) |
 | Self-modification abuse | Immutable policy versions, invariants, holdout A/B, human activation at G6, rollback |
 
 ## 22. Known uncertainties and spikes
