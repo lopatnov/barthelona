@@ -41,30 +41,39 @@ def parse_nm(output: bytes) -> ObjectSymbols:
     return ObjectSymbols(frozenset(defined), frozenset(undefined))
 
 
-def _module_stem(module: str) -> str:
+def module_stem(module: str) -> str:
     return Path(module).stem
 
 
-def expected_exports(registry: ContractRegistry, module_stem: str) -> frozenset[str]:
+def expected_exports(registry: ContractRegistry, stem: str) -> frozenset[str]:
     return frozenset(
         name
         for name, symbol in registry.symbols.items()
-        if _module_stem(symbol.module) == module_stem
+        if module_stem(symbol.module) == stem
         and symbol.visibility == Visibility.GLOBAL
         and symbol.kind in _EXPORT_KINDS
     )
 
 
-def declared_imports(registry: ContractRegistry, module_stem: str) -> frozenset[str]:
+def _own_symbols(registry: ContractRegistry, stem: str) -> set[str]:
+    return {name for name, symbol in registry.symbols.items() if module_stem(symbol.module) == stem}
+
+
+def called_imports(registry: ContractRegistry, stem: str) -> frozenset[str]:
+    """Foreign names the module's own symbols call: the only imports its generated header declares."""
+    own = _own_symbols(registry, stem)
+    return frozenset({callee for name in own for callee in registry.symbols[name].calls} - own)
+
+
+def declared_imports(registry: ContractRegistry, stem: str) -> frozenset[str]:
     """Names the module may leave undefined: what its symbols call, plus explicit externs."""
-    own = {name for name, symbol in registry.symbols.items() if _module_stem(symbol.module) == module_stem}
-    called = {callee for name in own for callee in registry.symbols[name].calls}
+    own = _own_symbols(registry, stem)
     externs = {
         name
         for name, symbol in registry.symbols.items()
         if symbol.visibility == Visibility.EXTERN and name not in own
     }
-    return frozenset(called | externs) - own
+    return called_imports(registry, stem) | frozenset(externs)
 
 
 def _fatal(message: str, source: str, symbol: str) -> Diagnostic:
@@ -86,7 +95,7 @@ def check_object_symbols(
     allow_list: Iterable[str] = DEFAULT_ALLOW_LIST,
 ) -> list[Diagnostic]:
     """Diagnostics for one object: unregistered or missing exports, undeclared imports."""
-    stem = _module_stem(source)
+    stem = module_stem(source)
     expected = expected_exports(registry, stem)
     permitted = declared_imports(registry, stem) | frozenset(allow_list)
     diagnostics = [

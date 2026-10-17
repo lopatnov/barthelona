@@ -1038,7 +1038,7 @@ Examples of pitfalls: NASM `default rel` and `wrt ..plt`; GAS `.intel_syntax nop
 
 Rules:
 - Each module gets `gen/<module>.inc` containing its exports and only its own imports. A module never declares `extern` for a symbol it defines.
-- Generated files carry a hash header and are committed, so the project builds without barthelona.
+- Generated files carry a hash header (`<comment> GENERATED ... barthelona-gen v1 body-sha256=<hex>`, the hash covers the body) and are committed, so the project builds without barthelona. The tamper gate regenerates `gen/` from the registry and flags every missing, edited or extra file (`tamper.missing`, `tamper.edited`, `tamper.extra`); `barthelona verify --contracts` runs it first and stops on failure.
 - When a contract hash changes, dependent modules are marked stale.
 
 ### 15.2 Lessons (evidence-gated experience log)
