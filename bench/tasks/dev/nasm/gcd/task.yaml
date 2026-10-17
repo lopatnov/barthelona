@@ -1,0 +1,8 @@
+id: gcd
+title: Greatest common divisor
+dialect: nasm
+module: gcd
+prompt: |
+  Implement the function `gcd` (a in rdi, b in rsi). Return the greatest common divisor of the two
+  unsigned 64-bit integers `a` and `b`. gcd(0, n) is n and gcd(0, 0) is 0.
+  The result goes in rax. Registers rbx, rbp and r12-r15 must be preserved.

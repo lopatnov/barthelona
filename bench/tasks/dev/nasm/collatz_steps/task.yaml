@@ -1,0 +1,9 @@
+id: collatz_steps
+title: Collatz steps
+dialect: nasm
+module: collatz_steps
+prompt: |
+  Implement the function `collatz_steps` (n in rdi). Return how many steps the Collatz sequence from
+  `n` takes to reach 1 (halve when even, triple and add one when odd). `n` is at least 1 and the
+  intermediate values fit in 64 bits.
+  The result goes in rax. Registers rbx, rbp and r12-r15 must be preserved.

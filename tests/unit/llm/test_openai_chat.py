@@ -79,12 +79,13 @@ def _ok(seen: list[dict[str, object]]) -> httpx.MockTransport:
 
 async def test_streamed_reply_is_assembled_with_usage() -> None:
     seen: list[dict[str, object]] = []
-    reply = await _backend(_ok(seen)).complete(_target(), _request(temperature=0.2))
+    reply = await _backend(_ok(seen)).complete(_target(), _request(temperature=0.2, seed=7))
     assert (reply.text, reply.stop_reason) == ("Hello", "stop")
     assert (reply.tokens_in, reply.tokens_out, reply.tokens_cached) == (12, 3, 5)
     assert seen[0]["model"] == "qwen"
     assert seen[0]["stream"] is True
     assert seen[0]["temperature"] == 0.2
+    assert seen[0]["seed"] == 7
     assert "response_format" not in seen[0]
 
 

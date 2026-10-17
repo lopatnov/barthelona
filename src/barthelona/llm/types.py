@@ -21,6 +21,7 @@ class CompletionRequest(DomainModel):
     messages: tuple[ChatMessage, ...] = Field(min_length=1)
     max_tokens: int = Field(default=2048, ge=1)
     temperature: float | None = Field(default=None, ge=0, le=2)
+    seed: int | None = None  # reproducible sampling on local servers; the bench varies it per run
     response_schema: dict[str, Any] | None = None  # JSON schema for small structured artifacts only
 
 

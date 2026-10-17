@@ -1,0 +1,49 @@
+- id: rotl_0
+  kind: c_harness
+  symbol: rotl
+  level: V5
+  origin: bench
+  inputs: {rdi: 1, rsi: 1}
+  expect: {ret: 2}
+- id: rotl_1
+  kind: c_harness
+  symbol: rotl
+  level: V5
+  origin: bench
+  inputs: {rdi: 9223372036854775808, rsi: 1}
+  expect: {ret: 1}
+- id: rotl_2
+  kind: c_harness
+  symbol: rotl
+  level: V5
+  origin: bench
+  inputs: {rdi: 1311768467463790320, rsi: 4}
+  expect: {ret: 2541551405711093505}
+- id: rotl_3
+  kind: c_harness
+  symbol: rotl
+  level: V5
+  origin: bench
+  inputs: {rdi: 5, rsi: 0}
+  expect: {ret: 5}
+- id: rotl_4
+  kind: c_harness
+  symbol: rotl
+  level: V5
+  origin: bench
+  inputs: {rdi: 5, rsi: 64}
+  expect: {ret: 5}
+- id: rotl_5
+  kind: c_harness
+  symbol: rotl
+  level: V5
+  origin: bench
+  inputs: {rdi: 5, rsi: 65}
+  expect: {ret: 10}
+- id: rotl_6
+  kind: c_harness
+  symbol: rotl
+  level: V5
+  origin: bench
+  inputs: {rdi: 18446744073709551615, rsi: 33}
+  expect: {ret: 18446744073709551615}

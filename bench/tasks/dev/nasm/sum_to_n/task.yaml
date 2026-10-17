@@ -1,0 +1,8 @@
+id: sum_to_n
+title: Sum of 1..n
+dialect: nasm
+module: sum_to_n
+prompt: |
+  Implement the function `sum_to_n` (n in rdi). Return 1 + 2 + ... + n as an unsigned 64-bit integer.
+  `n` is at most 2^32, so the sum fits.
+  The result goes in rax. Registers rbx, rbp and r12-r15 must be preserved.

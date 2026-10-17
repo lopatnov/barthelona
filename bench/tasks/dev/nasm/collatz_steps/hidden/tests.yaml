@@ -1,0 +1,42 @@
+- id: collatz_steps_0
+  kind: c_harness
+  symbol: collatz_steps
+  level: V5
+  origin: bench
+  inputs: {rdi: 1}
+  expect: {ret: 0}
+- id: collatz_steps_1
+  kind: c_harness
+  symbol: collatz_steps
+  level: V5
+  origin: bench
+  inputs: {rdi: 2}
+  expect: {ret: 1}
+- id: collatz_steps_2
+  kind: c_harness
+  symbol: collatz_steps
+  level: V5
+  origin: bench
+  inputs: {rdi: 6}
+  expect: {ret: 8}
+- id: collatz_steps_3
+  kind: c_harness
+  symbol: collatz_steps
+  level: V5
+  origin: bench
+  inputs: {rdi: 7}
+  expect: {ret: 16}
+- id: collatz_steps_4
+  kind: c_harness
+  symbol: collatz_steps
+  level: V5
+  origin: bench
+  inputs: {rdi: 27}
+  expect: {ret: 111}
+- id: collatz_steps_5
+  kind: c_harness
+  symbol: collatz_steps
+  level: V5
+  origin: bench
+  inputs: {rdi: 97}
+  expect: {ret: 118}

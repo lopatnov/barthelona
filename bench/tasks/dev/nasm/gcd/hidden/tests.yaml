@@ -1,0 +1,56 @@
+- id: gcd_0
+  kind: c_harness
+  symbol: gcd
+  level: V5
+  origin: bench
+  inputs: {rdi: 12, rsi: 18}
+  expect: {ret: 6}
+- id: gcd_1
+  kind: c_harness
+  symbol: gcd
+  level: V5
+  origin: bench
+  inputs: {rdi: 17, rsi: 5}
+  expect: {ret: 1}
+- id: gcd_2
+  kind: c_harness
+  symbol: gcd
+  level: V5
+  origin: bench
+  inputs: {rdi: 0, rsi: 9}
+  expect: {ret: 9}
+- id: gcd_3
+  kind: c_harness
+  symbol: gcd
+  level: V5
+  origin: bench
+  inputs: {rdi: 9, rsi: 0}
+  expect: {ret: 9}
+- id: gcd_4
+  kind: c_harness
+  symbol: gcd
+  level: V5
+  origin: bench
+  inputs: {rdi: 100, rsi: 75}
+  expect: {ret: 25}
+- id: gcd_5
+  kind: c_harness
+  symbol: gcd
+  level: V5
+  origin: bench
+  inputs: {rdi: 1099511627776, rsi: 1048576}
+  expect: {ret: 1048576}
+- id: gcd_6
+  kind: c_harness
+  symbol: gcd
+  level: V5
+  origin: bench
+  inputs: {rdi: 0, rsi: 0}
+  expect: {ret: 0}
+- id: gcd_7
+  kind: c_harness
+  symbol: gcd
+  level: V5
+  origin: bench
+  inputs: {rdi: 18446744073709551615, rsi: 18446744073709551615}
+  expect: {ret: 18446744073709551615}

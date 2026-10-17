@@ -1,0 +1,8 @@
+id: rotl
+title: Rotate left
+dialect: nasm
+module: rotl
+prompt: |
+  Implement the function `rotl` (x in rdi, k in rsi). Return `x` rotated left by `k` bits as a 64-bit
+  value; `k` can be any unsigned 64-bit integer and only its value modulo 64 matters.
+  The result goes in rax. Registers rbx, rbp and r12-r15 must be preserved.

@@ -1,0 +1,42 @@
+- id: popcount_0
+  kind: c_harness
+  symbol: popcount
+  level: V5
+  origin: bench
+  inputs: {rdi: 0}
+  expect: {ret: 0}
+- id: popcount_1
+  kind: c_harness
+  symbol: popcount
+  level: V5
+  origin: bench
+  inputs: {rdi: 1}
+  expect: {ret: 1}
+- id: popcount_2
+  kind: c_harness
+  symbol: popcount
+  level: V5
+  origin: bench
+  inputs: {rdi: 255}
+  expect: {ret: 8}
+- id: popcount_3
+  kind: c_harness
+  symbol: popcount
+  level: V5
+  origin: bench
+  inputs: {rdi: 18446744073709551615}
+  expect: {ret: 64}
+- id: popcount_4
+  kind: c_harness
+  symbol: popcount
+  level: V5
+  origin: bench
+  inputs: {rdi: 9223372036854775809}
+  expect: {ret: 2}
+- id: popcount_5
+  kind: c_harness
+  symbol: popcount
+  level: V5
+  origin: bench
+  inputs: {rdi: 1234567}
+  expect: {ret: 11}

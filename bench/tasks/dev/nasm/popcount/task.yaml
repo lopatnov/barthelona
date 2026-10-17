@@ -1,0 +1,8 @@
+id: popcount
+title: Population count
+dialect: nasm
+module: popcount
+prompt: |
+  Implement the function `popcount` (x in rdi). Return the number of bits set in the unsigned 64-bit
+  integer `x`. Do not use the POPCNT instruction: it is not available on every target.
+  The result goes in rax. Registers rbx, rbp and r12-r15 must be preserved.
