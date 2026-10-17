@@ -7,9 +7,8 @@ paired interval excludes zero and the effect is above the smallest effect the be
 from __future__ import annotations
 
 import math
-import random
 from collections import defaultdict
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from statistics import fmean, stdev
 
@@ -18,6 +17,17 @@ from barthelona.bench.runner import TaskResult
 _Z = 1.96  # 95% two-sided
 _MDE_FACTOR = 2.8  # (z_0.975 + z_0.8): 5% two-sided test with 80% power
 _BOOTSTRAP_ROUNDS = 10_000
+_MASK64 = (1 << 64) - 1
+
+
+def _splitmix64(state: int) -> Iterator[int]:
+    """Deterministic 64-bit stream for bootstrap resampling (not security; no `random` module needed)."""
+    while True:
+        state = (state + 0x9E3779B97F4A7C15) & _MASK64
+        z = state
+        z = ((z ^ (z >> 30)) * 0xBF58476D1CE4E5B9) & _MASK64
+        z = ((z ^ (z >> 27)) * 0x94D049BB133111EB) & _MASK64
+        yield z ^ (z >> 31)
 
 
 @dataclass(frozen=True)
@@ -68,8 +78,11 @@ def compare_paired(
     if not shared:
         raise ValueError("the arms share no task; nothing to pair")
     deltas = [candidate[task] - baseline[task] for task in shared]
-    rng = random.Random(seed)  # noqa: S311  # NOSONAR S2245: seeded resampling, not security
-    means = sorted(fmean(rng.choices(deltas, k=len(deltas))) for _ in range(_BOOTSTRAP_ROUNDS))
+    stream = _splitmix64(seed)
+    count = len(deltas)
+    means = sorted(
+        fmean(deltas[next(stream) % count] for _ in range(count)) for _ in range(_BOOTSTRAP_ROUNDS)
+    )
     low, high = means[int(0.025 * _BOOTSTRAP_ROUNDS)], means[int(0.975 * _BOOTSTRAP_ROUNDS) - 1]
     spread = stdev(deltas) if len(deltas) > 1 else 0.0
     return PairedComparison(
