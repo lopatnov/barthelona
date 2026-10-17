@@ -92,10 +92,12 @@ async def _probe(executor: AgentExecutor) -> ToolchainLock:
 
 
 async def _verify(executor: AgentExecutor, **ladder_args: Any) -> list[LevelResult]:
-    from barthelona.verification import run_ladder
+    from barthelona.verification import LadderOptions, run_ladder
 
+    options: LadderOptions = ladder_args.pop("options")
+    options.sandbox = executor.sandbox()
     try:
-        return await run_ladder(executor=executor, sandbox=executor.sandbox(), **ladder_args)
+        return await run_ladder(executor=executor, options=options, **ladder_args)
     finally:
         await executor.aclose()
 
@@ -295,6 +297,8 @@ def verify(
         raise typer.Exit(_report([gate]))
     executor = _make_executor(transport, "verify")
 
+    from barthelona.verification import LadderOptions
+
     _out.print(f"Verifying {len(source_files)} file(s) up to {up_to} ({resolved_dialect}) …")
     try:
         results = asyncio.run(
@@ -304,9 +308,7 @@ def verify(
                 adapter=adapter,
                 source_files=source_files,
                 run_id=run_id,
-                obj_format=ObjFormat.ELF64,
-                contracts=registry,
-                tests=test_cases,
+                options=LadderOptions(obj_format=ObjFormat.ELF64, contracts=registry, tests=test_cases),
             )
         )
     except Exception as exc:

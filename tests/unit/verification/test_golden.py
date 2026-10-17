@@ -10,7 +10,7 @@ from barthelona.executors._types import ExecResult
 from barthelona.executors.fake import FakeExecutor
 from barthelona.toolchains.nasm import NasmAdapter
 from barthelona.verification.golden import run_v6
-from barthelona.verification.ladder import dod_satisfied, run_ladder
+from barthelona.verification.ladder import LadderOptions, dod_satisfied, run_ladder
 
 _BINARY = "/fake/work/t/0/output.elf"
 
@@ -77,7 +77,12 @@ def _source(tmp_path: Path) -> list[Path]:
 
 async def test_ladder_reports_v6_unsupported_without_a_sandbox(tmp_path: Path) -> None:
     results = await run_ladder(
-        Level.V6, FakeExecutor(), NasmAdapter(), _source(tmp_path), "t", tests=[_case()]
+        Level.V6,
+        FakeExecutor(),
+        NasmAdapter(),
+        _source(tmp_path),
+        "t",
+        options=LadderOptions(tests=[_case()]),
     )
     v6 = results[-1]
     assert (v6.level, v6.status) == (Level.V6, "unsupported")
@@ -86,7 +91,12 @@ async def test_ladder_reports_v6_unsupported_without_a_sandbox(tmp_path: Path) -
 
 async def test_ladder_reports_v6_unsupported_without_golden_cases(tmp_path: Path) -> None:
     results = await run_ladder(
-        Level.V6, FakeExecutor(), NasmAdapter(), _source(tmp_path), "t", sandbox=_sandbox()
+        Level.V6,
+        FakeExecutor(),
+        NasmAdapter(),
+        _source(tmp_path),
+        "t",
+        options=LadderOptions(sandbox=_sandbox()),
     )
     assert results[-1].status == "unsupported"
     assert "io_golden" in results[-1].diagnostics[0].message
@@ -99,8 +109,7 @@ async def test_ladder_runs_v6_after_a_passing_link(tmp_path: Path) -> None:
         NasmAdapter(),
         _source(tmp_path),
         "t",
-        sandbox=_sandbox(),
-        tests=[_case()],
+        options=LadderOptions(sandbox=_sandbox(), tests=[_case()]),
     )
     assert results[-1].status == "pass"
     assert dod_satisfied([Level.V0, Level.V1, Level.V2, Level.V6], results)
