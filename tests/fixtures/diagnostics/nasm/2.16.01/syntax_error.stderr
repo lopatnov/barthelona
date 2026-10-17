@@ -1,0 +1,2 @@
+bad.asm:5: error: parser: instruction expected
+bad.asm:6: error: expression syntax error

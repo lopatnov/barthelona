@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from barthelona.domain.enums import ObjFormat
 from barthelona.domain.verification import Diagnostic
+from barthelona.toolchains._diagnostics import parse_assembler_output
 
 _GAS_ARCH_FLAGS: dict[ObjFormat, tuple[str, ...]] = {
     ObjFormat.ELF64: ("--64",),
@@ -47,9 +48,8 @@ class GasIntelAdapter:
         stdout: bytes,
         stderr: bytes,
         source: str,
-    ) -> list[Diagnostic]:  # NOSONAR S1172: Protocol signature; parameters are used once #46 lands
-        # Stub until real tool output is captured as fixtures (AGENTS.md testing policy); tracked in #46.
-        return []
+    ) -> list[Diagnostic]:  # NOSONAR S1172: stdout and source are part of the Protocol signature
+        return parse_assembler_output("as", stderr)
 
 
 class GasAttAdapter:
@@ -82,6 +82,5 @@ class GasAttAdapter:
         stdout: bytes,
         stderr: bytes,
         source: str,
-    ) -> list[Diagnostic]:  # NOSONAR S1172: Protocol signature; parameters are used once #46 lands
-        # Stub until real tool output is captured as fixtures (AGENTS.md testing policy); tracked in #46.
-        return []
+    ) -> list[Diagnostic]:  # NOSONAR S1172: stdout and source are part of the Protocol signature
+        return parse_assembler_output("as", stderr)
