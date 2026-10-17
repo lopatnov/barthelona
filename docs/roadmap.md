@@ -15,7 +15,7 @@ Current status (2026-10-14): **Phase 0 in progress** — repository and environm
 - Code skeleton: domain models (Pydantic v2) ✔; persistence (SQLite WAL schema and migrations for `runs`, `commands`, `events`, `gates`, `llm_calls`) ✔; `python -m barthelona` CLI (entry point with `version` and `schema` ✔; `verify` and `probe` land with their deliverables).
 - Training data (D-036): `TrainingSample` model, the off-by-default setting, the local dataset writer and reader with secret redaction, `python -m barthelona training status` ✔.
 - Environment fixes (owner actions): `.wslconfig` memory cap; Qdrant storage moved to a named volume (see `docs/runbook.md`).
-- Execution: Docker images `barthelona/toolchain` and `barthelona/runner`; the WSL agent (JSON lines, staging, allowlist, path fence); `barthelona probe` writing `config/toolchains.lock.json`.
+- Execution: Docker images `bart-tc` (`docker/toolchain`) and `bart-run` (`docker/runner`) with a CI smoke test (`scripts/docker-smoke.sh`) ✔ (base `ubuntu:26.04` by tag; digest pinning comes with `barthelona probe`); the WSL agent (JSON lines, staging, allowlist, path fence); `barthelona probe` writing `config/toolchains.lock.json`.
 - Assemblers: NASM and GAS (Intel and AT&T) dialect adapters; ld/gcc linkers; diagnostics parsers with real captured fixtures.
 - Codegen: contract registry → `.inc` files, stubs, `contracts.h`, C harness, Makefile, with golden tests.
 - Verification: ladder levels V0, V1, V2, V5, V6 plus the tamper gate; first ABI mutation corpus entries; `barthelona verify`.
