@@ -165,7 +165,7 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-45 | Windows path traps are not covered by the path fence (reserved names, trailing dots, ADS, case collisions) | architecture review, 2026-10-17 | The envelope parser does not exist yet | One `safe_relative_path()` with tests and fuzzing | open (#67) |
 | F-46 | No retention for `var/runs`, LLM call files, exec logs, events | architecture review, 2026-10-17 | Nothing writes them yet | Policy in §18, `runs prune`, size in doctor and the UI | open (#68) |
 | F-47 | Phase 1 is one large slice resting on an unmeasured local-model assumption | architecture review, 2026-10-17 | Owner's roadmap | Split into 1a walking skeleton (L0 only) and 1b breadth | open (#69) |
-| F-48 | `unicorn` is GPL-2.0 in a BSD-2 product (same as F-6) | architecture review, 2026-10-17 | V4 is Phase 2 | Keep it inside the emulator child package, record the decision | open (#70) |
+| F-48 | `unicorn`: upstream `COPYING` and README say GPLv2, PyPI/pyproject metadata says BSD; unresolved (same as F-6) | architecture review, 2026-10-17 | V4 is Phase 2 | Confirm the wheel's bundled licence files; keep it inside the emulator child package either way | open (#70) |
 | F-49 | Doc drift: duplicated price tables in §16, stale ADR ranges, F-30 cited as F-27 in `dialect.py` | architecture review, 2026-10-17 | Small | Point to `config/models.yaml`; fix the citation with Phase 0 work | open (#71) |
 
 ## Parked ideas (not scheduled)
