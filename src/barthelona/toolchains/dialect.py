@@ -5,12 +5,8 @@ parse its diagnostic output.  The adapter returns argv tuples; the
 verification runner wraps them in ``docker exec <container>`` and
 dispatches through the :class:`~barthelona.executors.protocol.Executor`.
 
-Phase 0 note
-------------
-:meth:`DialectAdapter.parse_diagnostics` stubs return empty lists until
-real captured output has been committed to
-``tests/fixtures/diagnostics/<tool>/<version>/`` — see AGENTS.md testing
-policy and F-27.
+Diagnostics parsers are tested against real captured tool output in
+``tests/fixtures/diagnostics/<tool>/<version>/`` (AGENTS.md testing policy).
 """
 
 from __future__ import annotations
@@ -64,7 +60,6 @@ class DialectAdapter(Protocol):
     ) -> list[Diagnostic]:
         """Parse raw assembler output into :class:`Diagnostic` instances.
 
-        Phase 0 stubs return ``[]``.  Real parsers land with captured
-        fixtures under ``tests/fixtures/diagnostics/``.
+        The ladder stamps the real :class:`DiagnosticLevel` on each result.
         """
         ...

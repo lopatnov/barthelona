@@ -30,7 +30,7 @@ from pathlib import Path, PurePosixPath
 
 from barthelona.domain.enums import DiagnosticLevel, Level, Linker, ObjFormat
 from barthelona.domain.verification import Diagnostic, LevelResult, Severity
-from barthelona.executors._types import Command, ExecLimits
+from barthelona.executors._types import Command, ExecLimits, ExecResult
 from barthelona.executors.protocol import Executor
 from barthelona.toolchains.dialect import DialectAdapter
 
@@ -75,6 +75,19 @@ def _make_error_diagnostic(
     )
 
 
+def _assembler_diagnostics(
+    adapter: DialectAdapter,
+    result: ExecResult,
+    source: str,
+    level: DiagnosticLevel,
+) -> list[Diagnostic]:
+    """Parsed diagnostics for one assembler run; a failed run always yields a fatal one."""
+    parsed = [_set_level(d, level) for d in adapter.parse_diagnostics(result.stdout, result.stderr, source)]
+    if result.returncode != 0 and not any(d.severity == Severity.FATAL for d in parsed):
+        parsed.append(_make_error_diagnostic(result.stderr, source, level))
+    return parsed
+
+
 def _make_link_error(stderr: bytes, level: DiagnosticLevel = DiagnosticLevel.V2) -> Diagnostic:
     message = stderr.decode("utf-8", errors="replace").strip() or "linker exited non-zero"
     return Diagnostic(
@@ -102,13 +115,7 @@ def run_v0(
         staged = _work_path(work_dir, path.name)
         argv = _docker_exec(container, adapter.syntax_check_argv(staged))
         result = executor.run(Command(argv=argv), lim)
-        if result.returncode != 0:
-            diagnostics.append(_make_error_diagnostic(result.stderr, path.name, DiagnosticLevel.V0))
-        else:
-            diagnostics.extend(
-                _set_level(d, DiagnosticLevel.V0)
-                for d in adapter.parse_diagnostics(result.stdout, result.stderr, path.name)
-            )
+        diagnostics.extend(_assembler_diagnostics(adapter, result, path.name, DiagnosticLevel.V0))
 
     status = "pass" if not any(d.severity == Severity.FATAL for d in diagnostics) else "fail"
     return LevelResult(
@@ -149,14 +156,9 @@ def run_v1(
             adapter.assemble_argv(staged_src, staged_obj, obj_format),
         )
         result = executor.run(Command(argv=argv), lim)
-        if result.returncode != 0:
-            diagnostics.append(_make_error_diagnostic(result.stderr, path.name, DiagnosticLevel.V1))
-        else:
+        if result.returncode == 0:
             object_paths.append(staged_obj)
-            diagnostics.extend(
-                _set_level(d, DiagnosticLevel.V1)
-                for d in adapter.parse_diagnostics(result.stdout, result.stderr, path.name)
-            )
+        diagnostics.extend(_assembler_diagnostics(adapter, result, path.name, DiagnosticLevel.V1))
 
     status = "pass" if not any(d.severity == Severity.FATAL for d in diagnostics) else "fail"
     return (

@@ -1,0 +1,2 @@
+bad2.asm:4: error: symbol `undefined_sym' not defined
+bad2.asm:5: error: invalid combination of opcode and operands

@@ -1,0 +1,3 @@
+bad.s: Assembler messages:
+bad.s:5: Error: no such instruction: `foo %eax'
+bad.s:6: Error: number of operands mismatch for `mov'
