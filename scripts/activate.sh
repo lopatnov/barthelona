@@ -4,7 +4,7 @@
 # Bash twin of scripts/activate.ps1 (Git Bash on Windows, or Linux with conda).
 # Loads KEY=VALUE lines from <repo>/.env without executing it and never prints values.
 
-if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+if [[ "${BASH_SOURCE[0]}" = "$0" ]]; then
   echo "This script must be sourced:  source scripts/activate.sh" >&2
   exit 1
 fi
@@ -19,7 +19,7 @@ _bart_main() {
   local root conda line key val loaded=""
   root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
   conda="${CONDA_EXE:-$(command -v conda || true)}"
-  if [ -z "$conda" ]; then
+  if [[ -z "$conda" ]]; then
     echo "conda not found. Install Miniconda or put conda on PATH." >&2
     return 1
   fi
@@ -33,12 +33,12 @@ _bart_main() {
   export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://127.0.0.1:11434}"
   export QDRANT_URL="${QDRANT_URL:-http://127.0.0.1:6343}"
 
-  if [ -f "$root/.env" ]; then
-    while IFS= read -r line || [ -n "$line" ]; do
+  if [[ -f "$root/.env" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
       line="${line%$'\r'}"
       line="${line#$'\xEF\xBB\xBF'}"
       line="${line#"${line%%[![:space:]]*}"}"
-      case "$line" in ''|'#'*) continue ;; esac
+      case "$line" in ''|'#'*) continue ;; *) ;; esac
       line="${line#export }"
       case "$line" in *=*) ;; *) continue ;; esac
       key="${line%%=*}"; key="${key%"${key##*[![:space:]]}"}"
@@ -49,14 +49,14 @@ _bart_main() {
         \'*) val="${val#\'}"; val="${val%%\'*}" ;;
         *) val="${val%% \#*}" ;;                           # unquoted: drop an inline ' #' comment
       esac
-      [ -n "$val" ] || continue
+      [[ -n "$val" ]] || continue
       export "$key=$val"
       loaded="$loaded $key"
     done < "$root/.env"
   fi
 
   echo "barthelona env active: $(python -c 'import sys; print(sys.version.split()[0])')  (BARTHELONA_HOME=$root)"
-  [ -n "$loaded" ] && echo ".env loaded:$loaded"
+  [[ -n "$loaded" ]] && echo ".env loaded:$loaded"
   return 0
 }
 

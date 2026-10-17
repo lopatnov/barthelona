@@ -89,8 +89,9 @@ def test_sample_references_texts_by_hash_and_names_itself(target: TargetProfile)
     sample = TrainingSample(attempt=_attempt(target), prompt_sha256=SHA_A, response_sha256=SHA_B)
     assert sample.sample_id == "r1.3"
     assert TrainingSample.model_validate_json(sample.model_dump_json()) == sample
+    attempt = _attempt(target)
     with pytest.raises(ValidationError):
-        TrainingSample(attempt=_attempt(target), prompt_sha256="not-a-hash", response_sha256=SHA_B)
+        TrainingSample(attempt=attempt, prompt_sha256="not-a-hash", response_sha256=SHA_B)
 
 
 def test_training_sample_is_a_listed_document() -> None:

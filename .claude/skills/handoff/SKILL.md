@@ -19,7 +19,7 @@ Get every fact from a command, never from memory. Run Python through the wrapper
    - Done: 1-3 bullets with paths; commit SHAs if committed, else "uncommitted: N paths".
    - Decided: D-NNN | open decision #N | none.
    - Learned: <lesson> -> <where it was recorded> | none.
-   - Deferred: F-N rows added to docs/roadmap.md Follow-ups | none.
+   - Deferred: F-N rows added to docs/roadmap.md Follow-ups, with their issues (#N) | none.
    - Verify: <one line: ruff, format, mypy, pytest counts>.
    - Next: <one concrete first action: a command or a file>.
    ```

@@ -1,9 +1,10 @@
 # Roadmap
 
 Phased plan for barthelona. Each phase has a goal, deliverables and exit criteria. A phase is done only when its exit criteria are met; the benchmark decides whether optional subsystems are switched on.
+Every phase's exit criteria also include the phase review (D-037): it ran, and its blocking issues are fixed.
 Architecture: `docs/architecture.md`. Decisions: `docs/adr/`.
 
-Current status (2026-10-13): **Phase 0 in progress** — repository and environment done (design, agent configuration for Claude Code and Codex, conda scripts, hash-locked dependencies, baseline tests); code skeleton started: domain models and the `python -m barthelona` entry point exist, persistence is next.
+Current status (2026-10-14): **Phase 0 in progress** — repository and environment done (design, agent configuration for Claude Code and Codex, conda scripts, hash-locked dependencies, baseline tests); code skeleton started: domain models, the `var/app.sqlite` store and the `python -m barthelona` entry point exist; the toolchain probe and `verify` are next.
 
 ## Phase 0 — Foundations and the deterministic spine (about 1–2 weeks, no agent loop yet)
 
@@ -11,7 +12,7 @@ Current status (2026-10-13): **Phase 0 in progress** — repository and environm
 
 **Deliverables**
 - Repository: `AGENTS.md` / `CLAUDE.md`, `.claude/` config and the Codex mirror ✔, `.gitattributes` ✔, `pyproject.toml` ✔, `environment.yml` ✔, hash-locked requirements ✔, `create_env` / `activate` / `lock` scripts ✔, `doctor.ps1` ✔, dependency fingerprint + baseline tests ✔.
-- Code skeleton: domain models (Pydantic v2) ✔; persistence (SQLite WAL schema and migrations); `python -m barthelona` CLI (entry point with `version` and `schema` ✔; `verify` and `probe` land with their deliverables).
+- Code skeleton: domain models (Pydantic v2) ✔; persistence (SQLite WAL schema and migrations for `runs`, `commands`, `events`, `gates`, `llm_calls`) ✔; `python -m barthelona` CLI (entry point with `version` and `schema` ✔; `verify` and `probe` land with their deliverables).
 - Training data (D-036): `TrainingSample` model, the off-by-default setting, the local dataset writer and reader with secret redaction, `python -m barthelona training status` ✔.
 - Environment fixes (owner actions): `.wslconfig` memory cap; Qdrant storage moved to a named volume (see `docs/runbook.md`).
 - Execution: Docker images `barthelona/toolchain` and `barthelona/runner`; the WSL agent (JSON lines, staging, allowlist, path fence); `barthelona probe` writing `config/toolchains.lock.json`.
@@ -26,6 +27,7 @@ Current status (2026-10-13): **Phase 0 in progress** — repository and environm
 - Parser and codegen tests are green.
 - A bake-off table exists; one main local model is chosen and loaded in LM Studio at 16K context.
 - The single-prompt baseline score is recorded.
+- The phase review (D-037) ran, and its blocking issues are fixed.
 
 ## Phase 1 — MVP vertical slice (about 3–4 weeks)
 
@@ -50,6 +52,7 @@ Current status (2026-10-13): **Phase 0 in progress** — repository and environm
 - Dev-split bench: the hybrid profile beats the single-prompt baseline by the margin set in Phase 0 (initial target +30 points); local-only recorded; zero tamper escapes; L0 vs L1 recorded.
 - The owner creates a 3-module NASM program from a Russian-language request through the UI and approves it at the gates.
 - Stance until Phase 2: increments are accepted on the MVP DoD (V0–V2 + V5/V6) and labelled **ABI-unverified** in the UI and the increment record, until the V3/V4 oracles and the mutation corpus are in place.
+- The phase review (D-037) ran, and its blocking issues are fixed.
 
 ## Phase 2 — Stronger oracles and full meta-agency
 
@@ -60,29 +63,33 @@ Current status (2026-10-13): **Phase 0 in progress** — repository and environm
 - Policy v2: templates `candidates` (E2) and the `trace_capture` slot (V7).
 - **L1 on by default** if the bench shows no regression; **L2** (AI composes whole pipelines from node types) behind a flag for strong tiers.
 - Retrospective report and overlay changes with revert in the UI; lesson candidates stored, not yet injected.
+- _(experimental, gated by bench)_ `compile_high_level` node type: LLM generates C,
+  `gcc -O2 -S` inside `bart-tc` produces the `.s` patch; GAS presets first; enabled only
+  if bench ≥ direct-codegen + 5 pts on Phase 2 holdout split (D-040, #follow-up).
 
 **Exit criteria**
 - Mutation corpus: 100% of bad cases detected, 0 false positives.
 - Every AI-composed topology either validates or falls back to L0; no run is blocked.
 - Bench: Phase 2 ≥ Phase 1 on dev and holdout; L2 enabled for a profile only if it beats L1 there. Results recorded in an ADR.
+- The phase review (D-037) ran, and its blocking issues are fixed.
 
 ## Phase 3 — Edit mode for external projects, memory, optional vector search
 
 **Deliverables:** importer and target detection; baseline build with `fix_build`; repo map (regex extractors + PageRank); inferred contracts (nm + Capstone); characterization tests; localizer; minimality gate extended to external projects (symbol spans from the repo map); full `contract_change` flow; lessons lifecycle with regression checks and an inbox; retrieval eval (≥60 queries); Qdrant hybrid backend behind the Retriever interface; MASM docs from cpp-docs.
 
-**Exit criteria:** external seed repos edited with zero characterization regressions; Qdrant on by default only if recall@5 beats FTS5 by the agreed margin; lesson injection on only if the bench improves.
+**Exit criteria:** external seed repos edited with zero characterization regressions; Qdrant on by default only if recall@5 beats FTS5 by the agreed margin; lesson injection on only if the bench improves; the phase review (D-037) ran, and its blocking issues are fixed.
 
 ## Phase 4 — Dialect and target breadth
 
 **Deliverables:** FASM 1 (ELF64, PE64; frame-based diagnostics; `-s` line mapping; `public`/`extrn` headers); optional fasmg/fasm2; Win64 targets (NASM/GAS + mingw, wine runner, shadow-space and `.pdata` checks); ELF32 cdecl; asmc/UASM for MASM syntax; ml64 opt-in on Windows (VS Build Tools, admin); boot-sector preset with qemu-system. Each preset ships a rule card, a conformance kit and bench tasks.
 
-**Exit criteria:** each preset passes its conformance kit and solves at least 5 bench tasks within budget.
+**Exit criteria:** each preset passes its conformance kit and solves at least 5 bench tasks within budget; the phase review (D-037) ran, and its blocking issues are fixed.
 
 ## Phase 5 — Policy Lab, gated research, extras
 
 **Deliverables:** Policy Lab (PolicyPatch → candidate version → A/B on holdout, ≥3 repeats, batch APIs → G6 activation/rollback); gated web research (approval, domain allowlist, low-trust candidates promoted only after a fix passes); optional advisory critic on a different model; OpenTelemetry → Phoenix; OpenVINO Model Server trial; AArch64/RISC-V via qemu-user; a local MCP server exposing barthelona's toolchain and verification tools (usable by Claude Code during development); KolibriOS if chosen.
 
-**Exit criteria:** at least one policy patch activated with a measured holdout gain; a rollback exercised; web-sourced knowledge never reaches prompts without the evidence step.
+**Exit criteria:** at least one policy patch activated with a measured holdout gain; a rollback exercised; web-sourced knowledge never reaches prompts without the evidence step; the phase review (D-037) ran, and its blocking issues are fixed.
 
 ## Open decisions (owner)
 
@@ -101,6 +108,7 @@ Each has a recommended default that the docs already assume. Change any of them 
 | 9 | Which human gates are manual by default? | G1, G2, G4 manual; G3 auto when green (autopilot checkbox); G5 always manual | Control vs throughput for long local runs |
 | 10 | Where do workspaces live? | `<repo>/workspaces/` (gitignored), overridable by `BARTHELONA_WORKSPACES` and per project in the UI | Each workspace is its own git repo |
 | 11 | Maximum composition level per profile? | Phase 1: L0 by default, L1 opt-in per run; from Phase 2: L1 by default if the bench agrees; L2 only for hybrid/cloud after the Phase 2 bench | How much graph design is delegated to which model |
+| 12 | Dialect strategy for `compile_high_level` node on NASM presets? | (a) treat gcc -S output as a GAS module in the same project (mixed dialect, simplest), or (b) use `objdump -M intel` + a converter to produce NASM-compatible syntax (complex), or (c) restrict this node to GAS presets only for v1 | Compiler output is GAS syntax; NASM projects cannot assemble it directly (D-040) |
 
 ## Follow-ups (deferred items)
 
@@ -123,14 +131,28 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-13 | `config/models.yaml` gained the `network:` key (`lan`, `internet`) and an hourly-billed provider (`cloud_gpu`), neither described in architecture §16.2 or D-030 | review gate, 2026-10-13 | Both providers are disabled; no loader yet | With the Phase 1 catalog loader: document `network:` and hourly billing in §16.2 (amend D-030), validate the key, test it | open |
 | F-14 | Guard leftovers: `declare -x NAME=1` / `typeset -x` (sets, not prints) is blocked as an env dump; quote splitting (`cat .en'v'`) still bypasses the `.env` operand check | delta review gate, 2026-10-13 | Low impact; guard change needs owner approval | Block `-x` only without a NAME operand; compare tokens after joining adjacent quoted parts; add harness cases | open (owner approval) |
 | F-15 | `AGENTS.md` Environment still says Qdrant (:6333) is unreachable while WSL is stopped; the product's Qdrant is now `barthelona-qdrant` on :6343 (D-034) | 2026-10-13 | Gated file; out of the reviewed diff | Mention both ports in the next AGENTS.md change (review gate) | fixed in 16a6ecf (PR #4) |
-| F-16 | No CI workflow: agents' self-merge (D-035) rests on review/scan apps and a local `verify`, none of which builds or runs tests on GitHub | review gate on D-035, 2026-10-13 | Out of scope for the approval change | Add a GitHub Actions workflow running ruff, mypy, pytest and the mirror/lock checks; make it required | open |
+| F-16 | No CI workflow: agents' self-merge (D-035) rests on review/scan apps and a local `verify`, none of which builds or runs tests on GitHub | review gate on D-035, 2026-10-13 | Out of scope for the approval change | Add a GitHub Actions workflow running ruff, mypy, pytest and the mirror/lock checks; make it required | fixed 2026-10-14 (`.github/workflows/ci.yml`, issue #15); making the checks required in branch protection is an owner action |
+| F-25 | No Markdown linter (80 `.md` files) and no `pre-commit` hooks; CI and the local `verify` are the only gates | Sonar and tooling review, 2026-10-14 (issue #15) | A first markdownlint pass over `docs/` would be a large, separate diff | Add `markdownlint-cli2` in CI with a config matching the docs style, fix its findings in one docs commit; then decide on `pre-commit` (needs `update-deps`) | open |
+| F-26 | SonarCloud runs automatic analysis, so it gets no test coverage and does not gate PRs on our own config | Sonar and tooling review, 2026-10-14 | Needs a `SONAR_TOKEN` secret (owner action) | Switch to CI-based analysis: `pytest --cov` + the SonarQube scan action in `ci.yml`, move `.sonarcloud.properties` into `sonar-project.properties` | open (owner) |
+| F-28 | Guard hooks have empty `catch { }` blocks; in `guard-paths.ps1:65` an unreadable `MANIFEST.json` lets an edit to a released policy through (fail-open on invariant 7). CI skips `PSAvoidUsingEmptyCatchBlock` and `PSUseSingularNouns` for `.claude/hooks/` until this is fixed | Sonar and tooling review, 2026-10-14 (issue #22) | Guard hooks change only on the owner's decision | Block on a manifest parse error, comment the `GetFullPath` fallback, add harness cases; then drop the CI exclusion | open (owner) |
+| F-27 | Fuzzing beyond the domain validators: the envelope parser, topology validator T1-T10, diagnostic parsers and generated assembly through the oracles are not fuzzed | Sonar and tooling review, 2026-10-14 (issue #20) | That code does not exist yet | Hypothesis property tests land with each parser/validator; for assembly, mutate generated sources (mutation corpus, §13) and require the oracles to reject every broken variant | open |
 | F-17 | `docs/roadmap.md` open decision 7 and D-027 say `asm_doc/` is not pushed, but origin/main has it since 3bef7db | review gate on D-035, 2026-10-13 | Owner decision on publishing third-party docs | Owner decides: keep (fix both texts and check licenses) or remove from history | open (owner) |
 | F-18 | Guard gaps after D-035: a bare `git push` while on `main`, and `git checkout HEAD -- <dir>` (discards a directory), are not blocked; nor are abbreviated long options (`--amen`, `--forc`, `--discard`) or `git stash -q drop` | review gate on D-035, 2026-10-13 | Needs the current branch / pathspec analysis in the hook | Resolve the current branch and its upstream for refspec-less pushes; block `checkout <tree> -- <dir>` for directories; match option prefixes of 3+ chars; find the stash subcommand after options; add harness cases | open |
 | F-19 | `Lesson.regression_check.asm` puts assembly inside the Lesson JSON document, which `retro` (an LLM node) proposes; this conflicts with invariant 5 / D-011 if filled through a JSON schema | review gate, domain models, 2026-10-13 | Needs an owner decision; no retro node yet | Fill `asm` deterministically from the evidence diff, or carry it in a FILE envelope referenced by path; record in §15.2 and D-017 | open (owner) |
-| F-20 | `RunEvent.payload`, `GateRequest.payload` and `GateDecision.edits` are free-form dicts; code or secrets could end up in event JSON | review gate, domain models, 2026-10-13 | The model layer cannot enforce it | With persistence: cap the payload size and route code and bulky data to `payload_ref`; unit test | open |
+| F-20 | `RunEvent.payload`, `GateRequest.payload` and `GateDecision.edits` are free-form dicts; code or secrets could end up in event JSON | review gate, domain models, 2026-10-13 | The model layer cannot enforce it | With persistence: cap the payload size and route code and bulky data to `payload_ref`; unit test | open (partial 2026-10-14: the store refuses event payloads, gate payloads and gate-decision `edits` over 16 KiB with a pointer to `payload_ref`; routing code to `payload_ref` lands with the nodes that emit it) |
 | F-21 | `SprintTopology` compares a `pipelines` key with `pipeline.hash` only when the hash is set; a pipeline with `hash=None` can sit under any key | delta review gate, domain models, 2026-10-13 | Belongs with rule T2 | The T2 validator checks `key == spec_hash(pipeline)` for every pipeline; unit test | open |
+| F-22 | `Store.set_run_status` accepts any status after any other (for example `stopped` back to `running`); the architecture defines no run-status transitions | review gate, persistence, 2026-10-14 | The engine run graph does not exist yet | With the outer run graph: write the allowed transitions in architecture §17, enforce them in `set_run_status`, unit test | open (#10) |
+| F-23 | The UI shares one read-only SQLite handle across Streamlit threads (§17), which is safe only on a serialized SQLite build (`sqlite3.threadsafety == 3`) | review gate, persistence, 2026-10-14 | No UI yet | Check `sqlite3.threadsafety` in `env-doctor` and where the UI opens its handle; fail with a clear message. The UI also handles `connect_readonly`'s `RuntimeError` when the worker has not migrated yet ("worker not started") | open (#11) |
 | F-24 | The training dataset has no size limit or retention; it grows with every collecting run | D-036, 2026-10-14 | Nothing writes samples before the Phase 1 engine hook | With the engine hook: show the dataset size in `training status` and on the Toolchains & models page; add `training prune --before <date>` if the size becomes a problem | open |
-| F-25 | The cloud input cap (§16.4) is a rule only: no assembler exists to enforce it, and cloud profiles have no per-role token budgets yet | token-saving research, 2026-10-17 | No context assembler or gateway code yet | With the context assembler: read `long_context.above_input_tokens` from the catalog, cap cloud input there unless the chain entry opts in (define the opt-in key in the catalog schema), define cloud per-role budgets; unit test with `FakeGateway` | open |
+| F-25 | Two resume commands for one open gate can both be queued; the second fails at the worker with `ConflictError` from `resolve_gate` | review gate, PR #8, 2026-10-14 | The worker command loop does not exist yet | In the command loop, turn that `ConflictError` into a `RunEvent` (no silent fallbacks, `.claude/rules/python.md`) and test it, or refuse a second unclaimed resume per `gate_id` at enqueue | open (#12) |
+| F-26 | WSL agent allow-list permits `sha256sum <path>` without fencing the path to `~/.cache/barthelona/` (R-1b) | architecture-guardian review, PR #38, 2026-10-16 | Low risk in Phase 0 (only internal code reaches the agent); grows in later phases | Add `_validate_sha256sum_paths` check analogous to `_validate_tar_paths` in `_handle()` | open (#39) |
+| F-27 | `docker inspect` is not in the WSL agent allow-list; `probe_image_digest()` always returns `""` in production (N-1) | architecture-guardian review, PR #38, 2026-10-16 | Functional gap only; no security regression | Add `("docker", "inspect")` to `_ALLOWED_PREFIXES` with a guard that `argv[2]` is not a filesystem path | open (#40) |
+| F-28 | `FakeExecutor.run()` does not honour `ExecLimits.max_stdout_bytes` / `max_stderr_bytes`; callers relying on the Protocol contract see uncapped output in tests (N-2) | architecture-guardian review, PR #38, 2026-10-16 | Test-only gap | Either truncate in `FakeExecutor.run()` or add a note to `Executor` Protocol docstring that truncation is best-effort | open (#41) |
+| F-29 | V1 only assembles; the `nm`/registry symbol check (exports exact, undefined ⊆ imports ∪ allow-list, §13.1) is deferred until `contracts.yaml` is populated | PR #43, 2026-10-16 | `contracts.yaml` does not exist yet | Implement `run_v1` nm gate once `contracts.yaml` schema and population land; good/bad mutation corpus entries required | open (#45) |
+| F-30 | `NasmAdapter`, `GasIntelAdapter`, `GasAttAdapter` `parse_diagnostics` are stubs returning `[]`; no real error message is surfaced in `Diagnostic` | PR #43, 2026-10-16 | Requires captured tool output in `tests/fixtures/diagnostics/` | Capture nasm/as stderr for representative errors in `bart-tc`; implement parsers; parametrised fixture tests + Hypothesis round-trip | open (#46) |
+| F-31 | V5 (C-harness tests) and V6 (golden I/O) are Phase 0 deliverables that require the `bart-run` sandbox image, which does not yet exist | PR #43, 2026-10-16 | `bart-run` image not built | Implement `run_v5` and `run_v6` once `bart-run` ships; extend `_LEVEL_ORDER`; test with `FakeExecutor` | open (#47) |
+| F-32 | D-042b/c/d: provider host allow-list in the catalog loader, benchmark-gated adequacy check (Jev candidate), and the matching architecture.md §5/§13 updates | D-042 (issue #29), 2026-10-17 | Needs the Phase 1 catalog loader and the bench | Implement per D-042; update `docs/architecture.md` §5.3, §13 and §16 in the same change; keep issue #29 as the tracker | open |
+| F-33 | The cloud input cap (§16.4) is a rule only: no assembler exists to enforce it, and cloud profiles have no per-role token budgets yet | token-saving research, 2026-10-17 | No context assembler or gateway code yet | With the context assembler: read `long_context.above_input_tokens` from the catalog, cap cloud input there unless the chain entry opts in (define the opt-in key in the catalog schema), define cloud per-role budgets; unit test with `FakeGateway` | open |
 
 ## Parked ideas (not scheduled)
 
@@ -138,6 +160,8 @@ Ideas that are not defects. At each phase start, move every row into that phase'
 
 | Idea | Raised | Trigger | Why parked |
 | --- | --- | --- | --- |
+| Compile-down strategy (`compile_high_level` node, D-040): LLM writes C → `gcc -O2 -S` in `bart-tc` → assembly patch; bench-gated; requires owner decision on NASM dialect (open decision 12) | 2026-10-16, research thread | Phase 2 (L2 node types) | Phase 0/1 still in progress; bench gate not yet in place |
+| Four HF papers (2610.17953, 2505.11480, 2603.08706, 2605.21470) on LLM+compiler topics could inform the compile-down design; network blocked in cloud container during research | 2026-10-16, research thread | Before implementing D-040 | Read from the owner's machine; Aleksandr provided the links |
 | `verify-runner` agent (cheap model, read-only, no git-state changes) behind `verify` via `context: fork`, with ENV vs CODE triage for `wsl`/`llm` tests | 2026-10-13, conduit review | `pytest -m wsl` or `barthelona verify` output gets long (Phase 0) | Gate output is short today |
 | `bench-runner` agent + `bench` skill: fixed method, NOT RUN instead of guesses, holdout never read, cost cap required for cloud profiles | 2026-10-13, conduit review | Bake-off harness exists (Phase 0) | Harness not built |
 | `implementation-architect` agent (advisory plans, never edits) + soft 400 / hard 800 code-line limit per module, measured by a script | 2026-10-13, conduit review | First multi-module deliverable, or a module past 300 lines | No code yet |

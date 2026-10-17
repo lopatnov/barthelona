@@ -87,21 +87,32 @@ def existing_files() -> set[Path]:
     return found
 
 
-def main(argv: list[str]) -> int:
-    want = expected_files()
-    have = existing_files()
-    stale = [p for p, data in want.items() if not p.is_file() or p.read_bytes() != data]
-    extra = sorted(have - set(want))
-    if "--check" in argv:
-        if stale or extra:
-            for p in stale:
-                print(f"stale:   {p.relative_to(ROOT)}")
-            for p in extra:
-                print(f"orphan:  {p.relative_to(ROOT)}")
-            print("Codex mirror is out of date: run python scripts/sync_agent_configs.py")
-            return 1
+def _inside_mirror(path: Path) -> bool:
+    # Compare with the repo-local roots as spelled, not resolved: a symlinked .agents/ or
+    # .codex/agents/ must not turn an outside directory into an accepted mirror root.
+    resolved = path.resolve()
+    return any(resolved.is_relative_to(root) for root in (SKILLS_DST, AGENTS_DST))
+
+
+def _check(stale: list[Path], extra: list[Path]) -> int:
+    if not stale and not extra:
         print("Codex mirror is up to date")
         return 0
+    for p in stale:
+        print(f"stale:   {p.relative_to(ROOT)}")
+    for p in extra:
+        print(f"orphan:  {p.relative_to(ROOT)}")
+    print("Codex mirror is out of date: run python scripts/sync_agent_configs.py")
+    return 1
+
+
+def _sync(want: dict[Path, bytes], stale: list[Path], extra: list[Path]) -> int:
+    escaping = [p for p in (*stale, *extra) if not _inside_mirror(p)]
+    if escaping:
+        # A symlinked skill file or directory would make the sync write or delete outside the repo.
+        for p in escaping:
+            print(f"refusing: {p} resolves outside {SKILLS_DST} and {AGENTS_DST}")
+        return 1
     for p in stale:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_bytes(want[p])
@@ -109,6 +120,13 @@ def main(argv: list[str]) -> int:
         p.unlink()
     print(f"synced Codex mirror: {len(stale)} written, {len(extra)} removed")
     return 0
+
+
+def main(argv: list[str]) -> int:
+    want = expected_files()
+    stale = [p for p, data in want.items() if not p.is_file() or p.read_bytes() != data]
+    extra = sorted(existing_files() - set(want))
+    return _check(stale, extra) if "--check" in argv else _sync(want, stale, extra)
 
 
 if __name__ == "__main__":

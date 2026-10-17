@@ -131,7 +131,8 @@ def test_accepted_rel_paths_have_no_escaping_segments(raw: str) -> None:
         return
     parts = path.split("/")
     assert not path.startswith("/")
-    assert "\\" not in path and all(ord(ch) >= 0x20 for ch in path)
+    assert "\\" not in path
+    assert all(ord(ch) >= 0x20 for ch in path)
     assert all(part not in ("", ".", "..") for part in parts)
 
 
@@ -160,26 +161,25 @@ def test_struct_offsets_are_ascending_and_inside_the_struct() -> None:
     StructDef(
         fields=[StructField(name="a", type="u64", off=0), StructField(name="b", type="u32", off=8)], size=16
     )
+    at_0 = StructField(name="a", type="u64", off=0)
+    also_at_0 = StructField(name="b", type="u64", off=0)
+    at_8 = StructField(name="a", type="u64", off=8)
+    at_16 = StructField(name="a", type="u64", off=16)
     with pytest.raises(ValidationError, match="strictly ascending"):
-        StructDef(
-            fields=[StructField(name="a", type="u64", off=0), StructField(name="b", type="u64", off=0)],
-            size=16,
-        )
+        StructDef(fields=[at_0, also_at_0], size=16)
     with pytest.raises(ValidationError, match="ascending"):
-        StructDef(
-            fields=[StructField(name="a", type="u64", off=8), StructField(name="b", type="u64", off=0)],
-            size=16,
-        )
+        StructDef(fields=[at_8, also_at_0], size=16)
     with pytest.raises(ValidationError, match="beyond"):
-        StructDef(fields=[StructField(name="a", type="u64", off=16)], size=16)
+        StructDef(fields=[at_16], size=16)
 
 
 # --- backlog, sprints, topology ----------------------------------------------------------------
 
 
 def test_item_cannot_depend_on_itself(item: BacklogItem) -> None:
+    data = item.model_dump() | {"depends_on": ["S1"]}
     with pytest.raises(ValidationError, match="itself"):
-        BacklogItem.model_validate(item.model_dump() | {"depends_on": ["S1"]})
+        BacklogItem.model_validate(data)
 
 
 def test_sprint_layers_cover_every_task_once(plan: SprintPlan) -> None:
@@ -189,8 +189,9 @@ def test_sprint_layers_cover_every_task_once(plan: SprintPlan) -> None:
         ([["t_main"], ["t_strlen"]], "later layer"),
         ([["t_strlen", "t_main"]], "later layer"),
     ):
+        data = plan.model_dump() | {"layers": layers}
         with pytest.raises(ValidationError, match=message):
-            SprintPlan.model_validate(plan.model_dump() | {"layers": layers})
+            SprintPlan.model_validate(data)
 
 
 def test_loop_budget_needs_at_least_one_iteration(pipeline: TaskPipeline) -> None:
@@ -226,10 +227,9 @@ def test_slot_takes_at_most_two_insertions() -> None:
 
 @pytest.mark.parametrize("key", ["fix-apply", "fix->", "Fix->apply", "fix->apply->ok"])
 def test_loop_budget_keys_name_one_back_edge(key: str) -> None:
+    budget = LoopBudget(max_iters=1)
     with pytest.raises(ValidationError):
-        TaskTopologyChoice(
-            task_id="t1", template_id="module_create", loop_budgets={key: LoopBudget(max_iters=1)}
-        )
+        TaskTopologyChoice(task_id="t1", template_id="module_create", loop_budgets={key: budget})
 
 
 def test_spec_hash_is_canonical(pipeline: TaskPipeline) -> None:
@@ -259,16 +259,14 @@ def _topology(pipeline: TaskPipeline, **changes: object) -> SprintTopology:
 
 def test_sprint_topology_maps_every_task_to_a_known_pipeline(pipeline: TaskPipeline) -> None:
     _round_trip(_topology(pipeline))
+    key = spec_hash(pipeline)
+    stamped = pipeline.model_copy(update={"hash": key})
     with pytest.raises(ValidationError, match="exactly once"):
         _topology(pipeline, layers=[["t_strlen"]])
     with pytest.raises(ValidationError, match="unknown pipelines"):
-        _topology(pipeline, task_pipeline={"t_strlen": spec_hash(pipeline), "t_main": SHA})
+        _topology(pipeline, task_pipeline={"t_strlen": key, "t_main": SHA})
     with pytest.raises(ValidationError, match="does not match"):
-        _topology(
-            pipeline,
-            pipelines={SHA: pipeline.model_copy(update={"hash": spec_hash(pipeline)})},
-            task_pipeline={"t_strlen": SHA, "t_main": SHA},
-        )
+        _topology(pipeline, pipelines={SHA: stamped}, task_pipeline={"t_strlen": SHA, "t_main": SHA})
 
 
 def test_loop_budgets_have_absolute_ceilings() -> None:
@@ -282,10 +280,12 @@ def test_loop_budgets_have_absolute_ceilings() -> None:
 def test_every_stopped_run_has_a_stop_reason(run: Run) -> None:
     stopped = Run.model_validate(run.model_dump() | {"status": "stopped", "stop_reason": "green"})
     assert stopped.stop_reason is StopReason.GREEN
+    stopped_without_reason = run.model_dump() | {"status": RunStatus.STOPPED}
+    running_with_reason = run.model_dump() | {"stop_reason": StopReason.REFUSAL}
     with pytest.raises(ValidationError, match="stop_reason"):
-        Run.model_validate(run.model_dump() | {"status": RunStatus.STOPPED})
+        Run.model_validate(stopped_without_reason)
     with pytest.raises(ValidationError, match="stop_reason"):
-        Run.model_validate(run.model_dump() | {"stop_reason": StopReason.REFUSAL})
+        Run.model_validate(running_with_reason)
 
 
 def test_local_only_run_cannot_allow_cloud(run: Run) -> None:
@@ -333,8 +333,9 @@ def test_increment_carries_a_report() -> None:
         artifacts={"build/app": SHA},
     )
     _round_trip(inc)
+    on_main = inc.model_dump() | {"branch": "main"}
     with pytest.raises(ValidationError):
-        Increment.model_validate(inc.model_dump() | {"branch": "main"})
+        Increment.model_validate(on_main)
 
 
 def test_patch_ops_are_discriminated() -> None:
@@ -365,8 +366,9 @@ def _lesson(**changes: object) -> Lesson:
 
 def test_lesson_rule_is_short_and_web_lessons_cite_a_url() -> None:
     _lesson()
+    long_rule = " ".join(["word"] * 41)
     with pytest.raises(ValidationError, match="40 words"):
-        _lesson(rule=" ".join(["word"] * 41))
+        _lesson(rule=long_rule)
     with pytest.raises(ValidationError, match="url"):
         _lesson(source="web")
     _lesson(source="web", url="https://www.nasm.us/doc/")
