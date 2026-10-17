@@ -16,7 +16,7 @@ A local-first agentic system that **creates or edits multi-file assembly project
 | Topic | File |
 | --- | --- |
 | Architecture (authoritative) | `docs/architecture.md`: §5 Scrum mapping and pattern map, §9 topology DSL and AI-composed graphs, §13 verification, §16 models, providers and resilience |
-| Decisions | `docs/adr/README.md` (D-001…D-038, all Proposed until the owner accepts) |
+| Decisions | `docs/adr/README.md` (see the index; all Proposed until the owner accepts) |
 | Phases, exit criteria, open owner decisions, follow-ups | `docs/roadmap.md` |
 | Setup, operations, troubleshooting | `docs/runbook.md` |
 | Model catalog, role chains, budgets | `config/models.yaml` |
