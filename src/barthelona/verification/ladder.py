@@ -11,8 +11,8 @@ toolchain images are built.
 
 Architecture
 ------------
-1. Stage source files to the executor's work directory via
-   :meth:`~barthelona.executors.protocol.Executor.stage`.
+1. Open a session for the attempt and stage the source files into its work
+   directory (:class:`~barthelona.executors.protocol.Session`).
 2. For V0 and V1, run the per-dialect assembler command on each source file.
 3. For V2, run the linker on all assembled object files.
 4. Return a :class:`~barthelona.domain.verification.LevelResult` per level.
@@ -26,15 +26,14 @@ from __future__ import annotations
 import io
 import tarfile
 import time
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from barthelona.domain.enums import DiagnosticLevel, Level, Linker, ObjFormat
 from barthelona.domain.verification import Diagnostic, LevelResult, Severity
 from barthelona.executors._types import Command, ExecLimits, ExecResult
-from barthelona.executors.protocol import Executor
+from barthelona.executors.protocol import Executor, Session
 from barthelona.toolchains.dialect import DialectAdapter
 
-_TC_CONTAINER = "bart-tc"
 _LEVEL_ORDER = [Level.V0, Level.V1, Level.V2]
 
 _LINKER_CMD: dict[Linker, str] = {
@@ -50,14 +49,6 @@ def _make_tar(source_files: list[Path]) -> bytes:
         for path in source_files:
             archive.add(path, arcname=path.name)
     return buf.getvalue()
-
-
-def _docker_exec(container: str, argv: tuple[str, ...]) -> tuple[str, ...]:
-    return ("docker", "exec", container, *argv)
-
-
-def _work_path(work_dir: str, name: str) -> str:
-    return str(PurePosixPath(work_dir) / name)
 
 
 def _make_error_diagnostic(
@@ -98,23 +89,20 @@ def _make_link_error(stderr: bytes, level: DiagnosticLevel = DiagnosticLevel.V2)
     )
 
 
-def run_v0(
-    executor: Executor,
+async def run_v0(
+    session: Session,
     adapter: DialectAdapter,
     source_files: list[Path],
-    work_dir: str,
-    container: str = _TC_CONTAINER,
-    timeout: float = 10.0,
+    command_timeout: float = 10.0,
 ) -> LevelResult:
     """V0: syntax-only check for every source file (no output produced)."""
     t0 = time.monotonic()
     diagnostics: list[Diagnostic] = []
-    lim = ExecLimits(timeout=timeout, max_stderr_bytes=64 * 1024)
+    lim = ExecLimits(timeout=command_timeout, max_stderr_bytes=64 * 1024)
 
     for path in source_files:
-        staged = _work_path(work_dir, path.name)
-        argv = _docker_exec(container, adapter.syntax_check_argv(staged))
-        result = executor.run(Command(argv=argv), lim)
+        argv = adapter.syntax_check_argv(session.path(path.name))
+        result = await session.run(Command(argv=argv), lim)
         diagnostics.extend(_assembler_diagnostics(adapter, result, path.name, DiagnosticLevel.V0))
 
     status = "pass" if not any(d.severity == Severity.FATAL for d in diagnostics) else "fail"
@@ -126,14 +114,12 @@ def run_v0(
     )
 
 
-def run_v1(
-    executor: Executor,
+async def run_v1(
+    session: Session,
     adapter: DialectAdapter,
     source_files: list[Path],
-    work_dir: str,
     obj_format: ObjFormat = ObjFormat.ELF64,
-    container: str = _TC_CONTAINER,
-    timeout: float = 15.0,
+    command_timeout: float = 15.0,
 ) -> tuple[LevelResult, list[str]]:
     """V1: assemble each source file; return the result and a list of object paths.
 
@@ -144,18 +130,12 @@ def run_v1(
     t0 = time.monotonic()
     diagnostics: list[Diagnostic] = []
     object_paths: list[str] = []
-    lim = ExecLimits(timeout=timeout, max_stderr_bytes=64 * 1024)
+    lim = ExecLimits(timeout=command_timeout, max_stderr_bytes=64 * 1024)
 
     for path in source_files:
-        staged_src = _work_path(work_dir, path.name)
-        obj_name = Path(path.name).stem + ".o"
-        staged_obj = _work_path(work_dir, obj_name)
-
-        argv = _docker_exec(
-            container,
-            adapter.assemble_argv(staged_src, staged_obj, obj_format),
-        )
-        result = executor.run(Command(argv=argv), lim)
+        staged_obj = session.path(Path(path.name).stem + ".o")
+        argv = adapter.assemble_argv(session.path(path.name), staged_obj, obj_format)
+        result = await session.run(Command(argv=argv), lim)
         if result.returncode == 0:
             object_paths.append(staged_obj)
         diagnostics.extend(_assembler_diagnostics(adapter, result, path.name, DiagnosticLevel.V1))
@@ -172,14 +152,12 @@ def run_v1(
     )
 
 
-def run_v2(
-    executor: Executor,
+async def run_v2(
+    session: Session,
     object_paths: list[str],
-    work_dir: str,
     linker: Linker = Linker.LD,
     entry: str = "_start",
-    container: str = _TC_CONTAINER,
-    timeout: float = 15.0,
+    command_timeout: float = 15.0,
 ) -> LevelResult:
     """V2: link all object files into an executable."""
     t0 = time.monotonic()
@@ -192,13 +170,9 @@ def run_v2(
         )
 
     linker_tool = _LINKER_CMD.get(linker, "ld")
-    output = _work_path(work_dir, "output.elf")
-    argv = _docker_exec(
-        container,
-        (linker_tool, "-e", entry, "-o", output, *object_paths),
-    )
-    lim = ExecLimits(timeout=timeout, max_stderr_bytes=64 * 1024)
-    result = executor.run(Command(argv=argv), lim)
+    argv = (linker_tool, "-e", entry, "-o", session.path("output.elf"), *object_paths)
+    lim = ExecLimits(timeout=command_timeout, max_stderr_bytes=64 * 1024)
+    result = await session.run(Command(argv=argv), lim)
 
     diagnostics: list[Diagnostic] = []
     if result.returncode != 0:
@@ -213,21 +187,22 @@ def run_v2(
     )
 
 
-def run_ladder(
+async def run_ladder(
     up_to: Level,
     executor: Executor,
     adapter: DialectAdapter,
     source_files: list[Path],
-    work_dir: str,
+    run_id: str,
+    attempt: int = 0,
     obj_format: ObjFormat = ObjFormat.ELF64,
     linker: Linker = Linker.LD,
     entry: str = "_start",
-    container: str = _TC_CONTAINER,
 ) -> list[LevelResult]:
     """Run the ladder from V0 up to *up_to* and return one result per level.
 
-    Files are staged to *work_dir* before the first level runs.  If a level
-    fails, higher levels are recorded as ``skipped``.
+    A session for (*run_id*, *attempt*) is opened and the sources are staged
+    into it before the first level runs.  If a level fails, higher levels are
+    recorded as ``skipped``.
 
     Parameters
     ----------
@@ -235,27 +210,25 @@ def run_ladder(
         Highest level to attempt (V0, V1, or V2 in Phase 0).
     executor:
         Executor implementation; :class:`~barthelona.executors.fake.FakeExecutor`
-        for tests, :class:`~barthelona.executors.wsl.WslExecutor` in production.
+        for tests, :class:`~barthelona.executors.agent.AgentExecutor` in production.
     adapter:
         Dialect adapter for the project's assembler.
     source_files:
         Ordered list of local source file paths to stage and assemble.
-    work_dir:
-        Absolute WSL path where files are staged (e.g.
-        ``~/.cache/barthelona/verify-tmp``).
+    run_id, attempt:
+        Identify the session's work directory (D-043); parallel attempts never share one.
     obj_format:
         Object file format for the assembler and linker.
     linker:
         Linker binary to use for V2.
     entry:
         Entry-point symbol for the linker (default ``_start``).
-    container:
-        Docker container name (``bart-tc``).
     """
     if not source_files:
         return []
 
-    executor.stage(_make_tar(source_files))
+    session = await executor.open_session(run_id, attempt)
+    await session.stage(_make_tar(source_files))
 
     levels_to_run = [lvl for lvl in _LEVEL_ORDER if _level_index(lvl) <= _level_index(up_to)]
     results: list[LevelResult] = []
@@ -268,17 +241,17 @@ def run_ladder(
             continue
 
         if level == Level.V0:
-            r = run_v0(executor, adapter, source_files, work_dir, container)
+            r = await run_v0(session, adapter, source_files)
             results.append(r)
             failed = r.status == "fail"
 
         elif level == Level.V1:
-            r, object_paths = run_v1(executor, adapter, source_files, work_dir, obj_format, container)
+            r, object_paths = await run_v1(session, adapter, source_files, obj_format)
             results.append(r)
             failed = r.status == "fail"
 
         elif level == Level.V2:
-            r = run_v2(executor, object_paths, work_dir, linker, entry, container)
+            r = await run_v2(session, object_paths, linker, entry)
             results.append(r)
             failed = r.status == "fail"
 

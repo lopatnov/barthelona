@@ -1,4 +1,4 @@
-"""Executor protocol — every execution environment implements this (architecture §12)."""
+"""Executor and Session protocols — every execution environment implements these (architecture §12, D-043)."""
 
 from __future__ import annotations
 
@@ -8,12 +8,44 @@ from barthelona.executors._types import Command, ExecLimits, ExecResult, Executo
 
 
 @runtime_checkable
-class Executor(Protocol):
-    """Runs commands inside a sandboxed execution environment.
+class Session(Protocol):
+    """One attempt's isolated work directory inside an execution environment.
 
-    Implementations: WslExecutor (bart-tc / bart-run via the WSL agent),
-    FakeExecutor (tests).  Each executor may only run commands its
-    ``may_run_untrusted`` flag permits.
+    Callers pass the tool argv (``nasm -f elf64 ...``) and build file arguments
+    with :meth:`path`; the environment's own wrapper (``docker exec`` ...) stays
+    inside the executor.
+    """
+
+    @property
+    def work_dir(self) -> str:
+        """Absolute path of the attempt's work directory as the tools see it."""
+        ...
+
+    def path(self, name: str) -> str:
+        """Absolute path of *name* inside the work directory."""
+        ...
+
+    async def stage(self, sources: bytes) -> None:
+        """Extract a tar archive of source files into the work directory."""
+        ...
+
+    async def run(self, cmd: Command, limits: ExecLimits | None = None) -> ExecResult:
+        """Run *cmd* (tool argv) in the environment and return its result."""
+        ...
+
+    async def collect(self) -> bytes:
+        """Return a tar archive of the work directory contents."""
+        ...
+
+
+@runtime_checkable
+class Executor(Protocol):
+    """Opens sessions in one sandboxed execution environment.
+
+    Implementations: :class:`~barthelona.executors.agent.AgentExecutor`
+    (``bart-tc`` through the stdlib agent over a WSL or local transport) and
+    :class:`~barthelona.executors.fake.FakeExecutor` (tests). The executor holds
+    no per-attempt state, so tasks in flight cannot overwrite each other.
     """
 
     @property
@@ -26,22 +58,14 @@ class Executor(Protocol):
         """True only for the sandbox executor (bart-run)."""
         ...
 
-    def probe(self) -> dict[str, str]:
-        """Discover installed tools and return ``{tool_name: version_string}``.
-
-        The result is used by :func:`barthelona.toolchains.probe.run_probe` to
-        build ``config/toolchains.lock.json``.
-        """
+    async def open_session(self, run_id: str, attempt: int) -> Session:
+        """Create the work directory for ``run_id`` / ``attempt`` and return its session."""
         ...
 
-    def stage(self, sources: bytes) -> None:
-        """Upload a tar archive of source files into the execution environment."""
+    async def image_digest(self, image: str) -> str:
+        """Return the Docker image digest of *image*, or ``""`` when it cannot be read."""
         ...
 
-    def run(self, cmd: Command, limits: ExecLimits | None = None) -> ExecResult:
-        """Run *cmd* inside the execution environment and return its result."""
-        ...
-
-    def collect(self) -> bytes:
-        """Download a tar archive of build artifacts from the execution environment."""
+    async def aclose(self) -> None:
+        """Release the transport."""
         ...

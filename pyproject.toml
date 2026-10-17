@@ -101,11 +101,12 @@ plugins = ["pydantic.mypy"]
 minversion = "9.0"
 testpaths = ["tests"]
 norecursedirs = [".*", "asm_doc", "workspaces", "var", "docs", "requirements", "build", "dist"]
-addopts = "-ra --strict-markers -m 'not wsl and not llm and not slow'"
+addopts = "-ra --strict-markers -m 'not wsl and not docker and not llm and not slow'"
 asyncio_mode = "auto"
 timeout = 120
 markers = [
     "wsl: needs the WSL VM, docker and the toolchain images",
+    "docker: needs a running bart-tc container on this host (CI docker job, any Linux with Docker)",
     "llm: calls a real LLM endpoint (local or cloud)",
     "slow: takes more than a few seconds",
 ]

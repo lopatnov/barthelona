@@ -2,8 +2,8 @@
 
 Called by ``barthelona probe`` (architecture §12 Phase 0 deliverable).
 
-The probe runs each tool ``--version`` and ``which`` inside the ``bart-tc``
-container via :class:`~barthelona.executors.protocol.Executor`, then records the
+The probe runs each tool ``--version`` and ``which`` inside the toolchain
+environment via a :class:`~barthelona.executors.protocol.Session`, then records the
 results alongside Docker image digests in :class:`ToolchainLock`.
 """
 
@@ -14,13 +14,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from barthelona.executors._types import Command, ExecLimits
 from barthelona.toolchains._types import ToolchainLock, ToolInfo
 
 if TYPE_CHECKING:
-    from barthelona.executors.protocol import Executor
+    from barthelona.executors.protocol import Executor, Session
 
 _DEFAULT_TOOLS = ("nasm", "as", "ld", "gcc", "nm", "make", "gdb")
-_TC_CONTAINER = "bart-tc"
+_TC_IMAGE = "bart-tc"
 _RUN_IMAGE = "bart-run"
 _LOCK_PATH = Path("config/toolchains.lock.json")
 
@@ -29,45 +30,26 @@ def _first_line(output: bytes) -> str:
     return output.decode("utf-8", errors="replace").split("\n", 1)[0].strip()
 
 
-def probe_image_digest(executor: Executor, image: str) -> str:
+async def probe_image_digest(executor: Executor, image: str) -> str:
     """Return the Docker image digest for *image*, or ``""`` on failure."""
-    from barthelona.executors._types import Command, ExecLimits
-
-    cmd = Command(
-        argv=(
-            "docker",
-            "inspect",
-            "--format",
-            "{{index .RepoDigests 0}}",
-            image,
-        )
-    )
-    result = executor.run(cmd, ExecLimits(timeout=10.0))
-    if result.returncode != 0:
-        return ""
-    return _first_line(result.stdout)
+    return await executor.image_digest(image)
 
 
-def probe_tools(
-    executor: Executor,
+async def probe_tools(
+    session: Session,
     tools: tuple[str, ...] = _DEFAULT_TOOLS,
-    container: str = _TC_CONTAINER,
 ) -> dict[str, ToolInfo]:
-    """Probe each tool inside *container* and return a ``{name: ToolInfo}`` map."""
-    from barthelona.executors._types import Command, ExecLimits
-
+    """Probe each tool inside the toolchain environment and return a ``{name: ToolInfo}`` map."""
     lim = ExecLimits(timeout=10.0)
     result: dict[str, ToolInfo] = {}
 
     for tool in tools:
-        version_cmd = Command(argv=("docker", "exec", container, tool, "--version"))
-        version_res = executor.run(version_cmd, lim)
+        version_res = await session.run(Command(argv=(tool, "--version")), lim)
         if version_res.returncode != 0:
             continue
         version = _first_line(version_res.stdout)
 
-        which_cmd = Command(argv=("docker", "exec", container, "which", tool))
-        which_res = executor.run(which_cmd, lim)
+        which_res = await session.run(Command(argv=("which", tool)), lim)
         path = _first_line(which_res.stdout) if which_res.returncode == 0 else ""
 
         result[tool] = ToolInfo(version=version, path=path)
@@ -75,16 +57,17 @@ def probe_tools(
     return result
 
 
-def run_probe(
+async def run_probe(
     executor: Executor,
     tools: tuple[str, ...] = _DEFAULT_TOOLS,
-    tc_container: str = _TC_CONTAINER,
+    tc_image: str = _TC_IMAGE,
     run_image: str = _RUN_IMAGE,
 ) -> ToolchainLock:
     """Run the full probe and return an unpersisted :class:`ToolchainLock`."""
-    tool_map = probe_tools(executor, tools=tools, container=tc_container)
-    tc_digest = probe_image_digest(executor, tc_container)
-    run_digest = probe_image_digest(executor, run_image)
+    session = await executor.open_session("probe", 0)
+    tool_map = await probe_tools(session, tools=tools)
+    tc_digest = await probe_image_digest(executor, tc_image)
+    run_digest = await probe_image_digest(executor, run_image)
     return ToolchainLock(
         toolchain_image_digest=tc_digest,
         runner_image_digest=run_digest,

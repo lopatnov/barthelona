@@ -20,7 +20,7 @@ paths:
   - `domain` ← {contracts, toolchains, executors, verification, knowledge, memory, llm, prompting, persistence, workspace, policy, training} ← `nodes` ← `engine` ← `cli`;
   - `ui` imports only `domain`, `persistence` and `config`.
 - Tests:
-  - pytest markers `wsl` (needs WSL/docker), `llm` (real model calls) and `slow`. The default run excludes them.
+  - pytest markers `wsl` (needs WSL/docker), `docker` (needs a running `bart-tc` container on any host; the CI `docker` job runs them), `llm` (real model calls) and `slow`. The default run excludes them.
   - Use `FakeGateway` / `FakeExecutor` for engine and graph tests.
   - Use Hypothesis for parsers and validators.
 - Do not add dependencies ad hoc: edit `pyproject.toml`, run `scripts/lock.ps1`, then `scripts/create_env.ps1`. Never add LiteLLM, PyMuPDF or GPUtil.

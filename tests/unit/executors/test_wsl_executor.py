@@ -1,4 +1,4 @@
-"""Integration tests for WslExecutor (requires WSL and Docker on Windows)."""
+"""Integration tests for the WSL transport (requires WSL and Docker on Windows)."""
 
 from __future__ import annotations
 
@@ -6,33 +6,26 @@ import sys
 
 import pytest
 
-pytestmark = pytest.mark.wsl
+from barthelona.executors import AgentExecutor, Command, WslTransport, WslUnavailableError
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="WslExecutor requires Windows")
-def test_wsl_executor_probe_round_trip() -> None:
-    """WslExecutor.probe() returns a non-empty tool map on a real bart-tc container."""
-    from barthelona.executors import WslExecutor
+@pytest.mark.wsl
+@pytest.mark.skipif(sys.platform != "win32", reason="WslTransport requires Windows")
+async def test_wsl_executor_toolchain_round_trip() -> None:
+    """A real bart-tc container answers `nasm --version` and `as --version` through WSL."""
+    executor = AgentExecutor(WslTransport())
+    try:
+        session = await executor.open_session("wsl-test", 0)
+        nasm = await session.run(Command(argv=("nasm", "--version")))
+        gnu_as = await session.run(Command(argv=("as", "--version")))
+    finally:
+        await executor.aclose()
 
-    with WslExecutor() as exc:
-        tools = exc.probe()
-
-    assert "nasm" in tools, "nasm not found in bart-tc container"
-    assert "as" in tools, "GNU as not found in bart-tc container"
-
-
-@pytest.mark.skipif(sys.platform != "win32", reason="WslExecutor requires Windows")
-def test_wsl_unavailable_on_linux() -> None:
-    """This test only runs on Linux to confirm the guard raises."""
-    pytest.skip("running on Windows; use the non-wsl test below")
+    assert nasm.returncode == 0, "nasm not found in bart-tc container"
+    assert gnu_as.returncode == 0, "GNU as not found in bart-tc container"
 
 
-def test_wsl_unavailable_error_raised_on_non_windows() -> None:
-    """WslExecutor raises WslUnavailableError on non-Windows hosts."""
-    if sys.platform == "win32":
-        pytest.skip("test only meaningful on non-Windows")
-
-    from barthelona.executors import WslExecutor, WslUnavailableError
-
+@pytest.mark.skipif(sys.platform == "win32", reason="only meaningful on non-Windows hosts")
+def test_wsl_transport_unavailable_on_non_windows() -> None:
     with pytest.raises(WslUnavailableError):
-        WslExecutor()
+        WslTransport()
