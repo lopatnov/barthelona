@@ -267,6 +267,14 @@ def _prepare_tar_destination(argv: list[str]) -> None:
         pass
 
 
+def _request_env(request: dict[str, object]) -> dict[str, str] | None:
+    """The environment a request asks for, with string keys and values, or ``None``."""
+    raw_env = request.get("env")
+    if not isinstance(raw_env, dict):
+        return None
+    return {str(k): str(v) for k, v in raw_env.items()}
+
+
 def _handle(request: dict[str, object]) -> dict[str, object]:
     cmd_raw = request.get("cmd")
     argv: list[str] = [str(a) for a in (cmd_raw if isinstance(cmd_raw, list) else [])]
@@ -291,8 +299,7 @@ def _handle(request: dict[str, object]) -> dict[str, object]:
     if argv[0] == "tar":
         _prepare_tar_destination(argv)
 
-    raw_env = request.get("env")
-    env = {str(k): str(v) for k, v in raw_env.items()} if isinstance(raw_env, dict) else None
+    env = _request_env(request)
 
     stdin_b64 = request.get("stdin")
     stdin_bytes = base64.b64decode(str(stdin_b64)) if stdin_b64 else None
