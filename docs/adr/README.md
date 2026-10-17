@@ -45,6 +45,6 @@ Template: Context (optional), Decision, Rationale, Alternatives considered, Cons
 | [D-036](D-036-opt-in-local-training-data-collection.md) | Opt-in, local collection of training data from code-producing attempts | Proposed |  |
 | [D-037](D-037-issues-for-findings-and-phase-reviews.md) | Every finding becomes a GitHub issue; each phase ends with a full review | Proposed | amends D-033 |
 | [D-038](D-038-qwen3-cloud-provider-via-qwencloud.md) | Add Qwen3 as a cloud provider via Alibaba QwenCloud | Proposed | amends D-029 |
-| D-039 | _(reserved — RAG and caching thread, PR #33)_ | Proposed | |
+| [D-039](D-039-caching-strategy-prefix-caching-not-semantic-response-cache.md) | Caching strategy: provider prefix caching adopted; semantic response caching rejected | Proposed | amends D-016 |
 | [D-040](D-040-compile-down-asm-generation-strategy.md) | Compile-down strategy: compile C/Rust to assembly as an alternative `implement_symbol` path | Proposed | |
 | [D-041](D-041-wsl-agent-docker-inspect-allowlist.md) | Add `docker inspect` to the WSL agent allowlist (single target, bart-tc / bart-run* only) | Proposed | amends D-006, D-010 |

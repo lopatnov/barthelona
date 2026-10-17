@@ -1163,7 +1163,7 @@ Not candidates for the main model:
   - each role uses one tool-free completion; MVP roles make no tool-calling loops.
 
 ### 16.4 Context assembly
-Blocks are ordered from stable to volatile, so llama.cpp/LM Studio can reuse the cached prefix and a cloud cache breakpoint can sit after block 3:
+Blocks are ordered from stable to volatile, so llama.cpp/LM Studio can reuse the cached prefix and a cloud cache breakpoint can sit after block 3 (D-039):
 1. role and output format;
 2. dialect rule card;
 3. project card: target and ABI row;
@@ -1186,6 +1186,9 @@ Blocks are ordered from stable to volatile, so llama.cpp/LM Studio can reuse the
 - **Drop order when over budget:** lowest-scored doc chunks, then lessons, then repo-map depth, then callee contracts.
 - **Token counting:** the model's tokenizer where available, otherwise characters / 3.5 with a 15% margin.
 - **Hidden tests never appear in prompts.**
+- **Stable-prefix constraint (D-039):** blocks 1–3 must be byte-for-byte identical across all calls that share the same dialect, arch and policy version within a sprint run, so the provider can reuse the KV cache. The context assembler computes a `stable_prefix_hash` and raises an error if it changes mid-run. Block 3 is at most 25% of the context window; the assembler raises a hard error rather than silently truncating.
+- **Semantic response caching is not used** (D-039). Each coding call is unique per code state. A false cache hit would corrupt a workspace without detection.
+- **Provider prefix-cache marker:** for Anthropic, `cache_control: {"type": "ephemeral"}` is placed on the last block of the stable prefix (block 3). For LM Studio/vLLM, no marker is needed; the provider's automatic prefix caching fires when the prefix matches. The gateway logs `cache_hit` and `cache_tokens_saved` per call (D-024).
 
 ### 16.5 Claude specifics (verified 2026-10)
 - **Prices** per million input/output tokens; all have a 1M-token context:
@@ -1213,9 +1216,10 @@ Blocks are ordered from stable to volatile, so llama.cpp/LM Studio can reuse the
   - 529 `overloaded_error`, 500, 504: transient.
   - The SDK retries 408/409/429/5xx twice by default. The gateway sets `max_retries=0` and applies its own policy, so retries are not multiplied.
 - **Prompt caching:**
-  - the minimum cacheable prefix depends on the model (512–4096 tokens);
+  - the minimum cacheable prefix depends on the model: 512 tokens for Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1; 1024–4096 tokens for older models;
   - verify that `usage.cache_read_input_tokens` is greater than 0;
-  - cache reads cost $0.20 per million tokens on Opus 5.5 and Sonnet 5.5.
+  - cache reads cost $0.20/MTok for Opus 5.5 and $0.10/MTok for Sonnet 5.5 (5% of base input); 10% of base input for most other models.
+    (https://platform.claude.com/docs/en/build-with-claude/prompt-caching, checked 2026-10-16)
 - **Batch API:** 50% off. Use it for benchmark and Policy Lab runs.
 - **API keys** come only from environment variables. They never appear in logs or in Streamlit session state.
 
