@@ -122,6 +122,11 @@ Load the chosen model with:
 
 Keep only one large model loaded at a time.
 
+Run the bake-off on the dev tasks (needs the `bart-tc` and `bart-run` containers, as for `verify`):
+- add the candidate to `config/models.yaml` as a local model, then `python -m barthelona bench run --model <catalog key> --seeds 3`;
+- the results append to `var/bench/results.jsonl`; `python -m barthelona bench report var/bench/results.jsonl` prints pass@1 with its interval, first try, attempts, tok/s, seed noise and the paired `fix` vs `single` comparison;
+- hidden tests stay out of prompts and out of the conversation; read only the report.
+
 ## 5. Cloud providers
 
 Keys go in `.env` (never committed): `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`. The model catalog, roles and fallback chains are in `config/models.yaml`.
