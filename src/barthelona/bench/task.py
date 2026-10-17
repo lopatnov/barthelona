@@ -36,6 +36,16 @@ class BenchTask(DomainModel):
     contracts_text: str
     tests: tuple[TestCase, ...]
 
+    @property
+    def source_name(self) -> str:
+        """The one file the model writes: the module path of the task's contract."""
+        modules = {Path(symbol.module).name for symbol in self.registry.symbols.values()}
+        if len(modules) != 1:
+            raise BenchError(
+                f"task {self.id}: contracts must name exactly one module, found {sorted(modules)}"
+            )
+        return modules.pop()
+
 
 def load_task(directory: Path) -> BenchTask:
     """Read ``directory`` into a validated task; `BenchError` names the file that is wrong."""
