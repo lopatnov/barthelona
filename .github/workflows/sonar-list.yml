@@ -1,0 +1,15 @@
+name: sonar-list
+on:
+  push:
+    branches: [claude/sonar-open-issues-0jqpq3]
+permissions:
+  contents: read
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print open SonarCloud issues
+        run: |
+          curl -fsS "https://sonarcloud.io/api/issues/search?componentKeys=lopatnov_barthelona&issueStatuses=OPEN,CONFIRMED&ps=500" -o main.json
+          echo "main total: $(jq .total main.json)"
+          jq -r '.issues[] | [.rule, .severity, .component, (.line|tostring), .message] | join(" | ")' main.json
