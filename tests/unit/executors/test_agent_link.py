@@ -192,3 +192,31 @@ async def test_local_agent_stages_and_collects_in_isolated_session_dirs(
     assert "./b.asm" not in names_one
     assert "./b.asm" in names_two
     assert one.work_dir.startswith(str(tmp_path))
+
+
+async def test_sandbox_session_runs_in_bart_run_with_a_read_only_mount() -> None:
+    from barthelona.executors import Command, ExecLimits
+
+    transport = ScriptedTransport(_hello(), lambda r: [_ok(r, b"out")])
+    exc = AgentExecutor(transport)
+    sandbox = exc.sandbox()
+    assert sandbox.executor_id == "sandbox"
+    assert sandbox.may_run_untrusted
+    session = await sandbox.open_session("r", 2)
+    assert session.path("output.elf") == "/work/output.elf"
+
+    result = await session.run(Command(argv=("/work/output.elf",), stdin=b"hi"), ExecLimits(timeout=3.2))
+
+    request = transport.requests[-1]
+    assert result.stdout == b"out"
+    assert request["cmd"] == ["docker", "run", "bart-run", "timeout", "-s", "KILL", "4", "/work/output.elf"]
+    assert request["mount"] == "/cache/runs/r/2"
+    assert request["timeout"] == 8.2
+    assert base64.b64decode(str(request["stdin"])) == b"hi"
+    await exc.aclose()
+
+
+async def test_sandbox_open_session_rejects_unsafe_ids() -> None:
+    sandbox = AgentExecutor(ScriptedTransport(_hello(), lambda r: [_ok(r)])).sandbox()
+    with pytest.raises(ValueError, match="invalid session id"):
+        await sandbox.open_session("../x", 0)

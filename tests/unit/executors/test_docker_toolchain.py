@@ -37,3 +37,28 @@ async def test_assemble_and_link_in_bart_tc() -> None:
     assert nasm.returncode == 0, nasm.stderr
     assert link.returncode == 0, link.stderr
     assert {"./hello.o", "./hello"} <= set(names)
+
+
+async def test_run_in_bart_run_sandbox() -> None:
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:") as archive:
+        archive.add(_FIXTURE, arcname="hello.asm")
+
+    executor = AgentExecutor(LocalTransport())
+    try:
+        build = await executor.open_session("docker-sandbox", 0)
+        await build.stage(buf.getvalue())
+        obj = build.path("hello.o")
+        await build.run(Command(argv=("nasm", "-f", "elf64", "-o", obj, build.path("hello.asm"))))
+        await build.run(Command(argv=("ld", "-o", build.path("hello"), obj)))
+
+        sandbox = await executor.sandbox().open_session("docker-sandbox", 0)
+        ran = await sandbox.run(Command(argv=(sandbox.path("hello"),)))
+        echoed = await sandbox.run(Command(argv=("cat",), stdin=b"golden\n"))
+        write = await sandbox.run(Command(argv=("touch", sandbox.path("new-file"))))
+    finally:
+        await executor.aclose()
+
+    assert (ran.returncode, ran.stdout) == (0, b"ok\n"), ran.stderr
+    assert echoed.stdout == b"golden\n"
+    assert write.returncode != 0  # /work is mounted read-only

@@ -19,6 +19,7 @@ from barthelona.training import DatasetError, DatasetReader, TrainingDataSetting
 
 if TYPE_CHECKING:
     from barthelona.domain.contracts import ContractRegistry
+    from barthelona.domain.verification import TestCase
     from barthelona.executors import AgentExecutor
     from barthelona.toolchains import ToolchainLock
 
@@ -92,7 +93,7 @@ async def _verify(executor: AgentExecutor, **ladder_args: Any) -> list[LevelResu
     from barthelona.verification import run_ladder
 
     try:
-        return await run_ladder(executor=executor, **ladder_args)
+        return await run_ladder(executor=executor, sandbox=executor.sandbox(), **ladder_args)
     finally:
         await executor.aclose()
 
@@ -203,12 +204,27 @@ def _load_contracts(path: Path | None) -> ContractRegistry | None:
         raise typer.BadParameter(str(exc)) from exc
 
 
+def _load_tests(path: Path | None) -> list[TestCase]:
+    if path is None:
+        return []
+    from barthelona.contracts import ContractsError, load_test_cases
+
+    try:
+        return load_test_cases(path)
+    except ContractsError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
 @app.command()
 def verify(
     workspace: Annotated[Path, typer.Argument(help="Directory containing source files.")],
     level: Annotated[
         str,
-        typer.Option("--level", "-l", help="Highest ladder level to run (V0, V1, V2)."),
+        typer.Option(
+            "--level",
+            "-l",
+            help="Highest ladder level to run; levels without a check are reported as unsupported.",
+        ),
     ] = "V2",
     dialect: Annotated[
         str | None,
@@ -224,9 +240,15 @@ def verify(
         Path | None,
         typer.Option("--contracts", "-c", help="contracts.yaml; V1 then checks each object's nm symbols."),
     ] = None,
+    tests: Annotated[
+        Path | None,
+        typer.Option(
+            "--tests", "-t", help="YAML list of test cases; V6 runs the io_golden ones in bart-run."
+        ),
+    ] = None,
     transport: TransportOption = "auto",
 ) -> None:
-    """Run the verification ladder (V0-V2) on the assembly sources in WORKSPACE.
+    """Run the verification ladder on the assembly sources in WORKSPACE (V0-V2, V6).
 
     Needs a running bart-tc Docker container, reached through WSL on Windows
     or directly on a Linux host with Docker.
@@ -241,7 +263,7 @@ def verify(
     try:
         up_to = Level(level)
     except ValueError:
-        raise typer.BadParameter(f"unknown level {level!r}; choose V0, V1 or V2") from None
+        raise typer.BadParameter(f"unknown level {level!r}; choose one of {', '.join(Level)}") from None
 
     resolved_dialect = dialect or _detect_dialect(workspace)
     adapter = _make_adapter(resolved_dialect)
@@ -251,6 +273,7 @@ def verify(
         raise typer.BadParameter(f"no {ext} files found in {workspace}")
 
     registry = _load_contracts(contracts)
+    test_cases = _load_tests(tests)
     executor = _make_executor(transport, "verify")
 
     _out.print(f"Verifying {len(source_files)} file(s) up to {up_to} ({resolved_dialect}) …")
@@ -264,6 +287,7 @@ def verify(
                 run_id=run_id,
                 obj_format=ObjFormat.ELF64,
                 contracts=registry,
+                tests=test_cases,
             )
         )
     except Exception as exc:

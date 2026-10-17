@@ -10,6 +10,8 @@ Public surface
 :class:`Session`       Owns an attempt's work directory: ``stage``, ``run``, ``collect``.
 :class:`AgentExecutor` Production executor: ``docker exec bart-tc`` through the
                        stdlib agent, over a transport.
+:class:`SandboxExecutor` Runs generated binaries in a fresh ``bart-run`` container
+                       (from :meth:`AgentExecutor.sandbox`).
 :class:`WslTransport`  Reaches the agent through ``wsl.exe`` (Windows only;
                        raises :class:`WslUnavailableError` elsewhere).
 :class:`LocalTransport` Spawns the same agent on a Linux host with Docker.
@@ -21,11 +23,13 @@ Public surface
 """
 
 from barthelona.executors._link import AgentTransport, ExecutorInfraError
+from barthelona.executors._session import ExecutorRejectedError
 from barthelona.executors._types import Command, ExecLimits, ExecResult, ExecutorId
-from barthelona.executors.agent import AgentExecutor, ExecutorRejectedError
+from barthelona.executors.agent import AgentExecutor
 from barthelona.executors.fake import FakeExecutor
 from barthelona.executors.local import LocalTransport
 from barthelona.executors.protocol import Executor, Session
+from barthelona.executors.sandbox import SandboxExecutor
 from barthelona.executors.wsl import WslTransport, WslUnavailableError
 
 __all__ = [
@@ -40,6 +44,7 @@ __all__ = [
     "ExecutorRejectedError",
     "FakeExecutor",
     "LocalTransport",
+    "SandboxExecutor",
     "Session",
     "WslTransport",
     "WslUnavailableError",
