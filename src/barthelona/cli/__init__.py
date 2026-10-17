@@ -18,6 +18,7 @@ from barthelona.toolchains.dialect import DialectAdapter
 from barthelona.training import DatasetError, DatasetReader, TrainingDataSettings, count_verdicts
 
 if TYPE_CHECKING:
+    from barthelona.domain.contracts import ContractRegistry
     from barthelona.executors import AgentExecutor
     from barthelona.toolchains import ToolchainLock
 
@@ -191,6 +192,17 @@ def _report(results: list[LevelResult]) -> int:
     return 1 if any(r.status in ("fail", "unsupported") for r in results) else 0
 
 
+def _load_contracts(path: Path | None) -> ContractRegistry | None:
+    if path is None:
+        return None
+    from barthelona.contracts import ContractsError, load_registry
+
+    try:
+        return load_registry(path)
+    except ContractsError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
 @app.command()
 def verify(
     workspace: Annotated[Path, typer.Argument(help="Directory containing source files.")],
@@ -208,6 +220,10 @@ def verify(
             "--run-id", help="Session name; staged files live under the cache root's runs/<run-id>/0."
         ),
     ] = "verify",
+    contracts: Annotated[
+        Path | None,
+        typer.Option("--contracts", "-c", help="contracts.yaml; V1 then checks each object's nm symbols."),
+    ] = None,
     transport: TransportOption = "auto",
 ) -> None:
     """Run the verification ladder (V0-V2) on the assembly sources in WORKSPACE.
@@ -215,8 +231,8 @@ def verify(
     Needs a running bart-tc Docker container, reached through WSL on Windows
     or directly on a Linux host with Docker.
 
-    Phase 0 note: V1 only assembles; the nm/registry symbol check
-    (architecture §13.1) is deferred until contracts.yaml is populated.
+    With --contracts, V1 also compares each object's nm symbols with the
+    registry (architecture §13.1).
     Pass --dialect explicitly for Intel-syntax GAS files (gas-intel).
     """
     if not workspace.is_dir():
@@ -234,6 +250,7 @@ def verify(
     if not source_files:
         raise typer.BadParameter(f"no {ext} files found in {workspace}")
 
+    registry = _load_contracts(contracts)
     executor = _make_executor(transport, "verify")
 
     _out.print(f"Verifying {len(source_files)} file(s) up to {up_to} ({resolved_dialect}) …")
@@ -246,6 +263,7 @@ def verify(
                 source_files=source_files,
                 run_id=run_id,
                 obj_format=ObjFormat.ELF64,
+                contracts=registry,
             )
         )
     except Exception as exc:

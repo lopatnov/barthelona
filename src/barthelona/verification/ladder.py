@@ -22,6 +22,7 @@ import tarfile
 from pathlib import Path
 from typing import Literal
 
+from barthelona.domain.contracts import ContractRegistry
 from barthelona.domain.enums import DiagnosticLevel, Level, Linker, ObjFormat
 from barthelona.domain.verification import Diagnostic, LevelResult, Severity
 from barthelona.executors.protocol import Executor
@@ -92,7 +93,8 @@ async def run_ladder(
     linker: Linker = Linker.LD,
     entry: str = "_start",
     family: str = NATIVE_ASM,
-    registry: CheckRegistry | None = None,
+    contracts: ContractRegistry | None = None,
+    checks: CheckRegistry | None = None,
 ) -> list[LevelResult]:
     """Run the ladder from V0 up to *up_to* and return one result per level.
 
@@ -113,13 +115,15 @@ async def run_ladder(
         Target settings the checks read from the context.
     family:
         Target family whose checks are used (``native-asm``).
-    registry:
+    contracts:
+        Contract registry; when given, V1 also compares each object's ``nm`` symbols with it.
+    checks:
         Check registry; the built-in one when omitted.
     """
     if not source_files:
         return []
 
-    registry = registry or default_registry()
+    checks = checks or default_registry()
     session = await executor.open_session(run_id, attempt)
     await session.stage(_make_tar(source_files))
     ctx = LadderContext(
@@ -129,12 +133,13 @@ async def run_ladder(
         obj_format=obj_format,
         linker=linker,
         entry=entry,
+        contracts=contracts,
     )
 
     results: list[LevelResult] = []
     failed = False
     for level in _LEVELS[: _LEVELS.index(up_to) + 1]:
-        result = await _run_level(registry, family, level, ctx, failed)
+        result = await _run_level(checks, family, level, ctx, failed)
         results.append(result)
         failed = failed or result.status == "fail"
     return results

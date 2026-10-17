@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
+from barthelona.domain.contracts import ContractRegistry
 from barthelona.domain.enums import Level, Linker, ObjFormat
 from barthelona.domain.verification import LevelResult
 from barthelona.executors.protocol import Session
@@ -30,6 +31,7 @@ class LadderContext:
     obj_format: ObjFormat = ObjFormat.ELF64
     linker: Linker = Linker.LD
     entry: str = "_start"
+    contracts: ContractRegistry | None = None
     object_paths: list[str] = field(default_factory=list)
 
 
