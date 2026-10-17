@@ -5,7 +5,7 @@ FROM ubuntu:26.04
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        binutils gcc libc6-dev make nasm yasm gdb \
+        binutils gcc gdb libc6-dev make nasm yasm \
     && rm -rf /var/lib/apt/lists/*
 
 # Non-root user for tool runs (uid 1000 is the image's built-in `ubuntu` user);

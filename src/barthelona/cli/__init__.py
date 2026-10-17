@@ -67,7 +67,9 @@ def _make_executor(transport: str, command: str) -> AgentExecutor:
     """Build the toolchain executor for *transport*; exit with code 2 when it is unavailable."""
     from barthelona.executors import AgentExecutor, LocalTransport, WslTransport, WslUnavailableError
 
-    kind = ("wsl" if sys.platform == "win32" else "local") if transport == "auto" else transport
+    kind = transport
+    if transport == "auto":
+        kind = "wsl" if sys.platform == "win32" else "local"
     try:
         if kind == "wsl":
             return AgentExecutor(WslTransport())
