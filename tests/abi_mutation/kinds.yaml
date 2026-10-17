@@ -1,0 +1,33 @@
+# The ABI violation kinds of the mutation corpus (docs/architecture.md section 13.1).
+# Each kind has a good and a bad snippet per dialect under <dialect>/{good,bad}/<kind>.<ext>.
+# `detector` names the oracle that must flag the bad snippet once it exists; until then the corpus only
+# proves that every snippet assembles (the docker job), and Phase 2 adds the detection assertions.
+dialects:
+  nasm: asm
+  gas-intel: s
+kinds:
+  misaligned_call:
+    detector: V4
+    summary: a call made with rsp not 0 mod 16
+  callee_saved_clobber:
+    detector: V4
+    summary: rbx, rbp or r12-r15 changed and not restored
+  unbalanced_stack:
+    detector: V4
+    summary: more pushes than pops on a return path
+  red_zone_write:
+    detector: V3
+    summary: a write below rsp in a function that makes a call
+  df_left_set:
+    detector: V4
+    summary: the direction flag is set on return
+  pie_absolute_reference:
+    detector: V3
+    summary: an absolute address where PIE needs a RIP-relative one
+  syscall_clobber:
+    detector: V3
+    summary: rcx or r11 read after syscall
+  missing_gnu_stack:
+    detector: V3
+    summary: no .note.GNU-stack section
+# Not in the first entries: missing_shadow_space is Win64-only and waits for the Windows presets.
