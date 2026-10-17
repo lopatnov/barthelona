@@ -1,0 +1,26 @@
+- id: triple_zero
+  kind: c_harness
+  symbol: triple
+  level: V5
+  origin: user
+  inputs: {rdi: 0}
+  expect: {ret: 0}
+- id: triple_23
+  kind: c_harness
+  symbol: triple
+  level: V5
+  origin: user
+  inputs: {rdi: 23}
+  expect: {ret: 69}
+- id: triple_wraps
+  kind: c_harness
+  symbol: triple
+  level: V5
+  origin: user
+  inputs: {rdi: 6148914691236517205}
+  expect: {ret: 18446744073709551615}
+- id: prints_e
+  kind: io_golden
+  level: V6
+  origin: user
+  expect: {stdout: "E\n", exit_code: 0}
