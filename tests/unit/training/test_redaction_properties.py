@@ -10,8 +10,12 @@ from barthelona.training.redaction import MIN_SECRET_LENGTH, Redactor
 # Lowercase and digits only, so a secret can never be spelled by the uppercase `REDACTED` marker.
 _SECRET_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
 secrets = st.text(alphabet=_SECRET_ALPHABET, min_size=MIN_SECRET_LENGTH, max_size=24)
-api_keys = st.text(alphabet=_SECRET_ALPHABET + "ABCDEFGHIJKLMNOPQRSTUVWXYZ_-", min_size=20, max_size=40).map(
-    lambda tail: f"sk-ant-{tail}"
+_KEY_ALPHABET = _SECRET_ALPHABET + "ABCDEFGHIJKLMNOPQRSTUVWXYZ_-"
+# One strategy per provider key shape the redactor knows (Anthropic, OpenAI-style, Google).
+api_keys = st.one_of(
+    st.text(alphabet=_KEY_ALPHABET, min_size=16, max_size=40).map(lambda tail: f"sk-ant-{tail}"),
+    st.text(alphabet=_KEY_ALPHABET, min_size=20, max_size=40).map(lambda tail: f"sk-{tail}"),
+    st.text(alphabet=_KEY_ALPHABET, min_size=35, max_size=35).map(lambda tail: f"AIza{tail}"),
 )
 
 
