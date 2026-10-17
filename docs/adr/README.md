@@ -8,15 +8,15 @@ Template: Context (optional), Decision, Rationale, Alternatives considered, Cons
 | ADR | Title | Status | Relations |
 | --- | --- | --- | --- |
 | [D-001](D-001-meta-agentic-scrum-is-the-organizing-model.md) | Meta-Agentic Scrum is the organizing model, bounded by a grammar | Proposed | amended by D-028 |
-| [D-002](D-002-langgraph-1-2-x-is-the-only-orchestrator.md) | LangGraph 1.2.x is the only orchestrator | Proposed |  |
-| [D-003](D-003-sprint-topologies-are-persisted-data-compiled.md) | Sprint topologies are persisted data compiled deterministically, with an interpreter fallback | Proposed |  |
+| [D-002](D-002-langgraph-1-2-x-is-the-only-orchestrator.md) | LangGraph 1.2.x is the only orchestrator | Proposed | amended by D-044, D-045 |
+| [D-003](D-003-sprint-topologies-are-persisted-data-compiled.md) | Sprint topologies are persisted data compiled deterministically, with an interpreter fallback | Proposed | amended by D-044 |
 | [D-004](D-004-closed-topology-grammar-templates-slots-knobs.md) | Closed topology grammar: templates + slots + knobs, checked by validator rules T1–T10 | Proposed | amended by D-028 |
-| [D-005](D-005-two-processes-a-thin-streamlit-ui-and-an-engine.md) | Two processes: a thin Streamlit UI and an engine worker over SQLite WAL | Proposed |  |
-| [D-006](D-006-engine-runs-on-windows-toolchains-run-in-pinned.md) | Engine runs on Windows; toolchains run in pinned WSL Docker images through one persistent WSL agent | Proposed |  |
-| [D-007](D-007-the-verification-ladder-is-the-judge-definition.md) | The verification ladder is the judge; Definition of Done is set per story kind and target | Proposed |  |
+| [D-005](D-005-two-processes-a-thin-streamlit-ui-and-an-engine.md) | Two processes: a thin Streamlit UI and an engine worker over SQLite WAL | Proposed | amended by D-045 |
+| [D-006](D-006-engine-runs-on-windows-toolchains-run-in-pinned.md) | Engine runs on Windows; toolchains run in pinned WSL Docker images through one persistent WSL agent | Proposed | amended by D-043 |
+| [D-007](D-007-the-verification-ladder-is-the-judge-definition.md) | The verification ladder is the judge; Definition of Done is set per story kind and target | Proposed | amended by D-046 |
 | [D-008](D-008-the-contract-registry-is-the-single-source-of.md) | The contract registry is the single source of truth; interface files are generated | Proposed |  |
 | [D-009](D-009-frozen-tests-and-contracts-tamper-and-minimality.md) | Frozen tests and contracts; tamper and minimality gates | Proposed |  |
-| [D-010](D-010-sandbox-execution-policy.md) | Sandbox execution policy | Proposed |  |
+| [D-010](D-010-sandbox-execution-policy.md) | Sandbox execution policy | Proposed | amended by D-043 |
 | [D-011](D-011-code-travels-in-text-envelopes-json-only-for.md) | Code travels in text envelopes; JSON only for small structured artifacts | Proposed | amended by D-029 |
 | [D-012](D-012-own-thin-modelgateway-over-the-official-openai-3.md) | Own thin ModelGateway over the official openai 3.x and anthropic 1.x SDKs; no LiteLLM | Proposed | amended by D-029 |
 | [D-013](D-013-one-resident-local-moe-model-chosen-by-a-phase-0.md) | One resident local MoE model chosen by a Phase 0 bake-off; explicit profiles | Proposed |  |
@@ -30,7 +30,7 @@ Template: Context (optional), Decision, Rationale, Alternatives considered, Cons
 | [D-021](D-021-mvp-scope-nasm-and-gas-on-x86-64-linux-elf64.md) | MVP scope: NASM and GAS on x86-64 Linux ELF64 SysV | Proposed |  |
 | [D-022](D-022-language-policy.md) | Language policy | Proposed |  |
 | [D-023](D-023-environment-conda-for-the-interpreter-only-pip.md) | Environment: conda for the interpreter only; pip installs from hash-locked files; PowerShell scripts | Proposed | amended by D-031 |
-| [D-024](D-024-observability-own-event-log-jsonl-mirror-and.md) | Observability: own event log, JSONL mirror and replay; OpenTelemetry optional | Proposed |  |
+| [D-024](D-024-observability-own-event-log-jsonl-mirror-and.md) | Observability: own event log, JSONL mirror and replay; OpenTelemetry optional | Proposed | amended by D-044 |
 | [D-025](D-025-dropped-or-deferred-patterns-from-the-gemini.md) | Dropped or deferred patterns from the Gemini draft | Proposed |  |
 | [D-026](D-026-development-time-claude-code-configuration-is.md) | Development-time Claude Code configuration is separate from the product runtime | Proposed | amended by D-032, D-033 |
 | [D-027](D-027-documentation-corpus-handling.md) | Documentation corpus handling | Proposed |  |
@@ -49,3 +49,8 @@ Template: Context (optional), Decision, Rationale, Alternatives considered, Cons
 | [D-040](D-040-compile-down-asm-generation-strategy.md) | Compile-down strategy: compile C/Rust to assembly as an alternative `implement_symbol` path | Proposed | |
 | [D-041](D-041-wsl-agent-docker-inspect-allowlist.md) | Add `docker inspect` to the WSL agent allowlist (single target, bart-tc / bart-run* only) | Proposed | amends D-006, D-010 |
 | [D-042](D-042-adequacy-and-verifier-check.md) | Adequacy and verifier check for dev threads and the product pipeline | Proposed | amends D-033 |
+| [D-043](D-043-executor-contract-async-session-scoped-transport-pluggable.md) | Executor contract: async, session-scoped, transport-pluggable | Proposed | amends D-006, D-010 |
+| [D-044](D-044-state-ownership-and-crash-consistency.md) | State ownership and crash consistency | Proposed | amends D-002, D-003, D-024 |
+| [D-045](D-045-module-dependency-matrix-and-sdk-containment.md) | Module dependency matrix and SDK containment | Proposed | amends D-002, D-005 |
+| [D-046](D-046-verification-levels-are-registered-checks.md) | Verification levels are registered checks selected by target family | Proposed | amends D-007 |
+| [D-047](D-047-model-endpoints-are-the-scheduling-unit.md) | Model endpoints are the scheduling unit of the catalog | Proposed | amends D-029 |
