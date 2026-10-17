@@ -52,7 +52,7 @@ def test_the_source_name_comes_from_the_contract() -> None:
     assert {task.source_name for task in TASKS} == {"gcd.asm", "fib.asm"}
 
 
-async def test_every_task_runs_under_every_arm_and_seed() -> None:
+async def test_every_task_runs_under_every_arm_and_seed(tmp_path: Path) -> None:
     seen: list[TaskResult] = []
     replies = [f"=== FILE: {name}.asm ===\nret\n=== END ===" for name in ("gcd", "gcd", "fib", "fib")] * 2
     results = await run_suite(
@@ -62,7 +62,7 @@ async def test_every_task_runs_under_every_arm_and_seed() -> None:
         FakeGateway(replies),
         _AlwaysGreen(),
         load_prompts(BENCH),
-        Path("."),
+        tmp_path,
         RunSettings(),
         seen.append,
     )
