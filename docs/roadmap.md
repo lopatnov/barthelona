@@ -3,6 +3,7 @@
 Phased plan for barthelona. Each phase has a goal, deliverables and exit criteria. A phase is done only when its exit criteria are met; the benchmark decides whether optional subsystems are switched on.
 Every phase's exit criteria also include the phase review (D-037): it ran, and its blocking issues are fixed.
 Architecture: `docs/architecture.md`. Decisions: `docs/adr/`.
+Diagrams of the finished system, with what exists today marked: [`docs/roadmap-diagrams.md`](roadmap-diagrams.md). Update a diagram in the same PR that delivers its box.
 
 Current status (2026-10-14): **Phase 0 in progress** — repository and environment done (design, agent configuration for Claude Code and Codex, conda scripts, hash-locked dependencies, baseline tests); code skeleton started: domain models, the `var/app.sqlite` store and the `python -m barthelona` entry point exist; the toolchain probe and `verify` are next.
 
