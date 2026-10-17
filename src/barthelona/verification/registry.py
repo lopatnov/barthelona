@@ -14,7 +14,7 @@ from typing import Protocol
 
 from barthelona.domain.contracts import ContractRegistry
 from barthelona.domain.enums import Level, Linker, ObjFormat
-from barthelona.domain.verification import LevelResult
+from barthelona.domain.verification import LevelResult, TestCase
 from barthelona.executors.protocol import Session
 from barthelona.toolchains.dialect import DialectAdapter
 
@@ -32,6 +32,8 @@ class LadderContext:
     linker: Linker = Linker.LD
     entry: str = "_start"
     contracts: ContractRegistry | None = None
+    sandbox: Session | None = None  # session in bart-run over the same work directory
+    tests: list[TestCase] = field(default_factory=list)
     object_paths: list[str] = field(default_factory=list)
 
 

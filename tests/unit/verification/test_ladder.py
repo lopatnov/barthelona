@@ -18,7 +18,7 @@ from barthelona.executors.fake import FakeExecutor
 from barthelona.executors.protocol import Session
 from barthelona.toolchains.gas import GasAttAdapter
 from barthelona.toolchains.nasm import NasmAdapter
-from barthelona.verification.ladder import dod_satisfied, run_ladder
+from barthelona.verification.ladder import dod_satisfied, levels_through, run_ladder
 from barthelona.verification.native_asm import run_v0, run_v1, run_v2
 from barthelona.verification.registry import CheckRegistry, LadderContext, Unsupported
 
@@ -276,7 +276,7 @@ class TestRegistry:
         registry = _registry(_StubCheck(Level.V0, status="fail"), trace, _StubCheck(Level.V2))
         results = await run_ladder(Level.V2, FakeExecutor(), NasmAdapter(), sources, _RUN, checks=registry)
         assert [r.status for r in results] == ["fail", "pass", "skipped"]
-        assert not dod_satisfied(Level.V2, results)
+        assert not dod_satisfied(levels_through(Level.V2), results)
 
     async def test_duplicate_registration_is_rejected(self) -> None:
         registry = _registry(_StubCheck(Level.V0))
@@ -291,16 +291,18 @@ class TestRegistry:
 class TestDodSatisfied:
     async def test_all_levels_passed(self, tmp_path: Path) -> None:
         results = await run_ladder(Level.V2, FakeExecutor(), NasmAdapter(), _make_real_source(tmp_path), _RUN)
-        assert dod_satisfied(Level.V2, results)
+        assert dod_satisfied(levels_through(Level.V2), results)
 
     async def test_unsupported_required_level_is_not_done(self, tmp_path: Path) -> None:
         results = await run_ladder(Level.V3, FakeExecutor(), NasmAdapter(), _make_real_source(tmp_path), _RUN)
         assert results[-1].status == "unsupported"
-        assert not dod_satisfied(Level.V3, results)
-        assert dod_satisfied(Level.V2, results)
+        assert not dod_satisfied(levels_through(Level.V3), results)
+        assert dod_satisfied(levels_through(Level.V2), results)
 
     def test_missing_level_is_not_done(self) -> None:
-        assert not dod_satisfied(Level.V1, [LevelResult(level=Level.V0, status="pass", secs=0.0)])
+        assert not dod_satisfied(
+            levels_through(Level.V1), [LevelResult(level=Level.V0, status="pass", secs=0.0)]
+        )
 
 
 # ---------------------------------------------------------------------------

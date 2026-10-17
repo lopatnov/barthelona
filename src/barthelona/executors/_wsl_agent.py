@@ -8,7 +8,9 @@ Protocol (architecture §12, D-043):
 - First output line: ``{"hello": {"protocol": 2, "cache_root": "/abs/path"}}``
 - Input  (stdin):  one JSON object per line
   ``{"id": int, "cmd": [...], "cwd": str|null, "env": {str: str}|null,
-    "stdin": base64|null, "timeout": float}``
+    "stdin": base64|null, "timeout": float, "mount": str|null}``
+  ``mount`` (``docker run`` only) is a directory under the cache root that the
+  agent bind-mounts read-only at ``/work``.
 - Output (stdout): one JSON object per line, echoing the request id
   ``{"id": int, "returncode": int, "stdout": base64, "stderr": base64, "elapsed": float}``
   A refused request carries ``"rejected": true`` and a plain-text ``stderr``.
@@ -66,9 +68,14 @@ _SANDBOX_FLAGS: tuple[str, ...] = (
     "64",
     "--cpus",
     "1",
+    "--ulimit",
+    "nofile=64",
+    "--ulimit",
+    "fsize=16777216",
     "--tmpfs",
     # A docker --tmpfs flag value inside the container, not a host path.
     "/tmp:size=16m",  # noqa: S108
+    "-i",  # forward the request's stdin to the binary; the agent never leaves stdin attached
     "--rm",
 )
 
@@ -97,12 +104,13 @@ def _is_allowed(argv: list[str]) -> bool:
     return False
 
 
-def _build_docker_run_argv(argv: list[str]) -> list[str] | None:
+def _build_docker_run_argv(argv: list[str], mount: str | None = None) -> list[str] | None:
     """Reconstruct a docker run command with fixed sandbox flags.
 
     The caller must supply exactly ``["docker", "run", "<image>", *cmd_args]``
     with no docker options; the agent inserts the full sandbox flag set
-    (architecture §12, invariant 2).
+    (architecture §12, invariant 2).  A validated *mount* directory becomes a
+    read-only ``/work`` bind mount.
 
     Returns ``None`` when the argv is invalid (caller-supplied flags, wrong
     image prefix, or missing image).
@@ -116,7 +124,8 @@ def _build_docker_run_argv(argv: list[str]) -> list[str] | None:
     if not image.startswith(_RUN_IMAGE_PREFIX):
         return None
     cmd_args = argv[3:]
-    return ["docker", "run", *_SANDBOX_FLAGS, image, *cmd_args]
+    volume = ["-v", f"{mount}:/work:ro"] if mount else []
+    return ["docker", "run", *_SANDBOX_FLAGS, *volume, image, *cmd_args]
 
 
 def _validate_docker_inspect_argv(argv: list[str]) -> bool:
@@ -148,8 +157,8 @@ def _validate_docker_inspect_argv(argv: list[str]) -> bool:
 def _is_safe_path(path: str) -> bool:
     """Return True when *path* is under the cache root after full resolution."""
     try:
-        resolved = PurePosixPath(Path(path).expanduser().resolve())
-        return str(resolved).startswith(_CACHE_ROOT)
+        resolved = str(PurePosixPath(Path(path).expanduser().resolve()))
+        return resolved == _CACHE_ROOT or resolved.startswith(_CACHE_ROOT + "/")
     except Exception:  # any resolution failure means the path is unsafe
         return False
 
@@ -198,12 +207,40 @@ def _validate_sha256sum_argv(argv: list[str]) -> bool:
     return True
 
 
-def _validate_request(argv: list[str], cwd_raw: object) -> str | None:
-    """Return the rejection message for *argv* / *cwd_raw*, or ``None`` when allowed."""
+def _resolve_mount(mount_raw: object) -> str | None:
+    """The resolved run directory for a ``mount`` field, or ``None`` when it is not acceptable.
+
+    Only absolute paths under ``<cache root>/runs/`` pass, so a relative path (a docker
+    named volume) or ``~`` cannot reach docker, and one attempt cannot see another's root.
+    The resolved path, not the caller's string, is what docker receives.
+    """
+    mount = str(mount_raw)
+    if ":" in mount or "," in mount or "~" in mount or not PurePosixPath(mount).is_absolute():
+        return None
+    resolved = str(PurePosixPath(Path(mount).resolve()))
+    return resolved if resolved.startswith(_CACHE_ROOT + "/runs/") else None
+
+
+def _validate_mount(argv: list[str], mount_raw: object) -> str | None:
+    """Rejection message for a ``mount`` request field; only ``docker run`` may carry one."""
+    if mount_raw is None:
+        return None
+    if argv[:2] != ["docker", "run"]:
+        return "mount is only allowed with docker run"
+    if _resolve_mount(mount_raw) is None:
+        return f"mount outside cache root: {str(mount_raw)!r}"
+    return None
+
+
+def _validate_request(argv: list[str], cwd_raw: object, mount_raw: object = None) -> str | None:
+    """Return the rejection message for *argv* / *cwd_raw* / *mount_raw*, or ``None`` when allowed."""
     if not _is_allowed(argv):
         return f"command not on allow-list: {argv[0]!r}"
     if argv[:2] == ["docker", "run"] and _build_docker_run_argv(argv) is None:
         return "invalid docker run: supply only image and command; docker flags are injected by the agent"
+    mount_error = _validate_mount(argv, mount_raw)
+    if mount_error is not None:
+        return mount_error
     if argv[0] == "tar" and not _validate_tar_paths(argv[1:]):
         return "tar path argument outside cache root"
     if argv[:2] == ["docker", "inspect"] and not _validate_docker_inspect_argv(argv):
@@ -224,7 +261,7 @@ def _prepare_tar_destination(argv: list[str]) -> None:
     """Create the ``-C`` destination of a tar extract when it lies under the cache root."""
     try:
         extract_dir = Path(argv[argv.index("-C") + 1]).expanduser()
-        if str(extract_dir).startswith(_CACHE_ROOT):
+        if _is_safe_path(str(extract_dir)):
             extract_dir.mkdir(parents=True, exist_ok=True)
     except (ValueError, IndexError, OSError):
         pass
@@ -236,12 +273,14 @@ def _handle(request: dict[str, object]) -> dict[str, object]:
     if not argv:
         return _rejection("empty cmd")
 
-    error = _validate_request(argv, request.get("cwd"))
+    mount_raw = request.get("mount")
+    error = _validate_request(argv, request.get("cwd"), mount_raw)
     if error is not None:
         return _rejection(error)
     if argv[:2] == ["docker", "run"]:
         # Reconstruct docker run with hardcoded sandbox flags; fail closed if the rebuild is refused.
-        rebuilt = _build_docker_run_argv(argv)
+        mount = _resolve_mount(mount_raw) if mount_raw is not None else None
+        rebuilt = _build_docker_run_argv(argv, mount)
         if rebuilt is None:
             return _rejection("invalid docker run")
         argv = rebuilt
@@ -265,6 +304,7 @@ def _handle(request: dict[str, object]) -> dict[str, object]:
         proc = subprocess.run(  # noqa: S603  -- argv is allow-list validated; shell=False (default)
             argv,
             input=stdin_bytes,
+            stdin=None if stdin_bytes is not None else subprocess.DEVNULL,  # never inherit the request pipe
             capture_output=True,
             cwd=cwd,
             env=env,

@@ -6,7 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from barthelona.contracts import ContractsError, check_object_symbols, load_registry, parse_nm
+from barthelona.contracts import (
+    ContractsError,
+    check_object_symbols,
+    load_registry,
+    load_test_cases,
+    parse_nm,
+)
 from barthelona.domain.contracts import ContractRegistry, Symbol, SymbolKind, Visibility
 from barthelona.domain.enums import ABI, OS, Arch, Dialect, Linker, ObjFormat, RunEnv
 from barthelona.domain.project import TargetProfile
@@ -102,3 +108,27 @@ class TestLoadRegistry:
         path.write_text("version: 0\n", encoding="utf-8")
         with pytest.raises(ContractsError, match=r"contracts\.yaml"):
             load_registry(path)
+
+
+class TestLoadTestCases:
+    def test_golden_case_round_trip(self, tmp_path: Path) -> None:
+        path = tmp_path / "tests.yaml"
+        path.write_text(
+            "- id: g1\n  kind: io_golden\n  level: V6\n  origin: user\n"
+            "  inputs: {stdin: hi}\n  expect: {stdout: hi, exit_code: 0}\n",
+            encoding="utf-8",
+        )
+        (case,) = load_test_cases(path)
+        assert (case.id, case.expect.stdout) == ("g1", "hi")
+
+    def test_top_level_must_be_a_list(self, tmp_path: Path) -> None:
+        path = tmp_path / "tests.yaml"
+        path.write_text("id: g1\n", encoding="utf-8")
+        with pytest.raises(ContractsError, match="list of test cases"):
+            load_test_cases(path)
+
+    def test_invalid_case_is_reported_with_the_path(self, tmp_path: Path) -> None:
+        path = tmp_path / "tests.yaml"
+        path.write_text("- id: g1\n", encoding="utf-8")
+        with pytest.raises(ContractsError, match=r"tests\.yaml"):
+            load_test_cases(path)

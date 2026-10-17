@@ -225,3 +225,87 @@ def test_validate_tar_paths_unsafe_c_dir() -> None:
 def test_validate_tar_paths_no_c_is_ok() -> None:
     # No -C means tar uses cwd (checked separately); passes here.
     assert agent._validate_tar_paths(["-cf", "-", "."])
+
+
+# ---------------------------------------------------------------------------
+# sandbox mount, ulimits and the path-fence prefix fix (#77)
+# ---------------------------------------------------------------------------
+
+
+def test_sandbox_flags_include_ulimits() -> None:
+    result = agent._build_docker_run_argv(["docker", "run", "bart-run", "true"])
+    assert result is not None
+    assert result.count("--ulimit") == 2
+    assert "nofile=64" in result
+    assert "fsize=16777216" in result
+
+
+def test_mount_becomes_read_only_work_volume() -> None:
+    mount = f"{agent._CACHE_ROOT}/runs/r/0"
+    result = agent._build_docker_run_argv(["docker", "run", "bart-run", "/work/out"], mount)
+    assert result is not None
+    volume = result.index("-v")
+    assert result[volume + 1] == f"{mount}:/work:ro"
+    assert volume < result.index("bart-run")
+
+
+def test_mount_inside_cache_root_is_accepted() -> None:
+    argv = ["docker", "run", "bart-run", "true"]
+    assert agent._validate_request(argv, None, f"{agent._CACHE_ROOT}/runs/r/0") is None
+
+
+def test_mount_outside_cache_root_is_rejected(tmp_path: Path) -> None:
+    argv = ["docker", "run", "bart-run", "true"]
+    error = agent._validate_request(argv, None, str(tmp_path))
+    assert error is not None
+    assert "mount outside cache root" in error
+
+
+def test_mount_with_volume_syntax_is_rejected() -> None:
+    argv = ["docker", "run", "bart-run", "true"]
+    assert agent._validate_request(argv, None, f"{agent._CACHE_ROOT}/x:/etc:rw") is not None
+
+
+def test_mount_is_rejected_for_other_commands() -> None:
+    argv = ["docker", "exec", "bart-tc", "nasm"]
+    error = agent._validate_request(argv, None, f"{agent._CACHE_ROOT}/runs/r/0")
+    assert error is not None
+    assert "docker run" in error
+
+
+def test_handle_rejects_mount_outside_cache_root(tmp_path: Path) -> None:
+    result = agent._handle({"cmd": ["docker", "run", "bart-run", "true"], "mount": str(tmp_path)})
+    assert result["rejected"] is True
+
+
+def test_sibling_directory_with_cache_root_prefix_is_unsafe() -> None:
+    assert not agent._is_safe_path(agent._CACHE_ROOT + "-evil")
+    assert agent._is_safe_path(agent._CACHE_ROOT)
+
+
+def test_mount_must_be_absolute_and_free_of_tilde() -> None:
+    argv = ["docker", "run", "bart-run", "true"]
+    assert agent._validate_request(argv, None, "runs/r/0") is not None  # would become a named volume
+    assert agent._validate_request(argv, None, "~/.cache/barthelona/runs/r/0") is not None
+
+
+def test_mount_must_be_under_runs() -> None:
+    argv = ["docker", "run", "bart-run", "true"]
+    assert agent._validate_request(argv, None, agent._CACHE_ROOT) is not None
+    assert agent._validate_request(argv, None, f"{agent._CACHE_ROOT}/other") is not None
+
+
+def test_mount_symlink_escaping_the_cache_root_is_rejected(tmp_path: Path) -> None:
+    runs = Path(agent._CACHE_ROOT) / "runs"
+    runs.mkdir(parents=True, exist_ok=True)
+    link = runs / "symlink-escape-test"
+    link.symlink_to(tmp_path)
+    try:
+        assert agent._resolve_mount(str(link)) is None
+    finally:
+        link.unlink()
+
+
+def test_resolved_mount_is_what_docker_receives() -> None:
+    mount = f"{agent._CACHE_ROOT}/runs/r/../r/0"
+    assert agent._resolve_mount(mount) == f"{agent._CACHE_ROOT}/runs/r/0"

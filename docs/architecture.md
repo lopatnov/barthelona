@@ -827,7 +827,7 @@ Normalization:
 - **Staging.** The worker tars sources, `gen/`, tests and the Makefile, and the agent extracts them to `~/.cache/barthelona/runs/<run>/<attempt>/` on ext4. `/mnt/c` is a slow 9P share, so it is never used. Artifacts are tarred back.
 - **Agent allowlist:**
   - `docker exec bart-tc …`;
-  - `docker run … bart-run …`, with the sandbox flags fixed by the agent, not by the caller;
+  - `docker run … bart-run …`, with the sandbox flags (including the `--ulimit`s and `-i`) fixed by the agent, not by the caller. The only caller-supplied option is a `mount` request field: a directory under the cache root that the agent bind-mounts read-only at `/work`. The agent never leaves its own stdin attached to a child;
   - `docker inspect --format … <image>` — exactly one target, restricted to `bart-tc` or `bart-run*` (used by `barthelona probe` to record image digests);
   - `tar`, `sha256sum`.
   - Every path must be under `~/.cache/barthelona/`.
@@ -867,7 +867,7 @@ Normalization:
 | V8 | Real Windows (Windows Sandbox), opt-in, later | 30–60 s | Windows Sandbox |
 | T, M | Tamper gate after every apply; minimality gate in edit mode | ms | worker |
 
-**Levels are registered checks (D-046).** The ids V0 to V8 are stable names; each is implemented by a `LevelCheck` (`level`, `supports(ctx)`, `async run(ctx)`) registered per target family, so a family such as WebAssembly can supply its own V3 or V4. `run_ladder` walks the registry in order: an unsupported level returns `unsupported` with a reason, a failed level makes later ones `skipped`, and a required level that is not `pass` means the work is not done. Checks take the whole module list; batching their commands is follow-up F-52. With a contract registry, V1 compares `nm -P -g` output with it: a module's defined globals must equal its registry exports, and its undefined symbols must be the `calls` of its symbols, `extern` registry symbols, or the allow-list.
+**Levels are registered checks (D-046).** The ids V0 to V8 are stable names; each is implemented by a `LevelCheck` (`level`, `supports(ctx)`, `async run(ctx)`) registered per target family, so a family such as WebAssembly can supply its own V3 or V4. `run_ladder` walks the registry in order: an unsupported level returns `unsupported` with a reason, a failed level makes later ones `skipped`, and a required level that is not `pass` means the work is not done. Checks take the whole module list; batching their commands is follow-up F-52. With a contract registry, V1 compares `nm -P -g` output with it: a module's defined globals must equal its registry exports, and its undefined symbols must be the `calls` of its symbols, `extern` registry symbols, or the allow-list. V6 runs each `io_golden` `TestCase` (`inputs.stdin`, `expect.stdout`, `expect.exit_code`, default exit code 0) against `output.elf` through the sandbox executor; without a sandbox executor or golden cases it is `unsupported`. `dod_satisfied(required, results)` takes the required levels from the caller, so the MVP set (V0–V2, V5, V6) can leave out V3/V4 until Phase 2.
 
 V3 checks:
 - the rsp delta along every path; stack balanced at every `ret`;
