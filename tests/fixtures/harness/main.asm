@@ -1,4 +1,5 @@
 ; Entry module: V5 leaves it out because the generated harness has its own main.
+bits 64
 global _start
 extern add_one
 

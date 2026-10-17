@@ -39,7 +39,7 @@ def _source_files(*names: str) -> list[Path]:
 
 
 def _nasm_v0_argv(name: str) -> tuple[str, ...]:
-    return ("nasm", "-o", "/dev/null", f"{_WORK}/{name}")
+    return ("nasm", "-f", "elf64", "-o", "/dev/null", f"{_WORK}/{name}")
 
 
 def _nasm_v1_argv(name: str) -> tuple[str, ...]:

@@ -33,8 +33,12 @@ class NasmAdapter:
         return ".asm"
 
     def syntax_check_argv(self, source: str) -> tuple[str, ...]:
-        """V0: syntax-only pass; output discarded via ``/dev/null`` inside the container."""
-        return ("nasm", "-o", "/dev/null", source)
+        """V0: syntax-only pass; output discarded via ``/dev/null`` inside the container.
+
+        The ELF64 format is passed because the default ``bin`` format rejects ``extern`` and
+        64-bit section attributes, so a module with imports would fail V0 for the wrong reason.
+        """
+        return ("nasm", "-f", "elf64", "-o", "/dev/null", source)
 
     def assemble_argv(
         self,

@@ -50,6 +50,10 @@ class TestNasmAdapter:
         argv = self.a.syntax_check_argv("hello.asm")
         assert "hello.asm" in argv
 
+    def test_syntax_check_uses_the_elf_format_so_extern_is_accepted(self) -> None:
+        argv = self.a.syntax_check_argv("hello.asm")
+        assert argv[argv.index("-f") + 1] == "elf64"
+
     def test_assemble_argv_elf64(self) -> None:
         argv = self.a.assemble_argv("hello.asm", "hello.o", ObjFormat.ELF64)
         assert argv[0] == "nasm"

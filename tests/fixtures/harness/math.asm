@@ -1,4 +1,5 @@
 ; add_one(rdi) -> rax: the function under test in the V5 integration test.
+bits 64
 global add_one
 
 section .text
