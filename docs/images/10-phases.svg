@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 870" width="1300" height="870" role="img" aria-label="Phases from Phase 0 foundations to Phase 5 Policy Lab; Phase 2 has two tracks (2a oracles with the MCP server, 2b meta-agency); each phase ends on a measurable exit criterion plus a phase review." font-family="Arial, Helvetica, sans-serif">
+<title>10. Phases and what each one adds</title>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#37474f"/></marker><marker id="ahs" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M10,0 L0,5 L10,10 Z" fill="#37474f"/></marker></defs>
+<rect x="0" y="0" width="1300" height="870" fill="#ffffff"/>
+<text x="24" y="36" font-size="18" fill="#1a1a1a" text-anchor="start" font-weight="bold">10. Phases and what each one adds</text>
+<text x="24" y="58" font-size="13" fill="#455a64" text-anchor="start">All phases (docs/roadmap.md); a phase ends only when its exit criteria and the phase review (D-037) pass</text>
+<rect x="560" y="86" width="22" height="14" rx="3" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.5"/><text x="588" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Exists on main</text><rect x="700.4615384615385" y="86" width="22" height="14" rx="3" fill="#ffe0b2" stroke="#ef6c00" stroke-width="1.5"/><text x="728.462" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">In progress (Phase 0)</text><rect x="886.1538461538462" y="86" width="22" height="14" rx="3" fill="#eceff1" stroke="#607d8b" stroke-width="1.5"/><text x="914.154" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Planned</text><rect x="981.3846153846155" y="86" width="22" height="14" rx="3" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.5"/><text x="1009.38" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Exit criterion</text>
+<rect x="40" y="128" width="660" height="72" rx="6" fill="#ffe0b2" stroke="#ef6c00" stroke-width="1.8"/>
+<text x="370" y="151.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Phase 0 (in progress): Foundations, deterministic spine</text>
+<text x="370" y="168.55" font-size="13" fill="#1a1a1a" text-anchor="middle">done: executors, NASM/GAS, images, V0-V2, V5/V6, tamper gate, codegen</text>
+<text x="370" y="185.55" font-size="13" fill="#1a1a1a" text-anchor="middle">to do: mutation corpus, minimal gateway, early bake-off + spike, sample projects</text>
+<rect x="800" y="132" width="460" height="64" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.8"/>
+<text x="1030" y="151.55" font-size="13" fill="#1a1a1a" text-anchor="middle">Exit: Two 3-module projects pass verify; bake-off table with</text>
+<text x="1030" y="168.55" font-size="13" fill="#1a1a1a" text-anchor="middle">strong baseline (single prompt + fix loops) and noise;</text>
+<text x="1030" y="185.55" font-size="13" fill="#1a1a1a" text-anchor="middle">local model chosen</text>
+<rect x="40" y="232" width="660" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="370" y="255.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Phase 1a: Walking skeleton</text>
+<text x="370" y="272.55" font-size="13" fill="#1a1a1a" text-anchor="middle">L0 planner, one backend, G1/G2/G4,</text>
+<text x="370" y="289.55" font-size="13" fill="#1a1a1a" text-anchor="middle">UI: New request, Approvals, Live run; crash spike</text>
+<rect x="800" y="240" width="460" height="56" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.8"/>
+<text x="1030" y="264.05" font-size="13" fill="#1a1a1a" text-anchor="middle">Exit: One 3-module NASM program from a request;</text>
+<text x="1030" y="281.05" font-size="13" fill="#1a1a1a" text-anchor="middle">baseline vs L0 recorded</text>
+<rect x="40" y="336" width="660" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="370" y="359.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Phase 1b: Breadth</text>
+<text x="370" y="376.55" font-size="13" fill="#1a1a1a" text-anchor="middle">validator T1-T10, compile, L1, re-planning,</text>
+<text x="370" y="393.55" font-size="13" fill="#1a1a1a" text-anchor="middle">all providers, breakers, bench v1</text>
+<rect x="800" y="340" width="460" height="64" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.8"/>
+<text x="1030" y="359.55" font-size="13" fill="#1a1a1a" text-anchor="middle">Exit: Crash spike passes; beats the strong baseline (single</text>
+<text x="1030" y="376.55" font-size="13" fill="#1a1a1a" text-anchor="middle">prompt + fix loops), margin from measured noise, paired</text>
+<text x="1030" y="393.55" font-size="13" fill="#1a1a1a" text-anchor="middle">intervals; owner builds a 3-module NASM program in the UI</text>
+<rect x="40" y="440" width="322" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="201" y="463.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Phase 2a: Oracles + MCP server</text>
+<text x="201" y="480.55" font-size="13" fill="#1a1a1a" text-anchor="middle">V3 lint, V5 canary, V4 only for misses,</text>
+<text x="201" y="497.55" font-size="13" fill="#1a1a1a" text-anchor="middle">mutation corpus, differential tests</text>
+<rect x="378" y="440" width="322" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="539" y="463.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Phase 2b: Meta-agency</text>
+<text x="539" y="480.55" font-size="13" fill="#1a1a1a" text-anchor="middle">L1 default, L2 flag, retro overlay,</text>
+<text x="539" y="497.55" font-size="13" fill="#1a1a1a" text-anchor="middle">compile_high_level (after L0 bench)</text>
+<rect x="800" y="444" width="460" height="64" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.8"/>
+<text x="1030" y="463.55" font-size="13" fill="#1a1a1a" text-anchor="middle">Exit 2a: mutation corpus 100% detected, 0 false positives</text>
+<text x="1030" y="480.55" font-size="13" fill="#1a1a1a" text-anchor="middle">Exit 2b: composed topologies validate or fall back to L0;</text>
+<text x="1030" y="497.55" font-size="13" fill="#1a1a1a" text-anchor="middle">bench: paired interval excludes zero</text>
+<rect x="40" y="544" width="660" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="370" y="567.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Phase 3: Edit external projects, memory</text>
+<text x="370" y="584.55" font-size="13" fill="#1a1a1a" text-anchor="middle">importer, repo map, inferred contracts,</text>
+<text x="370" y="601.55" font-size="13" fill="#1a1a1a" text-anchor="middle">lessons, optional Qdrant</text>
+<rect x="800" y="552" width="460" height="56" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.8"/>
+<text x="1030" y="584.55" font-size="13" fill="#1a1a1a" text-anchor="middle">Exit: Zero characterization regressions on external seeds</text>
+<rect x="40" y="648" width="660" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="370" y="671.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Phase 4: Dialect and target breadth</text>
+<text x="370" y="688.55" font-size="13" fill="#1a1a1a" text-anchor="middle">FASM, Win64, ELF32, MASM syntax,</text>
+<text x="370" y="705.55" font-size="13" fill="#1a1a1a" text-anchor="middle">boot sector, then WAT (F-34)</text>
+<rect x="800" y="656" width="460" height="56" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.8"/>
+<text x="1030" y="688.55" font-size="13" fill="#1a1a1a" text-anchor="middle">Exit: Each preset passes its conformance kit</text>
+<rect x="40" y="752" width="660" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="370" y="775.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Phase 5: Policy Lab, research, extras</text>
+<text x="370" y="792.55" font-size="13" fill="#1a1a1a" text-anchor="middle">A/B on holdout, gated web research,</text>
+<text x="370" y="809.55" font-size="13" fill="#1a1a1a" text-anchor="middle">AArch64 / RISC-V, OpenTelemetry</text>
+<rect x="800" y="760" width="460" height="56" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.8"/>
+<text x="1030" y="784.05" font-size="13" fill="#1a1a1a" text-anchor="middle">Exit: One policy patch activated with measured gain,</text>
+<text x="1030" y="801.05" font-size="13" fill="#1a1a1a" text-anchor="middle">rollback exercised</text>
+<polyline points="700,164 800,164" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="700,268 800,268" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="370,200 370,232" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="700,372 800,372" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="370,304 370,336" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="700,476 800,476" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="370,408 370,440" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="700,580 800,580" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="370,512 370,544" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="700,684 800,684" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="370,616 370,648" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="700,788 800,788" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="370,720 370,752" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="24" y="92" font-size="13" fill="#1a1a1a" text-anchor="start" font-weight="bold">Assembler first; WASM after</text>
+<rect x="720.831" y="144" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="750" y="156" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">exit when</text>
+<rect x="720.831" y="248" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="750" y="260" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">exit when</text>
+<rect x="373" y="208" width="197.908" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="376" y="220" font-size="12" fill="#263238" text-anchor="start">exit criteria + phase review pass</text>
+<rect x="720.831" y="352" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="750" y="364" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">exit when</text>
+<rect x="373" y="312" width="197.908" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="376" y="324" font-size="12" fill="#263238" text-anchor="start">exit criteria + phase review pass</text>
+<rect x="720.831" y="456" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="750" y="468" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">exit when</text>
+<rect x="373" y="416" width="197.908" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="376" y="428" font-size="12" fill="#263238" text-anchor="start">exit criteria + phase review pass</text>
+<rect x="720.831" y="560" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="750" y="572" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">exit when</text>
+<rect x="373" y="520" width="197.908" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="376" y="532" font-size="12" fill="#263238" text-anchor="start">exit criteria + phase review pass</text>
+<rect x="720.831" y="664" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="750" y="676" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">exit when</text>
+<rect x="373" y="624" width="197.908" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="376" y="636" font-size="12" fill="#263238" text-anchor="start">exit criteria + phase review pass</text>
+<rect x="720.831" y="768" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="750" y="780" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">exit when</text>
+<rect x="373" y="728" width="197.908" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="376" y="740" font-size="12" fill="#263238" text-anchor="start">exit criteria + phase review pass</text>
+</svg>
