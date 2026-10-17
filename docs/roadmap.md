@@ -151,6 +151,7 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-29 | V1 only assembles; the `nm`/registry symbol check (exports exact, undefined ⊆ imports ∪ allow-list, §13.1) is deferred until `contracts.yaml` is populated | PR #43, 2026-10-16 | `contracts.yaml` does not exist yet | Implement `run_v1` nm gate once `contracts.yaml` schema and population land; good/bad mutation corpus entries required | open (#45) |
 | F-30 | `NasmAdapter`, `GasIntelAdapter`, `GasAttAdapter` `parse_diagnostics` are stubs returning `[]`; no real error message is surfaced in `Diagnostic` | PR #43, 2026-10-16 | Requires captured tool output in `tests/fixtures/diagnostics/` | Capture nasm/as stderr for representative errors in `bart-tc`; implement parsers; parametrised fixture tests + Hypothesis round-trip | open (#46) |
 | F-31 | V5 (C-harness tests) and V6 (golden I/O) are Phase 0 deliverables that require the `bart-run` sandbox image, which does not yet exist | PR #43, 2026-10-16 | `bart-run` image not built | Implement `run_v5` and `run_v6` once `bart-run` ships; extend `_LEVEL_ORDER`; test with `FakeExecutor` | open (#47) |
+| F-32 | D-042b/c/d: provider host allow-list in the catalog loader, benchmark-gated adequacy check (Jev candidate), and the matching architecture.md §5/§13 updates | D-042 (issue #29), 2026-10-17 | Needs the Phase 1 catalog loader and the bench | Implement per D-042; update `docs/architecture.md` §5.3, §13 and §16 in the same change; keep issue #29 as the tracker | open |
 
 ## Parked ideas (not scheduled)
 

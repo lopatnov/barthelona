@@ -7,7 +7,7 @@ paths:
 # LLM gateway and prompting rules (docs/architecture.md §16, ADR D-011, D-012, D-029, D-030)
 
 - **Official SDKs only:** `openai` 3.x (Chat Completions for LM Studio/Ollama/DeepSeek; Responses API for OpenAI GPT-6), `anthropic` 1.x, `google-genai` 2.x. No LiteLLM. Use the `/claude-api` skill before writing Anthropic code.
-- **Model ids, prices and parameters** come from `config/models.yaml`, never from memory. When adding or changing a model, verify it on the provider's docs (use the `docs-researcher` agent) and update `pricing_checked`.
+- **Model ids, prices and parameters** come from `config/models.yaml`, never from memory. When adding or changing a model, use `docs-researcher` to fetch the provider's official docs page (listed in the "Provider API docs" row of AGENTS.md), then copy `base_url`, model ids and prices verbatim from there. Do not write a URL from memory, a secondary source, or a previous config: fetch it. Update `pricing_checked` with today's date.
 - **Local endpoints** use `127.0.0.1`, never `localhost` (IPv6 resolution makes LM Studio hang).
 - **Sampling parameters** (`temperature`/`top_p`/`top_k`) go to local models only. Claude 5.x and GPT-6 (effort other than `none`) return 400; Gemini 3.x and DeepSeek thinking mode ignore or reject them. Use prompt variants for cloud diversity.
 - **Reasoning settings** come from the role-chain entry in `config/models.yaml` (e.g. `{model: claude-opus-5-5, effort: high}`) and are always sent explicitly.

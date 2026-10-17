@@ -39,7 +39,7 @@ Template: Context (optional), Decision, Rationale, Alternatives considered, Cons
 | [D-030](D-030-provider-resilience-and-optional-budgets.md) | Provider resilience and optional budgets | Proposed | amends D-014, D-015 |
 | [D-031](D-031-dependencies-in-pyproject-locked-per-platform.md) | Dependencies are declared in pyproject.toml and hash-locked per platform | Proposed | amends D-023 |
 | [D-032](D-032-shared-agent-instructions-and-codex-mirror.md) | Shared agent instructions (AGENTS.md), a generated Codex mirror, and the `.reference/` policy | Proposed | amends D-026; amended by D-033 |
-| [D-033](D-033-dev-process-conventions.md) | Development-process conventions for coding agents (adapted from the owner's conduit project) | Proposed | amends D-026, D-032; amended by D-035, D-037 |
+| [D-033](D-033-dev-process-conventions.md) | Development-process conventions for coding agents (adapted from the owner's conduit project) | Proposed | amends D-026, D-032; amended by D-035, D-037, D-042 |
 | [D-034](D-034-project-owned-qdrant-in-docker-compose.md) | Barthelona runs its own Qdrant from docker/qdrant/compose.yaml | Proposed |  |
 | [D-035](D-035-agents-commit-push-and-merge-without-approval.md) | Coding agents commit, push and merge their own PRs without owner approval | Proposed | amends D-033 |
 | [D-036](D-036-opt-in-local-training-data-collection.md) | Opt-in, local collection of training data from code-producing attempts | Proposed |  |
@@ -48,3 +48,4 @@ Template: Context (optional), Decision, Rationale, Alternatives considered, Cons
 | [D-039](D-039-caching-strategy-prefix-caching-not-semantic-response-cache.md) | Caching strategy: provider prefix caching adopted; semantic response caching rejected | Proposed | amends D-016 |
 | [D-040](D-040-compile-down-asm-generation-strategy.md) | Compile-down strategy: compile C/Rust to assembly as an alternative `implement_symbol` path | Proposed | |
 | [D-041](D-041-wsl-agent-docker-inspect-allowlist.md) | Add `docker inspect` to the WSL agent allowlist (single target, bart-tc / bart-run* only) | Proposed | amends D-006, D-010 |
+| [D-042](D-042-adequacy-and-verifier-check.md) | Adequacy and verifier check for dev threads and the product pipeline | Proposed | amends D-033 |

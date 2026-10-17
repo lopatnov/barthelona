@@ -20,6 +20,7 @@ A local-first agentic system that **creates or edits multi-file assembly project
 | Phases, exit criteria, open owner decisions, follow-ups | `docs/roadmap.md` |
 | Setup, operations, troubleshooting | `docs/runbook.md` |
 | Model catalog, role chains, budgets | `config/models.yaml` |
+| Provider API docs (LLM base_url + model ids + prices; Qdrant connection config) | Qwen: https://docs.qwencloud.com/developer-guides/getting-started/introduction · Anthropic: https://platform.claude.com/docs/en/home · DeepSeek: https://api-docs.deepseek.com/ · OpenAI: https://developers.openai.com/api/docs · Gemini: https://aistudio.google.com/docs/get-started · Qdrant: https://qdrant.tech/documentation/ |
 | Doc sources and licenses | `docs/knowledge-sources.md` |
 | Recent sessions and the next step (history, not authoritative) | newest `docs/devlog/*.md`, top entry |
 
