@@ -1089,7 +1089,7 @@ Price classes within a provider (`price_class` in the catalog; not to be confuse
 
 | Provider | Frontier | Flagship | Mid | Cheap |
 | --- | --- | --- | --- | --- |
-| Anthropic | `claude-fable-5-1` 10 / 0.25 / 50 (disabled) | `claude-opus-5-5` 4 / 0.20 / 20 | `claude-sonnet-5-5` 2 / 0.20 / 10 | `claude-haiku-5-5` 0.10 / 0.01 / 0.50 (prompts > 100K: 0.50 / 0.05 / 2.50) |
+| Anthropic | `claude-fable-5-1` 10 / 0.25 / 50 (disabled) | `claude-opus-5-5` 4 / 0.20 / 20 | `claude-sonnet-5-5` 2 / 0.10 / 10 | `claude-haiku-5-5` 0.10 / 0.01 / 0.50 (prompts > 100K: 0.50 / 0.05 / 2.50) |
 | OpenAI | `gpt-6-astra` 10 / 1 / 50 | — | `gpt-6.1-sol` 2 / 0.10 / 10; `gpt-6-sol` 2 / 0.20 / 10 | `gpt-6-luna` 0.10 / 0.01 / 0.50 |
 | Google | — | `gemini-3.1-pro-preview` 2 / 0.20 / 12 (preview only) | `gemini-3.8-flash`, `gemini-3.6-flash` 0.75 / 0.075 / 3.75 (double on 2027-01-01) | `gemini-3.5-flash-lite` 0.30 / 0.03 / 2.50 |
 | DeepSeek | — | `deepseek-v4-pro` 1.32 / 0.044 / 3.96 (peak; off-peak −50%) | `deepseek-flash` 0.30 / 0.006 / 1.20 (peak; off-peak −50%) | `deepseek-flash` with thinking disabled |
@@ -1184,6 +1184,7 @@ Blocks are ordered from stable to volatile, so llama.cpp/LM Studio can reuse the
 
 - **Never dropped:** role, rule card, the task's own contract, task and error.
 - **Drop order when over budget:** lowest-scored doc chunks, then lessons, then repo-map depth, then callee contracts.
+- **Cloud input cap:** the 16K table above is the local profile. For a cloud model that has a `long_context` price tier, the assembler caps the input of every call at `long_context.above_input_tokens` (Haiku 5.5: 100K, where input jumps from $0.10 to $0.50 per million tokens). Models without a tier (Opus 5.5, Sonnet 5.5) are not capped by this rule. A role can opt in to the higher tier; the opt-in key is defined together with the assembler (roadmap F-33).
 - **Token counting:** the model's tokenizer where available, otherwise characters / 3.5 with a 15% margin.
 - **Hidden tests never appear in prompts.**
 - **Stable-prefix constraint (D-039):** blocks 1–3 must be byte-for-byte identical across all calls that share the same dialect, arch and policy version within a sprint run, so the provider can reuse the KV cache. The context assembler computes a `stable_prefix_hash` and raises an error if it changes mid-run. Block 3 is at most 25% of the context window; the assembler raises a hard error rather than silently truncating.
@@ -1218,8 +1219,8 @@ Blocks are ordered from stable to volatile, so llama.cpp/LM Studio can reuse the
 - **Prompt caching:**
   - the minimum cacheable prefix depends on the model: 512 tokens for Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1; 1024–4096 tokens for older models;
   - verify that `usage.cache_read_input_tokens` is greater than 0;
-  - cache reads cost $0.20/MTok for Opus 5.5 and $0.10/MTok for Sonnet 5.5 (5% of base input); 10% of base input for most other models.
-    (https://platform.claude.com/docs/en/build-with-claude/prompt-caching, checked 2026-10-16)
+  - cache reads cost 0.05x the base input price on Opus 5.5 ($0.20 per million tokens) and Sonnet 5.5 ($0.10), and 0.1x on Haiku 5.5 ($0.01) (https://platform.claude.com/docs/en/about-claude/pricing, checked 2026-10-17);
+  - a 5-minute write costs 1.25x and a 1-hour write 2x the base input price, and every cache hit refreshes the 5-minute lifetime at no cost: use 5 minutes for tight worker loops and 1 hour only where calls are more than 5 minutes apart (planner roles).
 - **Batch API:** 50% off. Use it for benchmark and Policy Lab runs.
 - **API keys** come only from environment variables. They never appear in logs or in Streamlit session state.
 
