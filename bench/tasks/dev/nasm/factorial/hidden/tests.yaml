@@ -1,0 +1,42 @@
+- id: factorial_0
+  kind: c_harness
+  symbol: factorial
+  level: V5
+  origin: bench
+  inputs: {rdi: 0}
+  expect: {ret: 1}
+- id: factorial_1
+  kind: c_harness
+  symbol: factorial
+  level: V5
+  origin: bench
+  inputs: {rdi: 1}
+  expect: {ret: 1}
+- id: factorial_2
+  kind: c_harness
+  symbol: factorial
+  level: V5
+  origin: bench
+  inputs: {rdi: 5}
+  expect: {ret: 120}
+- id: factorial_3
+  kind: c_harness
+  symbol: factorial
+  level: V5
+  origin: bench
+  inputs: {rdi: 10}
+  expect: {ret: 3628800}
+- id: factorial_4
+  kind: c_harness
+  symbol: factorial
+  level: V5
+  origin: bench
+  inputs: {rdi: 15}
+  expect: {ret: 1307674368000}
+- id: factorial_5
+  kind: c_harness
+  symbol: factorial
+  level: V5
+  origin: bench
+  inputs: {rdi: 20}
+  expect: {ret: 2432902008176640000}

@@ -1,0 +1,8 @@
+id: isqrt
+title: Integer square root
+dialect: nasm
+module: isqrt
+prompt: |
+  Implement the function `isqrt` (n in rdi). Return the floor of the square root of the unsigned
+  64-bit integer `n`.
+  The result goes in rax. Registers rbx, rbp and r12-r15 must be preserved.

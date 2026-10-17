@@ -1,0 +1,8 @@
+id: max_u64
+title: Unsigned maximum
+dialect: nasm
+module: max_u64
+prompt: |
+  Implement the function `max_u64` (a in rdi, b in rsi). Return the larger of the two unsigned 64-bit
+  integers `a` and `b`. Values above 2^63 are larger than small values: compare as unsigned.
+  The result goes in rax. Registers rbx, rbp and r12-r15 must be preserved.

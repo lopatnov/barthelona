@@ -1,0 +1,19 @@
+version: 1
+target:
+  preset: linux-x64-nasm
+  dialect: nasm
+  arch: x86-64
+  os: linux
+  abi: sysv64
+  obj_format: elf64
+  link: ld
+  run_env: docker-native
+symbols:
+  sum_to_n:
+    name: sum_to_n
+    kind: func
+    module: src/sum_to_n.asm
+    inputs:
+      - {reg: rdi, type: u64}
+    outputs:
+      - {reg: rax, type: u64}

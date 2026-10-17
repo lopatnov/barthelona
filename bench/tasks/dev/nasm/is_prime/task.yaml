@@ -1,0 +1,9 @@
+id: is_prime
+title: Primality test
+dialect: nasm
+module: is_prime
+prompt: |
+  Implement the function `is_prime` (n in rdi). Return 1 if the unsigned 64-bit integer `n` is prime
+  and 0 otherwise. 0 and 1 are not prime. `n` is at most 2^32, so trial division up to the square root
+  is fast enough.
+  The result goes in rax. Registers rbx, rbp and r12-r15 must be preserved.

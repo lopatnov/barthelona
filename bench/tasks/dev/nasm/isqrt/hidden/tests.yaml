@@ -1,0 +1,63 @@
+- id: isqrt_0
+  kind: c_harness
+  symbol: isqrt
+  level: V5
+  origin: bench
+  inputs: {rdi: 0}
+  expect: {ret: 0}
+- id: isqrt_1
+  kind: c_harness
+  symbol: isqrt
+  level: V5
+  origin: bench
+  inputs: {rdi: 1}
+  expect: {ret: 1}
+- id: isqrt_2
+  kind: c_harness
+  symbol: isqrt
+  level: V5
+  origin: bench
+  inputs: {rdi: 3}
+  expect: {ret: 1}
+- id: isqrt_3
+  kind: c_harness
+  symbol: isqrt
+  level: V5
+  origin: bench
+  inputs: {rdi: 4}
+  expect: {ret: 2}
+- id: isqrt_4
+  kind: c_harness
+  symbol: isqrt
+  level: V5
+  origin: bench
+  inputs: {rdi: 15}
+  expect: {ret: 3}
+- id: isqrt_5
+  kind: c_harness
+  symbol: isqrt
+  level: V5
+  origin: bench
+  inputs: {rdi: 16}
+  expect: {ret: 4}
+- id: isqrt_6
+  kind: c_harness
+  symbol: isqrt
+  level: V5
+  origin: bench
+  inputs: {rdi: 1000000000000}
+  expect: {ret: 1000000}
+- id: isqrt_7
+  kind: c_harness
+  symbol: isqrt
+  level: V5
+  origin: bench
+  inputs: {rdi: 18446744073709551615}
+  expect: {ret: 4294967295}
+- id: isqrt_8
+  kind: c_harness
+  symbol: isqrt
+  level: V5
+  origin: bench
+  inputs: {rdi: 4611686018427387904}
+  expect: {ret: 2147483648}

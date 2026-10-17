@@ -1414,6 +1414,7 @@ Langfuse and LangSmith are excluded: self-hosting Langfuse is too heavy for this
   - **MVP set:** 12 create tasks and 8 edit tasks.
     - Create: strlen, atoi, itoa, memcpy, insertion sort, hexdump CLI, wc, bigint add, a multi-module tokenizer.
     - Edit: injected bugs (misaligned call, clobbered rbx, off-by-one, wrong syscall number, missing `default rel`) and small features.
+  - **Phase 0 bake-off tasks (#113):** ten integer-in, integer-out functions (gcd, popcount, fib, factorial, rotl, max_u64, isqrt, is_prime, collatz_steps, sum_to_n) in `bench/tasks/dev/nasm/<id>/` with `task.yaml`, `contracts.yaml` and `hidden/tests.yaml` (V5 `c_harness` cases, never shown to a model). Memory and string tasks wait for the pointer cases of the V5 harness (roadmap F-56). Arms: `single` (no fix iterations) and `fix` (up to N iterations fed with the oracle output); both are bounded by attempts and tokens and stop with a `StopReason`. Arms are compared by task (paired bootstrap, several seeds), `bench/prompts/*.md.j2` hold the prompts.
   - **Growth:** to 60 tasks.
   - **Metrics:** solved within budget, first-try green, attempts, escalations, tokens, time, dollars, schema failures, tamper attempts.
   - **Baseline:** one prompt to the same model, which the agent must beat.

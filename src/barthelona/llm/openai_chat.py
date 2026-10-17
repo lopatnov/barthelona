@@ -58,6 +58,8 @@ class OpenAIChatBackend:
         }
         if request.temperature is not None:
             arguments["temperature"] = request.temperature  # local models only (checked in unsupported)
+        if request.seed is not None:
+            arguments["seed"] = request.seed
         if request.response_schema is not None:
             if target.provider.structured_output != "json_schema":
                 raise ModelCallError(f"{target.provider_id} has no json_schema structured output")
