@@ -161,7 +161,7 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-41 | Executor contract is synchronous, shares one mutable work directory and one unmultiplexed pipe, and exists only on Windows | architecture review, 2026-10-17 (D-043) | Phase 0 code predates the engine | Async `Session` API, request ids in the agent, `AgentExecutor(transport)` with `WslTransport` and `LocalTransport`, `docker` pytest marker; before the `bart-run` executor and V5/V6 | fixed 2026-10-17 (#63); the `bart-run` sandbox executor lands with #47 |
 | F-42 | No rule for which store wins after a crash; events are not idempotent; no run compatibility version | architecture review, 2026-10-17 (D-044) | Needs the engine | `RunEvent.dedupe_key`, response reuse on resume, `Run.engine_state_version`, crash spike at each seam | open (#64) |
 | F-43 | Layering test and SDK containment (replaces F-1) | architecture review, 2026-10-17 (D-045) | Nothing enforces the matrix yet | `tests/unit/test_layering.py` with the table as data | open (#65) |
-| F-44 | Ladder is a hard-coded V0-V2 list | architecture review, 2026-10-17 (D-046) | V5/V6 (#47) are next | `LevelCheck` registry, `run_ladder`, unsupported vs skipped semantics | open (#66) |
+| F-44 | Ladder is a hard-coded V0-V2 list | architecture review, 2026-10-17 (D-046) | V5/V6 (#47) are next | `LevelCheck` registry, `run_ladder`, unsupported vs skipped semantics | fixed (#66) |
 | F-45 | Windows path traps are not covered by the path fence (reserved names, trailing dots, ADS, case collisions) | architecture review, 2026-10-17 | The envelope parser does not exist yet | One `safe_relative_path()` with tests and fuzzing | open (#67) |
 | F-46 | No retention for `var/runs`, LLM call files, exec logs, events | architecture review, 2026-10-17 | Nothing writes them yet | Policy in §18, `runs prune`, size in doctor and the UI | open (#68) |
 | F-47 | Phase 1 is one large slice resting on an unmeasured local-model assumption | architecture review, 2026-10-17 | Owner's roadmap | Split into 1a walking skeleton (L0 only) and 1b breadth | open (#69) |
@@ -169,6 +169,7 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-49 | Doc drift: duplicated price tables in §16, stale ADR ranges, F-30 cited as F-27 in `dialect.py` | architecture review, 2026-10-17 | Small | Point to `config/models.yaml`; fix the citation with Phase 0 work | open (#71) |
 | F-50 | WSL agent path fence uses a bare `startswith`, so `~/.cache/barthelona-evil` passes | D-043 review gate, 2026-10-17 | Pre-existing; separate fix | Compare against the root plus a separator; unit test with a sibling prefix | open (#77) |
 | F-51 | Agent stderr is discarded (`DEVNULL`), so agent crashes surface only as "closed the pipe" | D-043 review gate, 2026-10-17 | Diagnostics only | Keep the last KB of agent stderr and put it in `ExecutorInfraError` | open (#78) |
+| F-52 | Ladder V0/V1 make one executor call per file; D-046 asks for one per level, and the assembler-failure fallback still lives in the check | #66 review gate, 2026-10-17 | Latency per attempt | Batched executor call shape plus FakeExecutor support; move the fallback into the adapter | open (#80) |
 
 ## Parked ideas (not scheduled)
 

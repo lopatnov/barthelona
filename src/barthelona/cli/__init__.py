@@ -188,7 +188,7 @@ def _report(results: list[LevelResult]) -> int:
         for d in r.diagnostics:
             loc = f"{d.file}:{d.line}" if d.file and d.line else (d.file or "")
             _out.print(f"    {d.severity} [{d.level}] {loc} {d.message}", markup=False)
-    return 1 if any(r.status == "fail" for r in results) else 0
+    return 1 if any(r.status in ("fail", "unsupported") for r in results) else 0
 
 
 @app.command()
