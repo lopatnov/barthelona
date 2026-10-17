@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 from pathlib import Path
 
-from barthelona.contracts.codegen import GEN_DIR, render_all
+from barthelona.contracts._gen import GEN_DIR
+from barthelona.contracts.codegen import render_all
 from barthelona.domain.contracts import ContractRegistry
 from barthelona.domain.enums import DiagnosticLevel
-from barthelona.domain.verification import Diagnostic, LevelResult, Severity
+from barthelona.domain.verification import Diagnostic, LevelResult, Severity, TestCase
 
 
 def _fatal(code: str, message: str, path: str) -> Diagnostic:
@@ -43,9 +45,11 @@ def _present(workspace: Path) -> dict[str, bytes]:
     }
 
 
-def check_generated(registry: ContractRegistry, workspace: Path) -> list[Diagnostic]:
+def check_generated(
+    registry: ContractRegistry, workspace: Path, tests: Sequence[TestCase] = ()
+) -> list[Diagnostic]:
     """Fatal diagnostics for each generated file that is missing, edited or not produced by codegen."""
-    expected = {path: text.encode("utf-8") for path, text in render_all(registry).items()}
+    expected = {path: text.encode("utf-8") for path, text in render_all(registry, tests).items()}
     present = _present(workspace)
     diagnostics = [
         _fatal("tamper.missing", f"{path} is missing; regenerate it from contracts.yaml", path)
@@ -63,9 +67,9 @@ def check_generated(registry: ContractRegistry, workspace: Path) -> list[Diagnos
     return diagnostics
 
 
-def tamper_result(registry: ContractRegistry, workspace: Path) -> LevelResult:
+def tamper_result(registry: ContractRegistry, workspace: Path, tests: Sequence[TestCase] = ()) -> LevelResult:
     started = time.monotonic()
-    diagnostics = check_generated(registry, workspace)
+    diagnostics = check_generated(registry, workspace, tests)
     return LevelResult(
         level="tamper",
         status="fail" if diagnostics else "pass",

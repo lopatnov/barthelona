@@ -206,14 +206,16 @@ def _load_contracts(path: Path | None) -> ContractRegistry | None:
         raise typer.BadParameter(str(exc)) from exc
 
 
-def _tamper_gate(registry: ContractRegistry | None, workspace: Path) -> LevelResult | None:
+def _tamper_gate(
+    registry: ContractRegistry | None, workspace: Path, tests: list[TestCase]
+) -> LevelResult | None:
     """Check ``gen/`` against the registry; a failure stops verify before any tool runs."""
     if registry is None:
         return None
     from barthelona.contracts import CodegenError, tamper_result
 
     try:
-        return tamper_result(registry, workspace)
+        return tamper_result(registry, workspace, tests)
     except CodegenError as exc:
         raise typer.BadParameter(str(exc)) from exc
 
@@ -288,7 +290,7 @@ def verify(
 
     registry = _load_contracts(contracts)
     test_cases = _load_tests(tests)
-    gate = _tamper_gate(registry, workspace)
+    gate = _tamper_gate(registry, workspace, test_cases)
     if gate is not None and gate.status == "fail":
         raise typer.Exit(_report([gate]))
     executor = _make_executor(transport, "verify")
