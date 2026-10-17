@@ -2,7 +2,7 @@
 
 Version 1.0 · 2026-10-13 · Status: proposed baseline, pending owner review (see `docs/roadmap.md` § Open decisions).
 
-Decisions are recorded as ADRs D-001 to D-038 in `docs/adr/` (index: `docs/adr/README.md`). This document supersedes the Gemini brainstorming draft, which is kept only in `docs/archive/` and is non-authoritative: its model names and statistics are partly fabricated or outdated.
+Decisions are recorded as ADRs in `docs/adr/` (index: `docs/adr/README.md`). This document supersedes the Gemini brainstorming draft, which is kept only in `docs/archive/` and is non-authoritative: its model names and statistics are partly fabricated or outdated.
 
 How this document was produced: five web-verified research reports (Gemini-draft audit, orchestration stack, assembler toolchains, knowledge layer, Claude Code configuration), three competing architecture proposals (Scrum-faithful, verification-first, local-first pragmatist), and a judged synthesis that starts from the verification-first spine and keeps Meta-Agentic Scrum as the organizing model. Owner requirements added after the synthesis are folded in: AI-composed sprint graphs (§9.5), four cloud providers (§16.2), optional budgets and provider resilience (§16.6), and a pattern map (§5.3).
 
@@ -111,11 +111,24 @@ Measured costs:
 
 So the worker keeps one WSL agent and one toolchain container alive, and runs tests in batches.
 
-**Layering**, enforced by an import-linter test:
-- Order: `domain` ← {contracts, toolchains, executors, verification, knowledge, memory, llm, prompting, persistence, workspace, policy, training} ← `nodes` ← `engine` ← `cli`.
-- `ui` imports only `domain`, `persistence` and `config`.
-- Nothing imports `ui`.
-- The engine never imports Streamlit.
+**Layering** (D-045), enforced by a stdlib `ast` test (`tests/unit/test_layering.py`) that holds this table as data; a new edge is a reviewed edit of the table:
+
+| Package | May import |
+| --- | --- |
+| `domain` | nothing from barthelona (Pydantic and stdlib only) |
+| `persistence`, `executors`, `training`, `contracts`, `knowledge`, `memory`, `policy`, `llm` | `domain` |
+| `toolchains` | `domain`, `executors` |
+| `verification` | `domain`, `executors`, `toolchains`, `contracts` |
+| `workspace` | `domain`, `contracts` |
+| `prompting` | `domain`, `knowledge`, `contracts`, `memory` |
+| `nodes` | all of the above; never `engine`, `ui`, `cli` |
+| `engine` | all of the above plus `nodes` |
+| `ui` | `domain`, `persistence`, `config` |
+| `cli` | everything except `ui` |
+
+- Nothing imports `ui`, `cli`, or (except `cli`) `engine`. The engine never imports Streamlit.
+- Ports are defined by the consumer and adapters are injected at one composition root (`engine/wiring.py`; `cli` for headless tools). Example: `llm` defines a `CallSink` protocol and `persistence` provides the adapter.
+- SDK containment: `langgraph` only in `engine`; `streamlit` only in `ui`; `openai`, `anthropic`, `google.genai` only in `llm`; `unicorn`, `capstone` only in the emulator child package. A node is a plain async function `(ctx, state) -> update` that `engine` adapts to LangGraph, which keeps the interpreter fallback (§7) a one-module change.
 
 ## 4. Domain model (Pydantic v2, `src/barthelona/domain/`)
 
@@ -418,6 +431,13 @@ The result is a set of `TaskPipeline`s and one `SprintTopology`.
 - `recursion_limit` is derived from the sum of the loop bounds, plus a margin. LangGraph's default is 1000.
 - **Spike (Phase 1 exit criterion).** Kill the worker mid-task and again during a gate. Resuming must not re-run finished nodes.
 - **Fallback if the spike fails.** A fixed interpreter subgraph walks the same `SprintTopology` data with a cursor in state. The registry, validator and templates do not change.
+- **Crash consistency (D-044).**
+  - Ownership: the workspace git repository and `.barthelona/` own artifacts and plans; `app.sqlite` owns the operator-visible record (runs, events, gates, commands, ledger); the LangGraph checkpoint owns only the control position (paths and hashes); `var/runs/<id>/llm/` owns recorded model responses.
+  - Write order in a side-effecting node: the effect (idempotent, keyed by run, task, attempt, node), then its events (each with a `dedupe_key`, unique per run, so a replayed append is a no-op and the store assigns `seq`), then the checkpoint. A crash in between re-runs the node and every step is a no-op.
+  - On resume the gateway reuses the recorded response for the same (node, attempt, prompt hash) instead of calling a provider again.
+  - `gate_requested`, `increment` and `stop` events are flushed before the checkpoint; other events keep the 250 ms batch (§17).
+  - `Run.engine_state_version` is bumped when the graph state or node semantics change incompatibly. The worker resumes only supported versions; otherwise the run stops with `infra_error` and a new run can start from the last `inc-NN` tag.
+  - The spike kills the worker after the effect, after the event, mid-batch and during a gate.
 
 **Execution.**
 1. `header_gen` refreshes the generated files, including stubs for dependencies that aren't built yet.
@@ -752,10 +772,12 @@ Side effects are idempotent, keyed by run, task and attempt.
   the `target: TargetProfile` and `defines: Mapping[str, str]` parameters and return
   `Command`.
 - `Linker`: `link(objs, out, target, kind)` and `parse(...)`.
-- `Executor`:
+- `Executor` (target contract, D-043; the Phase 0 code is still the synchronous form with `stage()`, `run()`, `collect()` and a mutable work directory, issue #63):
   - `id`: `tc`, `sandbox`, `emu`, or (later) `windows-native`;
   - `may_run_untrusted`;
-  - `probe()`, `stage()`, `run(cmd, limits) -> ExecResult`, `collect()`.
+  - `probe()` and `open_session(run_id, attempt) -> Session`; a `Session` owns one work directory and offers `async stage(tar)`, `async run(cmd, limits) -> ExecResult`, `async collect()` and `close()`;
+  - the executor owns its environment: callers pass the tool argv and the `tc` executor wraps it in `docker exec bart-tc`;
+  - `AgentExecutor(transport)` with `WslTransport` (Windows) and `LocalTransport` (Linux host with Docker, same agent and allow-list); the agent protocol carries a request `id` on every message, handles requests concurrently and starts with a versioned `hello`.
 - `Command` is an argv tuple plus `cwd`, `env`, `stdin` and `timeout`. Shell strings never appear anywhere.
 - `ToolchainResolver.plan(dialect, target) -> BuildPlan` picks executors that have every required tool. The result of `probe()` is written to `config/toolchains.lock.json`: the image digest and each tool's `--version`.
 
@@ -844,6 +866,8 @@ Normalization:
 | V7 | gdb or qemu trace, only after a failure, as context for the fixer | seconds | bart-run |
 | V8 | Real Windows (Windows Sandbox), opt-in, later | 30–60 s | Windows Sandbox |
 | T, M | Tamper gate after every apply; minimality gate in edit mode | ms | worker |
+
+**Levels are registered checks (D-046).** The ids V0 to V8 are stable names; each is implemented by a `LevelCheck` (`level`, `supports(target)`, `async run(ctx)`) registered per target family, so a family such as WebAssembly can supply its own V3 or V4. `run_ladder` walks the registry in order: an unsupported level returns `unsupported` with a reason, a failed level makes later ones `skipped`, and a required level that is not `pass` means the work is not done. Checks take the whole module list and batch their commands. The Phase 0 code (`_LEVEL_ORDER`, `run_v0` to `run_v2`) is the pre-registry form (issue #66).
 
 V3 checks:
 - the rsp delta along every path; stack balanced at every `ret`;
@@ -1072,6 +1096,7 @@ The gateway provides:
 - an `LLMCallRecord` for every call, including which model actually served the role and why (fallback reason);
 - normalization of provider differences: reasoning parameters (`output_config.effort`, `reasoning.effort`, `thinking_level`, DeepSeek `thinking` + `reasoning_effort`), structured output (json_schema vs DeepSeek `json_object` + Pydantic validation), refusals (`stop_reason: refusal`, OpenAI `refusal` items, Gemini `finish_reason: SAFETY`, DeepSeek `content_filter`), and echoing of reasoning items or `reasoning_content` in multi-turn tool use;
 - stripping of `<think>` blocks from local model output.
+- **endpoints (D-047):** a provider lists `endpoints[]` (`base_url`, `host_label`, `max_concurrency`); a model is usable on an endpoint only if it is loaded there; semaphores, circuit breakers and the affinity scheduler work per (endpoint, model), and `LLMCallRecord` records the endpoint.
 
 ### 16.2 Models, roles and profiles (`config/models.yaml`)
 
@@ -1273,7 +1298,7 @@ Caps exist per run, per month, and per provider. Spend history is kept in `app.s
   - `runs` (queued);
   - `commands`: `resume{gate_id, decision, edits}`, `cancel`, `retry_task`, `extend_budget`;
   - user edits to approval payloads.
-- The worker claims runs and streams the graph with `stream_mode=["updates","custom"], version="v2", durability="sync"`. It appends events in batches about every 250 ms, and records interrupts in the `gates` table.
+- The worker claims runs and streams the graph with `stream_mode=["updates","custom"], version="v2", durability="sync"`. It appends events in batches about every 250 ms (events that define resumable truth are flushed first, D-044), and records interrupts in the `gates` table.
 - **Gates.** On a `resume` command the worker calls `graph.astream(Command(resume=…))`.
 - **Cancel.** `request_drain()` leaves a resumable checkpoint.
 - **After a crash,** the worker streams `None` on the same `thread_id`.
