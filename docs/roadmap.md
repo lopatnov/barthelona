@@ -63,6 +63,9 @@ Current status (2026-10-14): **Phase 0 in progress** — repository and environm
 - Policy v2: templates `candidates` (E2) and the `trace_capture` slot (V7).
 - **L1 on by default** if the bench shows no regression; **L2** (AI composes whole pipelines from node types) behind a flag for strong tiers.
 - Retrospective report and overlay changes with revert in the UI; lesson candidates stored, not yet injected.
+- _(experimental, gated by bench)_ `compile_high_level` node type: LLM generates C,
+  `gcc -O2 -S` inside `bart-tc` produces the `.s` patch; GAS presets first; enabled only
+  if bench ≥ direct-codegen + 5 pts on Phase 2 holdout split (D-040, #follow-up).
 
 **Exit criteria**
 - Mutation corpus: 100% of bad cases detected, 0 false positives.
@@ -105,6 +108,7 @@ Each has a recommended default that the docs already assume. Change any of them 
 | 9 | Which human gates are manual by default? | G1, G2, G4 manual; G3 auto when green (autopilot checkbox); G5 always manual | Control vs throughput for long local runs |
 | 10 | Where do workspaces live? | `<repo>/workspaces/` (gitignored), overridable by `BARTHELONA_WORKSPACES` and per project in the UI | Each workspace is its own git repo |
 | 11 | Maximum composition level per profile? | Phase 1: L0 by default, L1 opt-in per run; from Phase 2: L1 by default if the bench agrees; L2 only for hybrid/cloud after the Phase 2 bench | How much graph design is delegated to which model |
+| 12 | Dialect strategy for `compile_high_level` node on NASM presets? | (a) treat gcc -S output as a GAS module in the same project (mixed dialect, simplest), or (b) use `objdump -M intel` + a converter to produce NASM-compatible syntax (complex), or (c) restrict this node to GAS presets only for v1 | Compiler output is GAS syntax; NASM projects cannot assemble it directly (D-040) |
 
 ## Follow-ups (deferred items)
 
@@ -141,6 +145,12 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-23 | The UI shares one read-only SQLite handle across Streamlit threads (§17), which is safe only on a serialized SQLite build (`sqlite3.threadsafety == 3`) | review gate, persistence, 2026-10-14 | No UI yet | Check `sqlite3.threadsafety` in `env-doctor` and where the UI opens its handle; fail with a clear message. The UI also handles `connect_readonly`'s `RuntimeError` when the worker has not migrated yet ("worker not started") | open (#11) |
 | F-24 | The training dataset has no size limit or retention; it grows with every collecting run | D-036, 2026-10-14 | Nothing writes samples before the Phase 1 engine hook | With the engine hook: show the dataset size in `training status` and on the Toolchains & models page; add `training prune --before <date>` if the size becomes a problem | open |
 | F-25 | Two resume commands for one open gate can both be queued; the second fails at the worker with `ConflictError` from `resolve_gate` | review gate, PR #8, 2026-10-14 | The worker command loop does not exist yet | In the command loop, turn that `ConflictError` into a `RunEvent` (no silent fallbacks, `.claude/rules/python.md`) and test it, or refuse a second unclaimed resume per `gate_id` at enqueue | open (#12) |
+| F-26 | WSL agent allow-list permits `sha256sum <path>` without fencing the path to `~/.cache/barthelona/` (R-1b) | architecture-guardian review, PR #38, 2026-10-16 | Low risk in Phase 0 (only internal code reaches the agent); grows in later phases | Add `_validate_sha256sum_paths` check analogous to `_validate_tar_paths` in `_handle()` | open (#39) |
+| F-27 | `docker inspect` is not in the WSL agent allow-list; `probe_image_digest()` always returns `""` in production (N-1) | architecture-guardian review, PR #38, 2026-10-16 | Functional gap only; no security regression | Add `("docker", "inspect")` to `_ALLOWED_PREFIXES` with a guard that `argv[2]` is not a filesystem path | open (#40) |
+| F-28 | `FakeExecutor.run()` does not honour `ExecLimits.max_stdout_bytes` / `max_stderr_bytes`; callers relying on the Protocol contract see uncapped output in tests (N-2) | architecture-guardian review, PR #38, 2026-10-16 | Test-only gap | Either truncate in `FakeExecutor.run()` or add a note to `Executor` Protocol docstring that truncation is best-effort | open (#41) |
+| F-29 | V1 only assembles; the `nm`/registry symbol check (exports exact, undefined ⊆ imports ∪ allow-list, §13.1) is deferred until `contracts.yaml` is populated | PR #43, 2026-10-16 | `contracts.yaml` does not exist yet | Implement `run_v1` nm gate once `contracts.yaml` schema and population land; good/bad mutation corpus entries required | open (#45) |
+| F-30 | `NasmAdapter`, `GasIntelAdapter`, `GasAttAdapter` `parse_diagnostics` are stubs returning `[]`; no real error message is surfaced in `Diagnostic` | PR #43, 2026-10-16 | Requires captured tool output in `tests/fixtures/diagnostics/` | Capture nasm/as stderr for representative errors in `bart-tc`; implement parsers; parametrised fixture tests + Hypothesis round-trip | open (#46) |
+| F-31 | V5 (C-harness tests) and V6 (golden I/O) are Phase 0 deliverables that require the `bart-run` sandbox image, which does not yet exist | PR #43, 2026-10-16 | `bart-run` image not built | Implement `run_v5` and `run_v6` once `bart-run` ships; extend `_LEVEL_ORDER`; test with `FakeExecutor` | open (#47) |
 
 ## Parked ideas (not scheduled)
 
@@ -148,6 +158,8 @@ Ideas that are not defects. At each phase start, move every row into that phase'
 
 | Idea | Raised | Trigger | Why parked |
 | --- | --- | --- | --- |
+| Compile-down strategy (`compile_high_level` node, D-040): LLM writes C → `gcc -O2 -S` in `bart-tc` → assembly patch; bench-gated; requires owner decision on NASM dialect (open decision 12) | 2026-10-16, research thread | Phase 2 (L2 node types) | Phase 0/1 still in progress; bench gate not yet in place |
+| Four HF papers (2610.17953, 2505.11480, 2603.08706, 2605.21470) on LLM+compiler topics could inform the compile-down design; network blocked in cloud container during research | 2026-10-16, research thread | Before implementing D-040 | Read from the owner's machine; Aleksandr provided the links |
 | `verify-runner` agent (cheap model, read-only, no git-state changes) behind `verify` via `context: fork`, with ENV vs CODE triage for `wsl`/`llm` tests | 2026-10-13, conduit review | `pytest -m wsl` or `barthelona verify` output gets long (Phase 0) | Gate output is short today |
 | `bench-runner` agent + `bench` skill: fixed method, NOT RUN instead of guesses, holdout never read, cost cap required for cloud profiles | 2026-10-13, conduit review | Bake-off harness exists (Phase 0) | Harness not built |
 | `implementation-architect` agent (advisory plans, never edits) + soft 400 / hard 800 code-line limit per module, measured by a script | 2026-10-13, conduit review | First multi-module deliverable, or a module past 300 lines | No code yet |

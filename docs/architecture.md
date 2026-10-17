@@ -2,7 +2,7 @@
 
 Version 1.0 · 2026-10-13 · Status: proposed baseline, pending owner review (see `docs/roadmap.md` § Open decisions).
 
-Decisions are recorded as ADRs D-001 to D-037 in `docs/adr/` (index: `docs/adr/README.md`). This document supersedes the Gemini brainstorming draft, which is kept only in `docs/archive/` and is non-authoritative: its model names and statistics are partly fabricated or outdated.
+Decisions are recorded as ADRs D-001 to D-038 in `docs/adr/` (index: `docs/adr/README.md`). This document supersedes the Gemini brainstorming draft, which is kept only in `docs/archive/` and is non-authoritative: its model names and statistics are partly fabricated or outdated.
 
 How this document was produced: five web-verified research reports (Gemini-draft audit, orchestration stack, assembler toolchains, knowledge layer, Claude Code configuration), three competing architecture proposals (Scrum-faithful, verification-first, local-first pragmatist), and a judged synthesis that starts from the verification-first spine and keeps Meta-Agentic Scrum as the organizing model. Owner requirements added after the synthesis are folded in: AI-composed sprint graphs (§9.5), four cloud providers (§16.2), optional budgets and provider resilience (§16.6), and a pattern map (§5.3).
 
@@ -28,7 +28,7 @@ The result is a self-contained git repository that builds without barthelona.
 - Windows 11 Pro; Intel Core Ultra 7 155H with Intel Arc iGPU (no NVIDIA GPU); 32 GB RAM.
 - WSL2 Ubuntu 26.04 with Docker.
 - LM Studio, OpenAI-compatible, at `http://127.0.0.1:1234/v1`. Ollama is installed but not running by default.
-- Optional cloud providers (the owner holds keys for all four): Anthropic, OpenAI, Google Gemini, DeepSeek. They are interchangeable behind one gateway and configured in `config/models.yaml` (§16.2).
+- Optional cloud providers (the owner holds keys for five): Anthropic, OpenAI, Google Gemini, DeepSeek, and Alibaba QwenCloud / Qwen3 (added D-038; preferred for its Slavic-optimised tokenizer). They are interchangeable behind one gateway and configured in `config/models.yaml` (§16.2).
 - Qdrant runs in WSL Docker. Barthelona has its own instance (`docker/qdrant/compose.yaml`, `127.0.0.1:6343`, named volume; D-034), separate from the owner's `qdrant-db` on 6333. It is reachable only while the WSL VM is running.
 
 **Out of scope for v1:**
@@ -735,13 +735,22 @@ Side effects are idempotent, keyed by run, task and attempt.
 ## 12. Toolchain layer
 
 **Protocols** (`toolchains/`, `executors/`):
-- `Dialect`:
+- `Dialect` (planned, Phase 1+):
   - attributes: `id`, `exts`, `comment_prefix`, `local_label_re`;
   - `targets()`, `tools(target)`;
   - `syntax_check(src, target)`, `assemble(src, out, target, defines)`, `preprocess(src, target)`. Each returns a `Command`;
   - `parse(result, workdir) -> list[Diagnostic]`;
   - `includes(text)`;
   - `render_interface(registry, module)`, `render_stub(symbol)`.
+- `DialectAdapter` (**Phase 0 subset**, `toolchains/dialect.py`): a structural Protocol that covers only
+  the commands needed by the verification ladder (V0–V2).  It returns raw argv tuples
+  (`tuple[str, ...]`) instead of full `Command` objects; the ladder wraps them with
+  `docker exec bart-tc` before dispatching.  Method names differ from the planned
+  `Dialect` protocol intentionally: `syntax_check_argv`, `assemble_argv`,
+  `parse_diagnostics`.  When `contracts.yaml` and the full target abstraction land,
+  `DialectAdapter` will be superseded by `Dialect`; adapters will be migrated to accept
+  the `target: TargetProfile` and `defines: Mapping[str, str]` parameters and return
+  `Command`.
 - `Linker`: `link(objs, out, target, kind)` and `parse(...)`.
 - `Executor`:
   - `id`: `tc`, `sandbox`, `emu`, or (later) `windows-native`;
@@ -797,6 +806,7 @@ Normalization:
 - **Agent allowlist:**
   - `docker exec bart-tc …`;
   - `docker run … bart-run …`, with the sandbox flags fixed by the agent, not by the caller;
+  - `docker inspect --format … <image>` — exactly one target, restricted to `bart-tc` or `bart-run*` (used by `barthelona probe` to record image digests);
   - `tar`, `sha256sum`.
   - Every path must be under `~/.cache/barthelona/`.
 - **Text hygiene:**
@@ -1045,7 +1055,7 @@ SQLite (`app.sqlite.lessons`) is the source of truth.
 
 | Backend | SDK | Serves |
 | --- | --- | --- |
-| `OpenAIChatBackend` | `openai` 3.x, Chat Completions with `base_url` | LM Studio, Ollama, llama.cpp, DeepSeek |
+| `OpenAIChatBackend` | `openai` 3.x, Chat Completions with `base_url` | LM Studio, Ollama, llama.cpp, DeepSeek, QwenCloud/Qwen3 |
 | `OpenAIResponsesBackend` | `openai` 3.x, Responses API | OpenAI (GPT-6 models need it for tool calls with reasoning) |
 | `AnthropicBackend` | `anthropic` 1.x | Claude |
 | `GeminiBackend` | `google-genai` 2.x | Gemini (the OpenAI-compatible endpoint's schema enforcement is unverified) |
@@ -1073,7 +1083,7 @@ The catalog is a committed YAML file with no secrets. It has six parts:
 - `budget` (all optional);
 - `resilience` parameters.
 
-Cloud models in the catalog (verified 2026-10-13; prices in USD per 1M tokens, input / cached input / output):
+Cloud models in the catalog (Anthropic/OpenAI/Google/DeepSeek verified 2026-10-13; QwenCloud/Qwen approximate, verify in QwenCloud console; prices in USD per 1M tokens, input / cached input / output):
 
 Price classes within a provider (`price_class` in the catalog; not to be confused with node roles):
 
@@ -1083,6 +1093,7 @@ Price classes within a provider (`price_class` in the catalog; not to be confuse
 | OpenAI | `gpt-6-astra` 10 / 1 / 50 | — | `gpt-6.1-sol` 2 / 0.10 / 10; `gpt-6-sol` 2 / 0.20 / 10 | `gpt-6-luna` 0.10 / 0.01 / 0.50 |
 | Google | — | `gemini-3.1-pro-preview` 2 / 0.20 / 12 (preview only) | `gemini-3.8-flash`, `gemini-3.6-flash` 0.75 / 0.075 / 3.75 (double on 2027-01-01) | `gemini-3.5-flash-lite` 0.30 / 0.03 / 2.50 |
 | DeepSeek | — | `deepseek-v4-pro` 1.32 / 0.044 / 3.96 (peak; off-peak −50%) | `deepseek-flash` 0.30 / 0.006 / 1.20 (peak; off-peak −50%) | `deepseek-flash` with thinking disabled |
+| QwenCloud (Qwen3) | — | `qwen3-235b-a22b` ~0.30 / — / ~3.00 (thinking) | `qwen3-30b-a3b` ~0.10 / — / ~0.44 | `qwen-turbo` ~0.05 / — / ~0.20 (disabled) |
 
 Long-context tiers (OpenAI above 272K input, Gemini Pro above 200K, Haiku above 100K), cache-write prices and DeepSeek's off-peak schedule are machine-readable `price` fields, so the ledger and budget reservations use the right rate.
 
@@ -1092,11 +1103,11 @@ Profiles. Every chain ends in `local_main`. The default is `hybrid`. Chain entri
 
 | Role | local-only | hybrid | cloud |
 | --- | --- | --- | --- |
-| main | local | local | Sonnet 5.5 → GPT-6.1 Sol → Gemini 3.8 Flash → DeepSeek Flash → local |
-| planner | local | Opus 5.5 (high) → GPT-6.1 Sol (high) → Gemini 3.1 Pro (high) → DeepSeek V4 Pro (high) → local | same as hybrid |
-| worker | local | local | Sonnet 5.5 → GPT-6.1 Sol → GPT-6 Sol → Gemini 3.8 Flash → Gemini 3.6 Flash → DeepSeek Flash → local |
+| main | local | local | Sonnet 5.5 → Qwen3-30B (no-think) → GPT-6.1 Sol → Gemini 3.8 Flash → DeepSeek Flash → local |
+| planner | local | Opus 5.5 (high) → Qwen3-235B (think) → GPT-6.1 Sol (high) → Gemini 3.1 Pro (high) → DeepSeek V4 Pro (high) → local | same as hybrid |
+| worker | local | local | Sonnet 5.5 → Qwen3-30B (no-think) → GPT-6.1 Sol → GPT-6 Sol → Gemini 3.8 Flash → Gemini 3.6 Flash → DeepSeek Flash → local |
 | cheap | local | local | Haiku 5.5 (low) → GPT-6 Luna (none) → Gemini 3.5 Flash-Lite (minimal) → DeepSeek Flash (thinking off) → local |
-| escalation (flagship-first) | local | Opus 5.5 (high) → GPT-6.1 Sol (xhigh) → Gemini 3.1 Pro (high) → DeepSeek V4 Pro (max) → local | Opus 5.5 (xhigh) → GPT-6 Astra (high) → Gemini 3.1 Pro (high) → DeepSeek V4 Pro (max) → local |
+| escalation (flagship-first) | local | Opus 5.5 (high) → Qwen3-235B (think) → GPT-6.1 Sol (xhigh) → Gemini 3.1 Pro (high) → DeepSeek V4 Pro (max) → local | Opus 5.5 (xhigh) → Qwen3-235B (think) → GPT-6 Astra (high) → Gemini 3.1 Pro (high) → DeepSeek V4 Pro (max) → local |
 
 The owner reorders chains freely; the order is a preference, not a dependency. The `cheap` role is reserved: no MVP node uses it yet.
 
