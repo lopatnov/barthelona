@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 from typer.testing import CliRunner
 
@@ -39,3 +40,11 @@ def test_schema_prints_valid_json() -> None:
 def test_schema_rejects_unknown_document() -> None:
     result = runner.invoke(app, ["schema", "Nope"])
     assert result.exit_code != 0
+
+
+def test_verify_rejects_invalid_contracts(tmp_path: Path) -> None:
+    (tmp_path / "a.asm").write_text("; stub\n", encoding="utf-8")
+    bad = tmp_path / "contracts.yaml"
+    bad.write_text("version: 0\n", encoding="utf-8")
+    result = runner.invoke(app, ["verify", str(tmp_path), "--contracts", str(bad)])
+    assert result.exit_code == 2

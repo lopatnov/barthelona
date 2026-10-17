@@ -10,6 +10,8 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
+from barthelona.contracts import check_object_symbols, parse_nm
+from barthelona.domain.contracts import ContractRegistry
 from barthelona.domain.enums import DiagnosticLevel, Level, Linker, ObjFormat
 from barthelona.domain.verification import Diagnostic, LevelResult, Severity
 from barthelona.executors._types import Command, ExecLimits, ExecResult
@@ -90,18 +92,38 @@ async def run_v0(
     )
 
 
+async def _symbol_diagnostics(
+    session: Session,
+    contracts: ContractRegistry,
+    source: str,
+    staged_obj: str,
+    limits: ExecLimits,
+) -> list[Diagnostic]:
+    """Compare one object's ``nm`` symbols with the registry; a failing ``nm`` is fatal."""
+    result = await session.run(Command(argv=("nm", "-P", "-g", staged_obj)), limits)
+    if result.returncode != 0:
+        message = result.stderr.decode("utf-8", errors="replace").strip() or "nm exited non-zero"
+        return [
+            Diagnostic(
+                tool="nm", level=DiagnosticLevel.V1, severity=Severity.FATAL, message=message, file=source
+            )
+        ]
+    return check_object_symbols(contracts, source, parse_nm(result.stdout))
+
+
 async def run_v1(
     session: Session,
     adapter: DialectAdapter,
     source_files: list[Path],
     obj_format: ObjFormat = ObjFormat.ELF64,
     command_timeout: float = 15.0,
+    contracts: ContractRegistry | None = None,
 ) -> tuple[LevelResult, list[str]]:
     """V1: assemble each source file; return the result and a list of object paths.
 
-    Phase 0 note: the ``nm``/registry symbol check (architecture §13.1 — exports
-    exact, undefined is a subset of imports union allow-list) is deferred until ``contracts.yaml``
-    is populated (issue #45).  This level currently only assembles.
+    With a contract registry, every object that assembled is also checked with
+    ``nm`` (architecture §13.1): exports exact, undefined symbols a subset of
+    the declared imports plus the allow-list.
     """
     t0 = time.monotonic()
     diagnostics: list[Diagnostic] = []
@@ -115,6 +137,8 @@ async def run_v1(
         if result.returncode == 0:
             object_paths.append(staged_obj)
         diagnostics.extend(_assembler_diagnostics(adapter, result, path.name, DiagnosticLevel.V1))
+        if contracts is not None and result.returncode == 0:
+            diagnostics.extend(await _symbol_diagnostics(session, contracts, path.name, staged_obj, lim))
 
     status = "pass" if not any(d.severity == Severity.FATAL for d in diagnostics) else "fail"
     return (
@@ -186,7 +210,9 @@ class AssembleCheck:
         return None
 
     async def run(self, ctx: LadderContext) -> LevelResult:
-        result, ctx.object_paths = await run_v1(ctx.session, ctx.adapter, ctx.source_files, ctx.obj_format)
+        result, ctx.object_paths = await run_v1(
+            ctx.session, ctx.adapter, ctx.source_files, ctx.obj_format, contracts=ctx.contracts
+        )
         return result
 
 
