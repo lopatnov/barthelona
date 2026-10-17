@@ -14,7 +14,7 @@ from barthelona.domain.contracts import ContractRegistry, Symbol, SymbolKind, Vi
 from barthelona.domain.enums import ABI, Arch, Level
 from barthelona.domain.verification import TestCase, TestKind
 
-_TYPE = re.compile(r"(?P<base>[A-Za-z_][A-Za-z0-9_]*)\s*(?P<stars>(?:\*\s*)*)")
+_TYPE = re.compile(r"(?P<base>[A-Za-z_]\w*)\s*(?P<stars>(?:\*\s*)*)", re.ASCII)
 _SCALARS = {
     "u8": "uint8_t",
     "u16": "uint16_t",

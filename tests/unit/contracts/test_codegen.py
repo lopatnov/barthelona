@@ -89,8 +89,9 @@ def test_hash_header_covers_the_body() -> None:
 
 
 def test_unsupported_dialect_is_refused() -> None:
+    registry = _registry(Dialect.FASM)
     with pytest.raises(CodegenError, match="fasm"):
-        render_module_inc(_registry(Dialect.FASM), "main")
+        render_module_inc(registry, "main")
 
 
 def test_stem_collision_is_refused() -> None:
@@ -195,8 +196,10 @@ def test_render_all_includes_header_and_harness() -> None:
     ],
 )
 def test_bad_harness_case_is_refused(overrides: dict[str, object], message: str) -> None:
+    registry = _registry()
+    case = _harness_case(**overrides)
     with pytest.raises(CodegenError, match=message):
-        render_harness(_registry(), _harness_case(**overrides))
+        render_harness(registry, case)
 
 
 @pytest.mark.parametrize(
@@ -241,13 +244,16 @@ def test_custom_abi_function_has_no_prototype_and_no_harness() -> None:
     registry = _registry()
     registry.symbols["add_one"] = registry.symbols["add_one"].model_copy(update={"abi": "custom"})
     assert "// add_one: no prototype" in render_contracts_h(registry)
+    case = _harness_case()
     with pytest.raises(CodegenError, match="custom ABI"):
-        render_harness(registry, _harness_case())
+        render_harness(registry, case)
 
 
 def test_duplicate_harness_ids_are_refused() -> None:
+    registry = _registry()
+    cases = [_harness_case(), _harness_case(id="ADD_ONE_BASIC")]
     with pytest.raises(CodegenError, match="unique"):
-        render_all(_registry(), [_harness_case(), _harness_case(id="ADD_ONE_BASIC")])
+        render_all(registry, cases)
 
 
 def _with_symbol(**update: object) -> ContractRegistry:
@@ -274,8 +280,9 @@ _U64 = RegisterContract(reg="rax", type="u64")
 def test_harness_refuses_contracts_c_cannot_reproduce(update: dict[str, object], message: str) -> None:
     registry = _with_symbol(**update)
     inputs = {item.reg: 1 for item in registry.symbols["add_one"].inputs}
+    case = _harness_case(inputs=inputs)
     with pytest.raises(CodegenError, match=message):
-        render_harness(registry, _harness_case(inputs=inputs))
+        render_harness(registry, case)
 
 
 def test_win64_uses_its_own_argument_registers() -> None:
@@ -284,8 +291,9 @@ def test_win64_uses_its_own_argument_registers() -> None:
     case = _harness_case(inputs={"ecx": 41})
     assert "add_one(41ULL)" in render_harness(registry, case)
     sysv_style = _registry().model_copy(update={"target": registry.target})
+    case = _harness_case()
     with pytest.raises(CodegenError, match="not in rcx"):
-        render_harness(sysv_style, _harness_case())
+        render_harness(sysv_style, case)
 
 
 def test_large_constants_do_not_use_enum() -> None:
