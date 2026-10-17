@@ -12,7 +12,7 @@ jobs:
         run: |
           curl -fsS "https://sonarcloud.io/api/issues/search?componentKeys=lopatnov_barthelona&pullRequest=89&issueStatuses=OPEN,CONFIRMED&ps=500" -o pr.json
           curl -fsS "https://sonarcloud.io/api/issues/search?componentKeys=lopatnov_barthelona&issueStatuses=OPEN,CONFIRMED&ps=500" -o main.json
-          python3 -c "import json
-for f in ('pr.json','main.json'):
-    d=json.load(open(f));print(f,'TOTAL',d['total'])
-    [print(i['rule'],i['severity'],i['component'].split(':',1)[-1],i.get('line'),i['message'],sep=' | ') for i in d['issues']]"
+          echo "PR89 total: $(jq .total pr.json)"
+          jq -r '.issues[] | [.rule, .severity, .component, (.line|tostring), .message] | join(" | ")' pr.json
+          echo "main total: $(jq .total main.json)"
+          jq -r '.issues[] | [.rule, .severity, .component, (.line|tostring), .message] | join(" | ")' main.json
