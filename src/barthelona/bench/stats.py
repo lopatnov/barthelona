@@ -68,7 +68,7 @@ def compare_paired(
     if not shared:
         raise ValueError("the arms share no task; nothing to pair")
     deltas = [candidate[task] - baseline[task] for task in shared]
-    rng = random.Random(seed)  # noqa: S311  # resampling, not security
+    rng = random.Random(seed)  # noqa: S311  # NOSONAR S2245: seeded resampling, not security
     means = sorted(fmean(rng.choices(deltas, k=len(deltas))) for _ in range(_BOOTSTRAP_ROUNDS))
     low, high = means[int(0.025 * _BOOTSTRAP_ROUNDS)], means[int(0.975 * _BOOTSTRAP_ROUNDS) - 1]
     spread = stdev(deltas) if len(deltas) > 1 else 0.0

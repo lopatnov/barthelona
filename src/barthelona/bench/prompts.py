@@ -6,14 +6,19 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from jinja2 import Environment, StrictUndefined
+from jinja2 import Environment, StrictUndefined, select_autoescape
 
 from barthelona.bench.task import BenchTask
 from barthelona.contracts import render_module_inc
 from barthelona.domain.enums import Dialect
 from barthelona.domain.verification import LevelResult
 
-_ENV = Environment(undefined=StrictUndefined, keep_trailing_newline=True, autoescape=False)  # noqa: S701  # prompts are plain text
+# Prompts are plain text for a model, not HTML: escaping would corrupt code in the feedback block.
+_ENV = Environment(
+    undefined=StrictUndefined,
+    keep_trailing_newline=True,
+    autoescape=select_autoescape(enabled_extensions=(), default_for_string=False, default=False),
+)
 _MAX_DIAGNOSTICS = 10
 _MAX_MESSAGE_CHARS = 600
 

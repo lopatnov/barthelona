@@ -63,7 +63,9 @@ def test_only_shared_tasks_are_paired_and_no_overlap_is_an_error() -> None:
 def test_the_bootstrap_is_reproducible() -> None:
     baseline = {f"t{i}": float(i % 2) for i in range(8)}
     candidate = {f"t{i}": float((i + 1) % 3 == 0) for i in range(8)}
-    assert compare_paired(baseline, candidate, seed=1) == compare_paired(baseline, candidate, seed=1)
+    first = compare_paired(baseline, candidate, seed=1)
+    second = compare_paired(baseline, candidate, seed=1)
+    assert (first.difference, first.tasks) == (second.difference, second.tasks)
 
 
 def test_seed_noise_is_the_spread_of_per_seed_pass_rates() -> None:
