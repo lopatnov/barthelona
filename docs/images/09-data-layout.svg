@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1480 730" width="1480" height="730" role="img" aria-label="Git owns artifacts in each workspace, var/app.sqlite owns the operator-visible record, and the LangGraph checkpoint owns only the control position; contracts.yaml generates gen/ and, with the tests, is frozen while coding." font-family="Arial, Helvetica, sans-serif">
+<title>9. Data and workspace layout</title>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#37474f"/></marker><marker id="ahs" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M10,0 L0,5 L10,10 Z" fill="#37474f"/></marker></defs>
+<rect x="0" y="0" width="1480" height="730" fill="#ffffff"/>
+<text x="24" y="36" font-size="18" fill="#1a1a1a" text-anchor="start" font-weight="bold">9. Data and workspace layout</text>
+<text x="24" y="58" font-size="13" fill="#455a64" text-anchor="start">Delivered: app.sqlite in Phase 0; workspaces and gen/ with codegen in Phase 0; the rest with their features (§18, D-044)</text>
+<rect x="760" y="86" width="22" height="14" rx="3" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.5"/><text x="788" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Exists on main</text><rect x="900.4615384615385" y="86" width="22" height="14" rx="3" fill="#ffe0b2" stroke="#ef6c00" stroke-width="1.5"/><text x="928.462" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">In progress (Phase 0)</text><rect x="1086.1538461538462" y="86" width="22" height="14" rx="3" fill="#eceff1" stroke="#607d8b" stroke-width="1.5"/><text x="1114.15" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Planned</text>
+<rect x="20" y="110" width="420" height="545" rx="10" fill="#f7f9fa" stroke="#90a4ae" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="32" y="132" font-size="15" fill="#1a1a1a" text-anchor="start" font-weight="bold">var/</text>
+<text x="76.5692" y="132" font-size="12" fill="#455a64" text-anchor="start">gitignored, runtime data</text>
+<rect x="470" y="110" width="330" height="545" rx="10" fill="#f7f9fa" stroke="#90a4ae" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="482" y="132" font-size="15" fill="#1a1a1a" text-anchor="start" font-weight="bold">Repository</text>
+<text x="578.423" y="132" font-size="12" fill="#455a64" text-anchor="start">committed</text>
+<rect x="830" y="110" width="630" height="545" rx="10" fill="#f7f9fa" stroke="#90a4ae" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="842" y="132" font-size="15" fill="#1a1a1a" text-anchor="start" font-weight="bold">Workspace</text>
+<text x="929.781" y="132" font-size="12" fill="#455a64" text-anchor="start">its own git repo, branch bart/&lt;run_id&gt;</text>
+<path d="M40,153 L40,233 A190,7 0 0 0 420,233 L420,153 A190,7 0 0 0 40,153 Z" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/><path d="M40,153 A190,7 0 0 0 420,153" fill="none" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="230" y="178.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">app.sqlite (WAL)</text>
+<text x="230" y="195.05" font-size="13" fill="#1a1a1a" text-anchor="middle">runs, commands, events, gates, llm_calls</text>
+<text x="230" y="212.05" font-size="13" fill="#1a1a1a" text-anchor="middle">later: exec_log, lessons, overlay_changes,</text>
+<text x="230" y="229.05" font-size="13" fill="#1a1a1a" text-anchor="middle">policy_pointer, metrics, bench_results</text>
+<path d="M40,263 L40,309 A190,7 0 0 0 420,309 L420,263 A190,7 0 0 0 40,263 Z" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/><path d="M40,263 A190,7 0 0 0 420,263" fill="none" stroke="#607d8b" stroke-width="1.8"/>
+<text x="230" y="288.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">checkpoints.sqlite</text>
+<text x="230" y="305.05" font-size="13" fill="#1a1a1a" text-anchor="middle">LangGraph control position</text>
+<rect x="40" y="332" width="380" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="230" y="355.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">runs/&lt;run_id&gt;/</text>
+<text x="230" y="372.55" font-size="13" fill="#1a1a1a" text-anchor="middle">events.jsonl, llm/seq.json,</text>
+<text x="230" y="389.55" font-size="13" fill="#1a1a1a" text-anchor="middle">exec/seq.argv|out|err, report.md</text>
+<path d="M40,429 L40,493 A190,7 0 0 0 420,493 L420,429 A190,7 0 0 0 40,429 Z" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/><path d="M40,429 A190,7 0 0 0 420,429" fill="none" stroke="#607d8b" stroke-width="1.8"/>
+<text x="230" y="454.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">kb/</text>
+<text x="230" y="471.55" font-size="13" fill="#1a1a1a" text-anchor="middle">facts.sqlite, docs_fts.sqlite,</text>
+<text x="230" y="488.55" font-size="13" fill="#1a1a1a" text-anchor="middle">emb_cache.sqlite (Phase 3)</text>
+<rect x="40" y="516" width="380" height="56" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="230" y="540.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">training/</text>
+<text x="230" y="557.05" font-size="13" fill="#1a1a1a" text-anchor="middle">samples.jsonl, texts/ (opt-in)</text>
+<rect x="40" y="592" width="380" height="44" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="230" y="618.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">worker.lock</text>
+<rect x="490" y="150" width="290" height="88" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="635" y="181.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">policies/vN/</text>
+<text x="635" y="198.55" font-size="13" fill="#1a1a1a" text-anchor="middle">prompts, templates</text>
+<text x="635" y="215.55" font-size="13" fill="#1a1a1a" text-anchor="middle">(released = immutable)</text>
+<rect x="490" y="270" width="290" height="48" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="635" y="298.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">config/models.yaml</text>
+<rect x="490" y="350" width="290" height="56" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="635" y="374.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">asm_doc/ manuals</text>
+<text x="635" y="391.05" font-size="13" fill="#1a1a1a" text-anchor="middle">(RAG source)</text>
+<rect x="490" y="436" width="290" height="56" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="635" y="460.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">docs/: architecture,</text>
+<text x="635" y="477.05" font-size="13" fill="#1a1a1a" text-anchor="middle">ADRs, roadmap</text>
+<rect x="850" y="150" width="280" height="88" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="990" y="173.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">.barthelona/</text>
+<text x="990" y="190.05" font-size="13" fill="#1a1a1a" text-anchor="middle">backlog.yaml, sprints/NN/</text>
+<text x="990" y="207.05" font-size="13" fill="#1a1a1a" text-anchor="middle">{plan,topology,review,retro},</text>
+<text x="990" y="224.05" font-size="13" fill="#1a1a1a" text-anchor="middle">repomap.json, policy_overlay.yaml</text>
+<rect x="1160" y="158" width="280" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="1300" y="181.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">project.yaml</text>
+<text x="1300" y="198.55" font-size="13" fill="#1a1a1a" text-anchor="middle">spec, target profile,</text>
+<text x="1300" y="215.55" font-size="13" fill="#1a1a1a" text-anchor="middle">build recipe</text>
+<rect x="850" y="290" width="280" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="990" y="313.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">contracts.yaml</text>
+<text x="990" y="330.55" font-size="13" fill="#1a1a1a" text-anchor="middle">single source of truth</text>
+<text x="990" y="347.55" font-size="13" fill="#1a1a1a" text-anchor="middle">for interfaces</text>
+<rect x="1160" y="290" width="280" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="1300" y="313.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">tests/ (locked, hashed)</text>
+<text x="1300" y="330.55" font-size="13" fill="#1a1a1a" text-anchor="middle">acceptance, unit, reference,</text>
+<text x="1300" y="347.55" font-size="13" fill="#1a1a1a" text-anchor="middle">characterization</text>
+<rect x="850" y="450" width="280" height="72" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="990" y="473.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">gen/  GENERATED, hash header</text>
+<text x="990" y="490.55" font-size="13" fill="#1a1a1a" text-anchor="middle">inc, stubs, contracts.h,</text>
+<text x="990" y="507.55" font-size="13" fill="#1a1a1a" text-anchor="middle">harness</text>
+<rect x="1160" y="450" width="280" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="1300" y="473.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">src/*.asm | *.s</text>
+<text x="1300" y="490.55" font-size="13" fill="#1a1a1a" text-anchor="middle">LLM-written, only inside</text>
+<text x="1300" y="507.55" font-size="13" fill="#1a1a1a" text-anchor="middle">a task's write scope</text>
+<polyline points="780,194 850,194" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="990,362 990,450" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="1100,362 1100,406 1220,406 1220,450" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="1380,362 1380,450" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="420,460 455,460 455,690 1300,690 1300,522" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="788.738" y="178.5" width="52.5231" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="815" y="190.5" font-size="12" fill="#263238" text-anchor="middle">selected</text>
+<rect x="791.646" y="193.5" width="46.7077" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="815" y="205.5" font-size="12" fill="#263238" text-anchor="middle">per run</text>
+<rect x="864.692" y="390.5" width="122.308" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="984" y="402.5" font-size="12" fill="#263238" text-anchor="end">codegen, never hand-</text>
+<rect x="899.585" y="405.5" width="87.4154" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="984" y="417.5" font-size="12" fill="#263238" text-anchor="end">or LLM-written</text>
+<rect x="1122.11" y="390.5" width="75.7846" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1160" y="402.5" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">frozen while</text>
+<rect x="1139.55" y="405.5" width="40.8923" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1160" y="417.5" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">coding</text>
+<rect x="1383" y="383" width="40.8923" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1386" y="395" font-size="12" fill="#263238" text-anchor="start" font-style="italic">frozen</text>
+<rect x="1383" y="398" width="35.0769" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1386" y="410" font-size="12" fill="#263238" text-anchor="start" font-style="italic">while</text>
+<rect x="1383" y="413" width="40.8923" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1386" y="425" font-size="12" fill="#263238" text-anchor="start" font-style="italic">coding</text>
+<rect x="850.831" y="682" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="880" y="694" font-size="12" fill="#263238" text-anchor="middle">retrieval</text>
+</svg>

@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 1020" width="1300" height="1020" role="img" aria-label="After every apply the tamper gate runs, then levels V0 to V6 are climbed cheapest first; oracles decide, a failure skips later levels and triggers a V7 trace for the fixer." font-family="Arial, Helvetica, sans-serif">
+<title>6. Verification ladder and gates</title>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#37474f"/></marker><marker id="ahs" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M10,0 L0,5 L10,10 Z" fill="#37474f"/></marker></defs>
+<rect x="0" y="0" width="1300" height="1020" fill="#ffffff"/>
+<text x="24" y="36" font-size="18" fill="#1a1a1a" text-anchor="start" font-weight="bold">6. Verification ladder and gates</text>
+<text x="24" y="58" font-size="13" fill="#455a64" text-anchor="start">Delivered: V0-V2, V5, V6 in Phase 0; V3 and the mutation corpus in Phase 2a, V4 only where needed (architecture §13, D-046)</text>
+<rect x="700" y="86" width="22" height="14" rx="3" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.5"/><text x="728" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Exists on main</text><rect x="840.4615384615385" y="86" width="22" height="14" rx="3" fill="#ffe0b2" stroke="#ef6c00" stroke-width="1.5"/><text x="868.462" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">In progress (Phase 0)</text><rect x="1026.1538461538462" y="86" width="22" height="14" rx="3" fill="#eceff1" stroke="#607d8b" stroke-width="1.5"/><text x="1054.15" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Planned</text>
+<polygon points="492,120 828,120 860,152 828,184 492,184 460,152" fill="#eceff1" stroke="#607d8b" stroke-width="1.8" stroke-linejoin="round"/>
+<text x="660" y="148.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Definition of Done</text>
+<text x="660" y="165.05" font-size="13" fill="#1a1a1a" text-anchor="middle">required levels for the story kind</text>
+<rect x="460" y="220" width="400" height="56" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="660" y="244.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">V6  whole-program golden I/O</text>
+<text x="660" y="261.05" font-size="13" fill="#1a1a1a" text-anchor="middle">stdin, stdout, exit code   |   bart-run</text>
+<rect x="460" y="310" width="400" height="56" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="660" y="334.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">V5  C-harness tests</text>
+<text x="660" y="351.05" font-size="13" fill="#1a1a1a" text-anchor="middle">gcc-built harness   |   bart-run</text>
+<rect x="460" y="400" width="400" height="56" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="660" y="424.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">V4  Unicorn tests + dynamic ABI checks</text>
+<text x="660" y="441.05" font-size="13" fill="#1a1a1a" text-anchor="middle">only for kinds V3 + a V5 canary miss   |   emulator</text>
+<rect x="460" y="490" width="400" height="56" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="660" y="514.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">V3  static ABI lint</text>
+<text x="660" y="531.05" font-size="13" fill="#1a1a1a" text-anchor="middle">Capstone CFG   |   emulator child</text>
+<rect x="460" y="580" width="400" height="56" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="660" y="604.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">V2  link</text>
+<text x="660" y="621.05" font-size="13" fill="#1a1a1a" text-anchor="middle">unresolved, PIE relocations, entry   |   bart-tc</text>
+<rect x="460" y="670" width="400" height="56" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="660" y="694.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">V1  assemble + nm vs registry</text>
+<text x="660" y="711.05" font-size="13" fill="#1a1a1a" text-anchor="middle">exports exact, imports allowed   |   bart-tc</text>
+<rect x="460" y="760" width="400" height="56" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="660" y="784.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">V0  syntax only</text>
+<text x="660" y="801.05" font-size="13" fill="#1a1a1a" text-anchor="middle">nasm / as -o /dev/null   |   bart-tc</text>
+<rect x="460" y="850" width="400" height="72" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="660" y="873.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">T  tamper gate (worker, ms)</text>
+<text x="660" y="890.55" font-size="13" fill="#1a1a1a" text-anchor="middle">protected hashes: tests, contracts.yaml, Makefile;</text>
+<text x="660" y="907.55" font-size="13" fill="#1a1a1a" text-anchor="middle">gen/ regenerated byte-identical</text>
+<rect x="560" y="962" width="200" height="36" rx="18" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<text x="660" y="984.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">after apply</text>
+<rect x="60" y="474" width="290" height="88" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="205" y="497.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">V7  gdb / qemu trace</text>
+<text x="205" y="514.05" font-size="13" fill="#1a1a1a" text-anchor="middle">only after a failure,</text>
+<text x="205" y="531.05" font-size="13" fill="#1a1a1a" text-anchor="middle">context for the fixer</text>
+<text x="205" y="548.05" font-size="13" fill="#1a1a1a" text-anchor="middle">bart-run</text>
+<rect x="950" y="220" width="320" height="56" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="1110" y="244.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">V8  real Windows</text>
+<text x="1110" y="261.05" font-size="13" fill="#1a1a1a" text-anchor="middle">Windows Sandbox, opt-in, later</text>
+<path d="M950,447 L950,513 A160,7 0 0 0 1270,513 L1270,447 A160,7 0 0 0 950,447 Z" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/><path d="M950,447 A160,7 0 0 0 1270,447" fill="none" stroke="#607d8b" stroke-width="1.8"/>
+<text x="1110" y="473.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">ABI mutation corpus</text>
+<text x="1110" y="490.55" font-size="13" fill="#1a1a1a" text-anchor="middle">good + bad snippet per violation,</text>
+<text x="1110" y="507.55" font-size="13" fill="#1a1a1a" text-anchor="middle">100% bad detected, 0 false positives</text>
+<rect x="950" y="850" width="320" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="1110" y="873.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">M  minimality gate (edit mode)</text>
+<text x="1110" y="890.55" font-size="13" fill="#1a1a1a" text-anchor="middle">diff only in declared symbol spans</text>
+<text x="1110" y="907.55" font-size="13" fill="#1a1a1a" text-anchor="middle">or declared new files</text>
+<polyline points="660,962 660,922" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="660,850 660,816" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="660,310 660,276" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="660,400 660,366" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="660,490 660,456" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="660,580 660,546" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="660,670 660,636" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="660,760 660,726" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="660,220 660,184" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="460,248 410,248" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4"/>
+<polyline points="460,338 410,338" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4"/>
+<polyline points="460,428 410,428" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4"/>
+<polyline points="460,518 410,518" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4"/>
+<polyline points="460,608 410,608" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4"/>
+<polyline points="460,698 410,698" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4"/>
+<polyline points="460,788 410,788" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4"/>
+<polyline points="410,248 410,788" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4"/>
+<polyline points="410,518 350,518" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="860,248 950,248" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="950,470 920,470 920,442 860,442" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="950,500 920,500 920,518 860,518" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="860,414 890,414 890,338 860,338" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="860,886 950,886" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<text x="24" y="92" font-size="13" fill="#1a1a1a" text-anchor="start" font-weight="bold">Climb from the bottom: cheapest check first</text>
+<rect x="663" y="934" width="35.0769" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="666" y="946" font-size="12" fill="#263238" text-anchor="start">patch</text>
+<rect x="663" y="826" width="29.2615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="666" y="838" font-size="12" fill="#263238" text-anchor="start">pass</text>
+<rect x="663" y="285" width="29.2615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="666" y="297" font-size="12" fill="#263238" text-anchor="start">pass</text>
+<rect x="663" y="375" width="29.2615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="666" y="387" font-size="12" fill="#263238" text-anchor="start">pass</text>
+<rect x="663" y="465" width="29.2615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="666" y="477" font-size="12" fill="#263238" text-anchor="start">pass</text>
+<rect x="663" y="555" width="29.2615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="666" y="567" font-size="12" fill="#263238" text-anchor="start">pass</text>
+<rect x="663" y="645" width="29.2615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="666" y="657" font-size="12" fill="#263238" text-anchor="start">pass</text>
+<rect x="663" y="735" width="29.2615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="666" y="747" font-size="12" fill="#263238" text-anchor="start">pass</text>
+<rect x="663" y="194" width="29.2615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="666" y="206" font-size="12" fill="#263238" text-anchor="start">pass</text>
+<rect x="367.369" y="510" width="29.2615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="382" y="522" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">fail</text>
+<text x="60" y="590" font-size="12" fill="#263238" text-anchor="start">A failed level makes later ones skipped;</text>
+<text x="60" y="606" font-size="12" fill="#263238" text-anchor="start">a required level that is not pass = not done.</text>
+<text x="60" y="640" font-size="12" fill="#263238" text-anchor="start">MVP DoD: V0-V2 + V5/V6, labelled</text>
+<text x="60" y="656" font-size="12" fill="#263238" text-anchor="start">ABI-unverified until V3/V4 and the</text>
+<text x="60" y="672" font-size="12" fill="#263238" text-anchor="start">mutation corpus exist (Phase 2).</text>
+<rect x="881.646" y="232.5" width="46.7077" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="905" y="244.5" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">opt-in,</text>
+<rect x="887.462" y="247.5" width="35.0769" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="905" y="259.5" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">later</text>
+<rect x="870.015" y="448" width="69.9692" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="905" y="460" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">gates trust</text>
+<rect x="893" y="360.5" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="896" y="372.5" font-size="12" fill="#263238" text-anchor="start" font-style="italic">AVX code:</text>
+<rect x="893" y="375.5" width="75.7846" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="896" y="387.5" font-size="12" fill="#263238" text-anchor="start" font-style="italic">routed to V5</text>
+<rect x="890.369" y="870.5" width="29.2615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="905" y="882.5" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">edit</text>
+<rect x="890.369" y="885.5" width="29.2615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="905" y="897.5" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">mode</text>
+</svg>
