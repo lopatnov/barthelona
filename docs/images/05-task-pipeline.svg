@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1230" width="1400" height="1230" role="img" aria-label="Inside one task the coder output is parsed, applied, gated and verified; failures loop through the fixer, and stalls climb the escalation ladder E1-E4 up to the human." font-family="Arial, Helvetica, sans-serif">
+<title>5. Task pipeline and escalation ladder</title>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#37474f"/></marker><marker id="ahs" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M10,0 L0,5 L10,10 Z" fill="#37474f"/></marker></defs>
+<rect x="0" y="0" width="1400" height="1230" fill="#ffffff"/>
+<text x="24" y="36" font-size="18" fill="#1a1a1a" text-anchor="start" font-weight="bold">5. Task pipeline and escalation ladder</text>
+<text x="24" y="58" font-size="13" fill="#455a64" text-anchor="start">Delivered in Phase 1; E2 candidates in Phase 2 (architecture §8, §9.2)</text>
+<rect x="760" y="86" width="22" height="14" rx="3" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.5"/><text x="788" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Exists on main</text><rect x="900.4615384615385" y="86" width="22" height="14" rx="3" fill="#ffe0b2" stroke="#ef6c00" stroke-width="1.5"/><text x="928.462" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">In progress (Phase 0)</text><rect x="1086.1538461538462" y="86" width="22" height="14" rx="3" fill="#eceff1" stroke="#607d8b" stroke-width="1.5"/><text x="1114.15" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Planned</text><polygon points="1186.3846153846155,86 1198.3846153846155,86 1203.3846153846155,93 1198.3846153846155,100 1186.3846153846155,100 1181.3846153846155,93" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.5"/><text x="1209.38" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Gate / human decision</text>
+<rect x="460" y="110" width="200" height="40" rx="20" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<text x="560" y="134.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">task + write scope</text>
+<rect x="410" y="180" width="300" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="560" y="203.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">context assembler</text>
+<text x="560" y="220.55" font-size="13" fill="#1a1a1a" text-anchor="middle">token-budgeted: contract, stubs,</text>
+<text x="560" y="237.55" font-size="13" fill="#1a1a1a" text-anchor="middle">facts, rule card, repo map</text>
+<rect x="410" y="292" width="300" height="64" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="560" y="320.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">coder</text>
+<text x="560" y="337.05" font-size="13" fill="#1a1a1a" text-anchor="middle">LLM, envelope output</text>
+<polygon points="438,396 682,396 710,424 682,452 438,452 410,424" fill="#ffffff" stroke="#37474f" stroke-width="1.8" stroke-linejoin="round"/>
+<text x="560" y="428.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">envelope parses?</text>
+<rect x="410" y="492" width="300" height="48" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="560" y="520.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">apply atomically</text>
+<polygon points="442,580 678,580 710,612 678,644 442,644 410,612" fill="#ffffff" stroke="#37474f" stroke-width="1.8" stroke-linejoin="round"/>
+<text x="560" y="608.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">tamper gate T</text>
+<text x="560" y="625.05" font-size="13" fill="#1a1a1a" text-anchor="middle">(+ minimality M in edit mode)</text>
+<rect x="410" y="684" width="300" height="48" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="560" y="712.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">verification ladder (diagram 6)</text>
+<polygon points="438,772 682,772 710,800 682,828 438,828 410,800" fill="#ffffff" stroke="#37474f" stroke-width="1.8" stroke-linejoin="round"/>
+<text x="560" y="804.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">required levels green?</text>
+<polygon points="446,868 674,868 710,904 674,940 446,940 410,904" fill="#ffffff" stroke="#37474f" stroke-width="1.8" stroke-linejoin="round"/>
+<text x="560" y="900.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">stall? same error_sig twice</text>
+<text x="560" y="917.05" font-size="13" fill="#1a1a1a" text-anchor="middle">or repeated patch hash</text>
+<polygon points="438,980 682,980 710,1008 682,1036 438,1036 410,1008" fill="#ffffff" stroke="#37474f" stroke-width="1.8" stroke-linejoin="round"/>
+<text x="560" y="1012.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">next escalation step</text>
+<rect x="800" y="584" width="280" height="56" rx="28" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<text x="940" y="608.05" font-size="13" fill="#1a1a1a" text-anchor="middle">attempt rejected,</text>
+<text x="940" y="625.05" font-size="13" fill="#1a1a1a" text-anchor="middle">protected files untouched</text>
+<rect x="800" y="772" width="280" height="56" rx="28" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<text x="940" y="796.05" font-size="13" fill="#1a1a1a" text-anchor="middle">commit per green task,</text>
+<text x="940" y="813.05" font-size="13" fill="#1a1a1a" text-anchor="middle">symbols frozen as tested</text>
+<rect x="800" y="876" width="280" height="56" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="940" y="900.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">fixer</text>
+<text x="940" y="917.05" font-size="13" fill="#1a1a1a" text-anchor="middle">E0: first error plus or minus 5 lines</text>
+<rect x="800" y="160" width="560" height="76" rx="6" fill="#ffcdd2" stroke="#c62828" stroke-width="1.8"/>
+<text x="1080" y="185.55" font-size="13" fill="#1a1a1a" text-anchor="middle">Every loop declares bounds (iterations, time, tokens, money)</text>
+<text x="1080" y="202.55" font-size="13" fill="#1a1a1a" text-anchor="middle">and every exit has a StopReason (inv. 6). Code travels in FILE /</text>
+<text x="1080" y="219.55" font-size="13" fill="#1a1a1a" text-anchor="middle">SEARCH-REPLACE / SYMBOL envelopes, never JSON (inv. 5).</text>
+<rect x="40" y="1096" width="250" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="165" y="1119.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">E1: enrich context</text>
+<text x="165" y="1136.55" font-size="13" fill="#1a1a1a" text-anchor="middle">facts, lessons, filtered</text>
+<text x="165" y="1153.55" font-size="13" fill="#1a1a1a" text-anchor="middle">docs, callee code</text>
+<rect x="320" y="1096" width="250" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="445" y="1119.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">E2: candidates</text>
+<text x="445" y="1136.55" font-size="13" fill="#1a1a1a" text-anchor="middle">2-3 variants ranked</text>
+<text x="445" y="1153.55" font-size="13" fill="#1a1a1a" text-anchor="middle">by the oracle (Phase 2)</text>
+<rect x="600" y="1096" width="250" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="725" y="1128.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">E3: cloud chain</text>
+<text x="725" y="1145.05" font-size="13" fill="#1a1a1a" text-anchor="middle">only if cloud_allowed</text>
+<polygon points="896,1096 1114,1096 1130,1132 1114,1168 896,1168 880,1132" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.8"/>
+<text x="1005" y="1119.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">E4 / G5: human</text>
+<text x="1005" y="1136.55" font-size="13" fill="#1a1a1a" text-anchor="middle">hint, contract_change,</text>
+<text x="1005" y="1153.55" font-size="13" fill="#1a1a1a" text-anchor="middle">descope, abort</text>
+<polyline points="560,150 560,180" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="560,252 560,292" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="560,356 560,396" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="560,452 560,492" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="560,540 560,580" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="560,644 560,684" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="560,732 560,772" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="560,828 560,868" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="560,940 560,980" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="710,424 760,424 760,330 710,330" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="710,612 800,612" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="710,800 800,800" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="710,904 800,904" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="1080,904 1120,904 1120,516 710,516" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="560,1036 560,1066" fill="none" stroke="#37474f" stroke-width="1.6"/>
+<polyline points="560,1066 165,1066 165,1096" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="560,1066 445,1066 445,1096" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="560,1066 725,1066 725,1096" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="560,1066 1005,1066 1005,1096" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="40,1132 24,1132 24,336 410,336" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="725,1168 725,1200 10,1200 10,304 410,304" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<path d="M320,1132 L305,1132 L305,1074 A8,8 0 0 0 305,1058 L305,516 L410,516" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="24" y="92" font-size="13" fill="#1a1a1a" text-anchor="start" font-weight="bold">All boxes planned (Phase 1+)</text>
+<text x="568" y="170" font-size="12" fill="#263238" text-anchor="start">task</text>
+<rect x="563" y="264" width="128.123" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="566" y="276" font-size="12" fill="#263238" text-anchor="start">token-budgeted prompt</text>
+<rect x="563" y="368" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="566" y="380" font-size="12" fill="#263238" text-anchor="start">envelopes</text>
+<rect x="563" y="464" width="23.4462" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="566" y="476" font-size="12" fill="#263238" text-anchor="start">yes</text>
+<rect x="563" y="552" width="81.6" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="566" y="564" font-size="12" fill="#263238" text-anchor="start">patched files</text>
+<rect x="563" y="656" width="29.2615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="566" y="668" font-size="12" fill="#263238" text-anchor="start">pass</text>
+<rect x="563" y="744" width="81.6" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="566" y="756" font-size="12" fill="#263238" text-anchor="start">level results</text>
+<rect x="563" y="840" width="17.6308" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="566" y="852" font-size="12" fill="#263238" text-anchor="start">no</text>
+<rect x="563" y="952" width="145.569" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="566" y="964" font-size="12" fill="#263238" text-anchor="start">yes, or fix budget spent</text>
+<rect x="787" y="361.5" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="790" y="373.5" font-size="12" fill="#263238" text-anchor="start">no, up to</text>
+<rect x="787" y="376.5" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="790" y="388.5" font-size="12" fill="#263238" text-anchor="start">2 repairs</text>
+<rect x="734.554" y="604" width="40.8923" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="755" y="616" font-size="12" fill="#263238" text-anchor="middle">reject</text>
+<rect x="743.277" y="792" width="23.4462" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="755" y="804" font-size="12" fill="#263238" text-anchor="middle">yes</text>
+<rect x="746.185" y="896" width="17.6308" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="755" y="908" font-size="12" fill="#263238" text-anchor="middle">no</text>
+<rect x="1123" y="684.5" width="93.2308" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1126" y="696.5" font-size="12" fill="#263238" text-anchor="start">patch: 3 tries,</text>
+<rect x="1123" y="699.5" width="87.4154" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1126" y="711.5" font-size="12" fill="#263238" text-anchor="start">cap 4 per step</text>
+<text x="568" y="1060" font-size="12" fill="#263238" text-anchor="start">climb one step</text>
+<rect x="27" y="752" width="110.677" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="30" y="764" font-size="12" fill="#263238" text-anchor="start">E1: richer context</text>
+<rect x="323.385" y="1192" width="93.2308" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="370" y="1204" font-size="12" fill="#263238" text-anchor="middle">E3: cloud model</text>
+<text x="311" y="566" font-size="12" fill="#263238" text-anchor="start">E2: best variant</text>
+</svg>

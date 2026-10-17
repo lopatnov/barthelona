@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 800" width="1560" height="800" role="img" aria-label="The AI proposes a sprint topology, deterministic code composes and validates it with rules T1-T10, falls back to the default template after two repairs, runs the sprint and loops through standup, review and retro." font-family="Arial, Helvetica, sans-serif">
+<title>4. Meta-agentic sprint loop</title>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#37474f"/></marker><marker id="ahs" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M10,0 L0,5 L10,10 Z" fill="#37474f"/></marker></defs>
+<rect x="0" y="0" width="1560" height="800" fill="#ffffff"/>
+<text x="24" y="36" font-size="18" fill="#1a1a1a" text-anchor="start" font-weight="bold">4. Meta-agentic sprint loop</text>
+<text x="24" y="58" font-size="13" fill="#455a64" text-anchor="start">Delivered: L0 rule planner in Phase 1a, L1 (opt-in flag) in Phase 1b, L2 in Phase 2 (architecture §7, §9)</text>
+<rect x="560" y="86" width="22" height="14" rx="3" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.5"/><text x="588" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Exists on main</text><rect x="700.4615384615385" y="86" width="22" height="14" rx="3" fill="#ffe0b2" stroke="#ef6c00" stroke-width="1.5"/><text x="728.462" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">In progress (Phase 0)</text><rect x="886.1538461538462" y="86" width="22" height="14" rx="3" fill="#eceff1" stroke="#607d8b" stroke-width="1.5"/><text x="914.154" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Planned</text><polygon points="986.3846153846155,86 998.3846153846155,86 1003.3846153846155,93 998.3846153846155,100 986.3846153846155,100 981.3846153846155,93" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.5"/><text x="1009.38" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Gate / human decision</text>
+<path d="M40,235.0 L40,285.0 A100,7 0 0 0 240,285.0 L240,235.0 A100,7 0 0 0 40,235.0 Z" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/><path d="M40,235.0 A100,7 0 0 0 240,235.0" fill="none" stroke="#607d8b" stroke-width="1.8"/>
+<text x="140" y="262.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Backlog and</text>
+<text x="140" y="279.05" font-size="13" fill="#1a1a1a" text-anchor="middle">contracts</text>
+<rect x="296" y="220.0" width="200" height="80" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="396" y="239.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">sprint_planner</text>
+<text x="396" y="256.05" font-size="13" fill="#1a1a1a" text-anchor="middle">L1: LLM picks template,</text>
+<text x="396" y="273.05" font-size="13" fill="#1a1a1a" text-anchor="middle">insertions, knobs,</text>
+<text x="396" y="290.05" font-size="13" fill="#1a1a1a" text-anchor="middle">per-loop budgets</text>
+<rect x="552" y="218.0" width="200" height="84" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="652" y="239.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">compose (deterministic)</text>
+<text x="652" y="256.05" font-size="13" fill="#1a1a1a" text-anchor="middle">template + insertions</text>
+<text x="652" y="273.05" font-size="13" fill="#1a1a1a" text-anchor="middle">+ policy rules + overlay,</text>
+<text x="652" y="290.05" font-size="13" fill="#1a1a1a" text-anchor="middle">clamped to caps</text>
+<polygon points="840,228 976,228 1008,260 976,292 840,292 808,260" fill="#eceff1" stroke="#607d8b" stroke-width="1.8" stroke-linejoin="round"/>
+<text x="908" y="256.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">validate_topology</text>
+<text x="908" y="273.05" font-size="13" fill="#1a1a1a" text-anchor="middle">rules T1-T10</text>
+<rect x="1064" y="228.0" width="200" height="64" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="1164" y="247.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">persist_topology</text>
+<text x="1164" y="264.55" font-size="13" fill="#1a1a1a" text-anchor="middle">sprints/NN/topology.json</text>
+<text x="1164" y="281.55" font-size="13" fill="#1a1a1a" text-anchor="middle">+ spec_hash</text>
+<rect x="1320" y="232.0" width="200" height="56" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="1420" y="256.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">compile_sprint</text>
+<text x="1420" y="273.05" font-size="13" fill="#1a1a1a" text-anchor="middle">pure function</text>
+<rect x="1320" y="540.0" width="200" height="80" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="1420" y="559.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">run_sprint</text>
+<text x="1420" y="576.05" font-size="13" fill="#1a1a1a" text-anchor="middle">Send fan-out per layer:</text>
+<text x="1420" y="593.05" font-size="13" fill="#1a1a1a" text-anchor="middle">one task pipeline per</text>
+<text x="1420" y="610.05" font-size="13" fill="#1a1a1a" text-anchor="middle">task (diagram 5)</text>
+<polygon points="1096,548 1232,548 1264,580 1232,612 1096,612 1064,580" fill="#eceff1" stroke="#607d8b" stroke-width="1.8" stroke-linejoin="round"/>
+<text x="1164" y="576.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">standup</text>
+<text x="1164" y="593.05" font-size="13" fill="#1a1a1a" text-anchor="middle">(deterministic)</text>
+<rect x="808" y="548.0" width="200" height="64" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="908" y="567.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">integration + verify_dod</text>
+<text x="908" y="584.55" font-size="13" fill="#1a1a1a" text-anchor="middle">commit_increment,</text>
+<text x="908" y="601.55" font-size="13" fill="#1a1a1a" text-anchor="middle">tag inc-NN</text>
+<polygon points="568,544 736,544 752,580 736,616 568,616 552,580" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.8"/>
+<text x="652" y="567.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">G3 Sprint review</text>
+<text x="652" y="584.55" font-size="13" fill="#1a1a1a" text-anchor="middle">auto when green</text>
+<text x="652" y="601.55" font-size="13" fill="#1a1a1a" text-anchor="middle">with autopilot</text>
+<rect x="296" y="548.0" width="200" height="64" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="396" y="567.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">retro</text>
+<text x="396" y="584.55" font-size="13" fill="#1a1a1a" text-anchor="middle">metrics, lessons,</text>
+<text x="396" y="601.55" font-size="13" fill="#1a1a1a" text-anchor="middle">overlay changes</text>
+<polygon points="72,548 208,548 240,580 208,612 72,612 40,580" fill="#ffffff" stroke="#37474f" stroke-width="1.8" stroke-linejoin="round"/>
+<text x="140" y="576.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">backlog empty</text>
+<text x="140" y="593.05" font-size="13" fill="#1a1a1a" text-anchor="middle">or sprint cap?</text>
+<rect x="50" y="664" width="180" height="40" rx="20" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<text x="140" y="688.55" font-size="13" fill="#1a1a1a" text-anchor="middle">exit to final_integration</text>
+<path d="M316,671 L316,713 A80,7 0 0 0 476,713 L476,671 A80,7 0 0 0 316,671 Z" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/><path d="M316,671 A80,7 0 0 0 476,671" fill="none" stroke="#607d8b" stroke-width="1.8"/>
+<text x="396" y="694.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Policy Lab queue</text>
+<text x="396" y="711.05" font-size="13" fill="#1a1a1a" text-anchor="middle">(Phase 5)</text>
+<polyline points="240,260 296,260" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="496,248 552,248" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="496,274 552,274" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="752,260 808,260" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="1008,260 1064,260" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="1264,260 1320,260" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="1420,288 1420,540" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="860,228 860,170 524,170 524,226 496,226" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="960,228 960,186 1164,186 1164,228" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="1320,580 1264,580" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="1064,580 1008,580" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="808,580 736,580" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="568,580 496,580" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="296,580 240,580" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="140,612 140,664" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="396,612 396,664" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="470,548 470,380 620,380 620,302" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="1164,548 1164,440 420,440 420,300" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="140,548 140,480 360,480 360,300" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="1200,612 1200,680 1420,680 1420,620" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="1130,612 1130,750 20,750 20,260 40,260" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="24" y="92" font-size="13" fill="#1a1a1a" text-anchor="start" font-weight="bold">All boxes planned (Phase 1+)</text>
+<rect x="250.462" y="252" width="35.0769" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="268" y="264" font-size="12" fill="#263238" text-anchor="middle">ready</text>
+<rect x="515.185" y="240" width="17.6308" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="524" y="252" font-size="12" fill="#263238" text-anchor="middle">L1</text>
+<rect x="494.831" y="266" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="524" y="278" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">L0: rules</text>
+<rect x="762.462" y="252" width="35.0769" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="780" y="264" font-size="12" fill="#263238" text-anchor="middle">graph</text>
+<rect x="1027.18" y="252" width="17.6308" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1036" y="264" font-size="12" fill="#263238" text-anchor="middle">ok</text>
+<rect x="1274.46" y="252" width="35.0769" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1292" y="264" font-size="12" fill="#263238" text-anchor="middle">saved</text>
+<rect x="1423" y="412" width="87.4154" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1426" y="424" font-size="12" fill="#263238" text-anchor="start">compiled graph</text>
+<rect x="566.877" y="162" width="250.246" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="692" y="174" font-size="12" fill="#263238" text-anchor="middle">errors: back to planner, at most 2 repairs</text>
+<rect x="977.585" y="156.5" width="168.831" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1062" y="168.5" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">exhausted: default template,</text>
+<rect x="983.4" y="171.5" width="157.2" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1062" y="183.5" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">event validation_exhausted</text>
+<rect x="1274.46" y="564.5" width="35.0769" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1292" y="576.5" font-size="12" fill="#263238" text-anchor="middle">layer</text>
+<rect x="1268.65" y="579.5" width="46.7077" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1292" y="591.5" font-size="12" fill="#263238" text-anchor="middle">results</text>
+<rect x="1015.55" y="564.5" width="40.8923" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1036" y="576.5" font-size="12" fill="#263238" text-anchor="middle">layers</text>
+<rect x="1021.37" y="579.5" width="29.2615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1036" y="591.5" font-size="12" fill="#263238" text-anchor="middle">done</text>
+<rect x="762.462" y="572" width="35.0769" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="780" y="584" font-size="12" fill="#263238" text-anchor="middle">green</text>
+<rect x="509.369" y="572" width="29.2615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="524" y="584" font-size="12" fill="#263238" text-anchor="middle">done</text>
+<rect x="253.369" y="572" width="29.2615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="268" y="584" font-size="12" fill="#263238" text-anchor="middle">next</text>
+<rect x="143" y="640" width="23.4462" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="146" y="652" font-size="12" fill="#263238" text-anchor="start">yes</text>
+<text x="402" y="646" font-size="12" fill="#263238" text-anchor="start">patch proposals</text>
+<rect x="480.938" y="342" width="128.123" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="545" y="354" font-size="12" fill="#263238" text-anchor="middle">overlay: knobs within</text>
+<rect x="478.031" y="357" width="133.938" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="545" y="369" font-size="12" fill="#263238" text-anchor="middle">policy ranges, logged,</text>
+<rect x="512.923" y="372" width="64.1538" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="545" y="384" font-size="12" fill="#263238" text-anchor="middle">revertible</text>
+<rect x="766.862" y="432" width="186.277" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="860" y="444" font-size="12" fill="#263238" text-anchor="middle">re-plan, bounded by max_replans</text>
+<rect x="241.185" y="472" width="17.6308" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="250" y="484" font-size="12" fill="#263238" text-anchor="middle">no</text>
+<rect x="1258.85" y="672" width="122.308" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1320" y="684" font-size="12" fill="#263238" text-anchor="middle">continue or escalate</text>
+<rect x="552.677" y="742" width="174.646" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="640" y="754" font-size="12" fill="#263238" text-anchor="middle">descope: item back to backlog</text>
+</svg>

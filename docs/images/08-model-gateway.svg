@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 780" width="1440" height="780" role="img" aria-label="Each role walks a chain of models for the run profile, skipping disabled, keyless, broken or disallowed cloud entries, and every chain ends in the local model, so a dead provider is an event, not a crash." font-family="Arial, Helvetica, sans-serif">
+<title>8. Model gateway and role chains</title>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#37474f"/></marker><marker id="ahs" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M10,0 L0,5 L10,10 Z" fill="#37474f"/></marker></defs>
+<rect x="0" y="0" width="1440" height="780" fill="#ffffff"/>
+<text x="24" y="36" font-size="18" fill="#1a1a1a" text-anchor="start" font-weight="bold">8. Model gateway and role chains</text>
+<text x="24" y="58" font-size="13" fill="#455a64" text-anchor="start">Delivered: minimal OpenAI-compatible gateway + FakeGateway in Phase 0/1a; all providers, breakers and caps in Phase 1b; extra endpoints later (§16, D-047)</text>
+<rect x="760" y="86" width="22" height="14" rx="3" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.5"/><text x="788" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Exists on main</text><rect x="900.4615384615385" y="86" width="22" height="14" rx="3" fill="#ffe0b2" stroke="#ef6c00" stroke-width="1.5"/><text x="928.462" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">In progress (Phase 0)</text><rect x="1086.1538461538462" y="86" width="22" height="14" rx="3" fill="#eceff1" stroke="#607d8b" stroke-width="1.5"/><text x="1114.15" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Planned</text><rect x="1181.3846153846155" y="86" width="22" height="14" rx="3" fill="#ffcdd2" stroke="#c62828" stroke-width="1.5"/><text x="1209.38" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Rule: never</text>
+<rect x="30" y="150" width="220" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="140" y="173.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Node with a role</text>
+<text x="140" y="190.55" font-size="13" fill="#1a1a1a" text-anchor="middle">planner, coder, fixer,</text>
+<text x="140" y="207.55" font-size="13" fill="#1a1a1a" text-anchor="middle">reviewer, ...</text>
+<rect x="300" y="150" width="230" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="415" y="182.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">context assembler</text>
+<text x="415" y="199.05" font-size="13" fill="#1a1a1a" text-anchor="middle">cloud input cap (F-33)</text>
+<rect x="580" y="150" width="230" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="695" y="173.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">role router</text>
+<text x="695" y="190.55" font-size="13" fill="#1a1a1a" text-anchor="middle">walks the chain for</text>
+<text x="695" y="207.55" font-size="13" fill="#1a1a1a" text-anchor="middle">the run profile</text>
+<polygon points="906,150 1134,150 1170,186 1134,222 906,222 870,186" fill="#eceff1" stroke="#607d8b" stroke-width="1.8" stroke-linejoin="round"/>
+<text x="1020" y="173.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">provider enabled, key</text>
+<text x="1020" y="190.55" font-size="13" fill="#1a1a1a" text-anchor="middle">present, circuit closed,</text>
+<text x="1020" y="207.55" font-size="13" fill="#1a1a1a" text-anchor="middle">cloud_allowed?</text>
+<path d="M30,297 L30,355 A170,7 0 0 0 370,355 L370,297 A170,7 0 0 0 30,297 Z" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/><path d="M30,297 A170,7 0 0 0 370,297" fill="none" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="200" y="319.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">config/models.yaml</text>
+<text x="200" y="336.55" font-size="13" fill="#1a1a1a" text-anchor="middle">providers, models, prices,</text>
+<text x="200" y="353.55" font-size="13" fill="#1a1a1a" text-anchor="middle">chains, budgets</text>
+<path d="M430,297 L430,355 A180,7 0 0 0 790,355 L790,297 A180,7 0 0 0 430,297 Z" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/><path d="M430,297 A180,7 0 0 0 790,297" fill="none" stroke="#607d8b" stroke-width="1.8"/>
+<text x="610" y="319.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">cost ledger + LLMCallRecord</text>
+<text x="610" y="336.55" font-size="13" fill="#1a1a1a" text-anchor="middle">tokens, USD, model that served,</text>
+<text x="610" y="353.55" font-size="13" fill="#1a1a1a" text-anchor="middle">endpoint</text>
+<rect x="870" y="290" width="300" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="1020" y="313.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">scheduler</text>
+<text x="1020" y="330.55" font-size="13" fill="#1a1a1a" text-anchor="middle">semaphore per endpoint,</text>
+<text x="1020" y="347.55" font-size="13" fill="#1a1a1a" text-anchor="middle">group by model (affinity)</text>
+<polygon points="898,410 1142,410 1170,438 1142,466 898,466 870,438" fill="#eceff1" stroke="#607d8b" stroke-width="1.8" stroke-linejoin="round"/>
+<text x="1020" y="442.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">backend (official SDKs)</text>
+<rect x="430" y="410" width="360" height="56" rx="6" fill="#ffcdd2" stroke="#c62828" stroke-width="1.8"/>
+<text x="610" y="442.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Secrets from env vars only</text>
+<rect x="50" y="530" width="250" height="72" rx="6" fill="#ffe0b2" stroke="#ef6c00" stroke-width="1.8"/>
+<text x="175" y="553.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">OpenAIChatBackend</text>
+<text x="175" y="570.55" font-size="13" fill="#1a1a1a" text-anchor="middle">LM Studio, Ollama,</text>
+<text x="175" y="587.55" font-size="13" fill="#1a1a1a" text-anchor="middle">DeepSeek, Qwen</text>
+<rect x="322" y="530" width="250" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="447" y="553.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">FakeGateway /</text>
+<text x="447" y="570.55" font-size="13" fill="#1a1a1a" text-anchor="middle">cassette replay</text>
+<text x="447" y="587.55" font-size="13" fill="#1a1a1a" text-anchor="middle">tests, bench</text>
+<rect x="594" y="530" width="250" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="719" y="570.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">AnthropicBackend</text>
+<rect x="866" y="530" width="250" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="991" y="570.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">OpenAIResponsesBackend</text>
+<rect x="1138" y="530" width="250" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="1263" y="570.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">GeminiBackend</text>
+<rect x="50" y="680" width="250" height="56" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="175" y="704.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Local model, 127.0.0.1:1234</text>
+<text x="175" y="721.05" font-size="13" fill="#1a1a1a" text-anchor="middle">(always last in every chain)</text>
+<rect x="322" y="680" width="250" height="56" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="447" y="704.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">LAN LM Studio /</text>
+<text x="447" y="721.05" font-size="13" fill="#1a1a1a" text-anchor="middle">cloud GPU (#44, later)</text>
+<rect x="594" y="680" width="794" height="56" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="991" y="704.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Cloud providers</text>
+<text x="991" y="721.05" font-size="13" fill="#1a1a1a" text-anchor="middle">opt-in, per-run consent</text>
+<polyline points="250,186 300,186" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="530,186 580,186" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="810,186 870,186" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="960,150 960,118 695,118 695,150" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="200,290 200,256 660,256 660,222" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="1020,222 1020,290" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="870,326 790,326" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="1020,362 1020,410" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="790,438 870,438" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="1020,466 1020,498" fill="none" stroke="#37474f" stroke-width="1.6"/>
+<polyline points="175,498 1263,498" fill="none" stroke="#37474f" stroke-width="1.6"/>
+<polyline points="175,498 175,530" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="447,498 447,530" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="719,498 719,530" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="991,498 991,530" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="1263,498 1263,530" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="175,602 175,680" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="260,602 260,650 447,650 447,680" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="719,602 719,680" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="991,602 991,680" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="1263,602 1263,680" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="24" y="92" font-size="13" fill="#1a1a1a" text-anchor="start" font-weight="bold">Every chain ends in the local model (inv. 11)</text>
+<rect x="260.369" y="166" width="29.2615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="275" y="178" font-size="12" fill="#263238" text-anchor="middle">call</text>
+<rect x="534.554" y="166" width="40.8923" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="555" y="178" font-size="12" fill="#263238" text-anchor="middle">prompt</text>
+<rect x="822.462" y="166" width="35.0769" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="840" y="178" font-size="12" fill="#263238" text-anchor="middle">entry</text>
+<rect x="708.692" y="110" width="238.615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="828" y="122" font-size="12" fill="#263238" text-anchor="middle">no: next entry, fallback reason recorded</text>
+<rect x="400.831" y="248" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="430" y="260" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">loaded by</text>
+<rect x="1023" y="248" width="23.4462" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1026" y="260" font-size="12" fill="#263238" text-anchor="start">yes</text>
+<rect x="806.646" y="306" width="46.7077" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="830" y="318" font-size="12" fill="#263238" text-anchor="middle">records</text>
+<rect x="1023" y="378" width="52.5231" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1026" y="390" font-size="12" fill="#263238" text-anchor="start">dispatch</text>
+<rect x="815.369" y="418" width="29.2615" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="830" y="430" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">keys</text>
+<text x="1026" y="490" font-size="12" fill="#263238" text-anchor="start">per provider</text>
+<rect x="178" y="633" width="46.7077" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="181" y="645" font-size="12" fill="#263238" text-anchor="start">default</text>
+<rect x="307.569" y="642" width="104.862" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="360" y="654" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">later endpoints[]</text>
+<rect x="722" y="633" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="725" y="645" font-size="12" fill="#263238" text-anchor="start">HTTPS API</text>
+<rect x="994" y="633" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="997" y="645" font-size="12" fill="#263238" text-anchor="start">HTTPS API</text>
+<rect x="1266" y="633" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1269" y="645" font-size="12" fill="#263238" text-anchor="start">HTTPS API</text>
+</svg>
