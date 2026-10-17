@@ -85,10 +85,12 @@ src = ["src", "tests"]
 extend-exclude = [".reference", ".agents", "asm_doc", "workspaces", "var"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "S", "PTH", "ASYNC"]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "S", "PTH", "ASYNC", "C901", "PLR0912", "PLR0915"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S", "PTH"]
+"tests/**" = ["S", "PTH", "C901", "PLR0912", "PLR0915"]
+# Dev-time agent helpers (.claude/skills) are outside the size rules.
+".claude/**" = ["C901", "PLR0912", "PLR0915"]
 
 [tool.mypy]
 python_version = "3.13"

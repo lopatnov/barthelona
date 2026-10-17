@@ -219,6 +219,16 @@ def _rejection(message: str) -> dict[str, object]:
     return {"returncode": 1, "stdout": "", "stderr": message, "elapsed": 0.0, "rejected": True}
 
 
+def _prepare_tar_destination(argv: list[str]) -> None:
+    """Create the ``-C`` destination of a tar extract when it lies under the cache root."""
+    try:
+        extract_dir = Path(argv[argv.index("-C") + 1]).expanduser()
+        if str(extract_dir).startswith(_CACHE_ROOT):
+            extract_dir.mkdir(parents=True, exist_ok=True)
+    except (ValueError, IndexError, OSError):
+        pass
+
+
 def _handle(request: dict[str, object]) -> dict[str, object]:
     cmd_raw = request.get("cmd")
     argv: list[str] = [str(a) for a in (cmd_raw if isinstance(cmd_raw, list) else [])]
@@ -238,15 +248,8 @@ def _handle(request: dict[str, object]) -> dict[str, object]:
     cwd_raw = request.get("cwd")
     cwd: str | None = str(cwd_raw) if cwd_raw else None
 
-    # For tar extract operations, create the destination directory first.
     if argv[0] == "tar":
-        try:
-            c_idx = argv.index("-C")
-            extract_dir = Path(argv[c_idx + 1]).expanduser()
-            if str(extract_dir).startswith(_CACHE_ROOT):
-                extract_dir.mkdir(parents=True, exist_ok=True)
-        except (ValueError, IndexError, OSError):
-            pass
+        _prepare_tar_destination(argv)
 
     env: dict[str, str] | None = None
     raw_env = request.get("env")
