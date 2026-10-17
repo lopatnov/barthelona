@@ -3,6 +3,7 @@
 Phased plan for barthelona. Each phase has a goal, deliverables and exit criteria. A phase is done only when its exit criteria are met; the benchmark decides whether optional subsystems are switched on.
 Every phase's exit criteria also include the phase review (D-037): it ran, and its blocking issues are fixed.
 Architecture: `docs/architecture.md`. Decisions: `docs/adr/`.
+Diagrams of the finished system, with what exists today marked: [`docs/roadmap-diagrams.md`](roadmap-diagrams.md). Update a diagram in the same PR that delivers its box.
 
 Current status (2026-10-14): **Phase 0 in progress** — repository and environment done (design, agent configuration for Claude Code and Codex, conda scripts, hash-locked dependencies, baseline tests); code skeleton started: domain models, the `var/app.sqlite` store and the `python -m barthelona` entry point exist; the toolchain probe and `verify` are next.
 
@@ -172,6 +173,7 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-52 | Ladder V0/V1 make one executor call per file; D-046 asks for one per level, and the assembler-failure fallback still lives in the check | #66 review gate, 2026-10-17 | Latency per attempt | Batched executor call shape plus FakeExecutor support; move the fallback into the adapter | open (#80) |
 | F-53 | V1 nm check hardening: malformed nm output, common/indirect types, `const` exports, missing diagnostic code, extern scope | #45 review gate, 2026-10-17 | Edge cases only | See the issue list | open (#84) |
 | F-54 | Sandbox mount hardening: re-check the resolved path, require an existing directory, narrow the resolve/run TOCTOU, exit codes 125-127 in V6 | #47 review gate, 2026-10-17 | Needs write access to the cache tree | See the issue list | open (#88) |
+| F-55 | SonarCloud lists 4 new issues on PR #89 (gate passed); cloud threads cannot read them | PR #89, 2026-10-17 | Style findings only | Review locally with the Sonar tooling and fix at the cause | open (#90) |
 
 ## Parked ideas (not scheduled)
 

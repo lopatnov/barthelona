@@ -73,7 +73,8 @@ _SANDBOX_FLAGS: tuple[str, ...] = (
     "--ulimit",
     "fsize=16777216",
     "--tmpfs",
-    "/tmp:size=16m",  # noqa: S108 -- docker --tmpfs flag, not a host path
+    # A docker --tmpfs flag value inside the container, not a host path.
+    "/tmp:size=16m",  # noqa: S108
     "-i",  # forward the request's stdin to the binary; the agent never leaves stdin attached
     "--rm",
 )
@@ -290,10 +291,8 @@ def _handle(request: dict[str, object]) -> dict[str, object]:
     if argv[0] == "tar":
         _prepare_tar_destination(argv)
 
-    env: dict[str, str] | None = None
     raw_env = request.get("env")
-    if isinstance(raw_env, dict):
-        env = {str(k): str(v) for k, v in raw_env.items()}
+    env = {str(k): str(v) for k, v in raw_env.items()} if isinstance(raw_env, dict) else None
 
     stdin_b64 = request.get("stdin")
     stdin_bytes = base64.b64decode(str(stdin_b64)) if stdin_b64 else None

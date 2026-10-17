@@ -59,5 +59,5 @@ class AgentExecutor:
         """The ``bart-run`` executor for generated binaries, sharing this executor's agent."""
         return SandboxExecutor(self._link, self.image_digest)
 
-    async def aclose(self) -> None:
+    async def aclose(self) -> None:  # NOSONAR S7503: async is part of the Executor protocol
         self._link.close()

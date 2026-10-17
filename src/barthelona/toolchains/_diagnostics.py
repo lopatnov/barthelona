@@ -20,7 +20,7 @@ _LINE = re.compile(
     re.IGNORECASE,
 )
 # NASM appends the warning class, e.g. "[-w+label-orphan]".
-_NASM_CODE = re.compile(r"\s*\[(?P<code>-w[^\]]+)\]$")
+_NASM_CODE = re.compile(r"\[(?P<code>-w[^\]]+)\]$")
 _SEVERITY: dict[str, Severity] = {
     "fatal": Severity.FATAL,
     "error": Severity.FATAL,  # an assembler error leaves no object file, so it blocks the level
@@ -51,7 +51,7 @@ def parse_assembler_output(tool: str, output: bytes) -> list[Diagnostic]:
         code = None
         if code_match is not None:
             code = code_match["code"]
-            message = message[: code_match.start()]
+            message = message[: code_match.start()].rstrip()
         diagnostics.append(
             Diagnostic(
                 tool=tool,

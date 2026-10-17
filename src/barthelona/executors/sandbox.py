@@ -76,5 +76,5 @@ class SandboxExecutor:
     async def image_digest(self, image: str) -> str:
         return await self._digest_of(image)
 
-    async def aclose(self) -> None:
+    async def aclose(self) -> None:  # NOSONAR S7503: Executor protocol
         return None  # the link belongs to the AgentExecutor that created this executor

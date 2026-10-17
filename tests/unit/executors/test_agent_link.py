@@ -96,8 +96,9 @@ async def test_request_after_agent_exit_fails_fast() -> None:
     link = AgentLink(ScriptedTransport(_hello(), lambda r: [b""]))
     with pytest.raises(ExecutorInfraError):
         await link.request({"cmd": ["a"]})
+    second = link.request({"cmd": ["b"]})
     with pytest.raises(ExecutorInfraError):
-        await asyncio.wait_for(link.request({"cmd": ["b"]}), timeout=2)
+        await asyncio.wait_for(second, timeout=2)
 
 
 async def test_protocol_mismatch_is_an_infra_error() -> None:
@@ -155,8 +156,9 @@ async def test_rejected_request_raises() -> None:
     session = await exc.open_session("r", 0)
     from barthelona.executors import Command
 
+    command = Command(argv=("x",))
     with pytest.raises(ExecutorRejectedError, match="nope"):
-        await session.run(Command(argv=("x",)))
+        await session.run(command)
 
 
 def _names(archive: bytes) -> list[str]:
