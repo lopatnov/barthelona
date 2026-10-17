@@ -83,7 +83,7 @@ async def _run_level(
     return await check.run(ctx)
 
 
-async def run_ladder(
+async def run_ladder(  # NOSONAR S107: one optional knob per ladder input; grouping waits for the V5 API
     up_to: Level,
     executor: Executor,
     adapter: DialectAdapter,

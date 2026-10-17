@@ -37,7 +37,11 @@ def load_test_cases(path: Path) -> list[TestCase]:
     data = _read_yaml(path)
     if not isinstance(data, list):
         raise ContractsError(f"{path}: expected a list of test cases at the top level")
+    return _validate_test_cases(path, data)
+
+
+def _validate_test_cases(path: Path, items: list[object]) -> list[TestCase]:
     try:
-        return [TestCase.model_validate(item) for item in data]
+        return [TestCase.model_validate(item) for item in items]
     except ValueError as exc:
         raise ContractsError(f"{path}: {exc}") from exc
