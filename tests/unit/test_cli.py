@@ -48,3 +48,18 @@ def test_verify_rejects_invalid_contracts(tmp_path: Path) -> None:
     bad.write_text("version: 0\n", encoding="utf-8")
     result = runner.invoke(app, ["verify", str(tmp_path), "--contracts", str(bad)])
     assert result.exit_code == 2
+
+
+def test_verify_stops_on_tampered_gen(tmp_path: Path) -> None:
+    (tmp_path / "a.asm").write_text("; stub\n", encoding="utf-8")
+    contracts = tmp_path / "contracts.yaml"
+    contracts.write_text(
+        "version: 1\n"
+        "target: {preset: linux-x64-test, dialect: nasm, arch: x86-64, os: linux, abi: sysv64,\n"
+        "  obj_format: elf64, link: ld, run_env: docker-native}\n"
+        "symbols:\n  f: {name: f, kind: func, module: src/a.asm}\n",
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["verify", str(tmp_path), "--contracts", str(contracts)])
+    assert result.exit_code == 1
+    assert "tamper" in result.stdout
