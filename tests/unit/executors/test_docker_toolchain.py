@@ -53,7 +53,7 @@ async def test_assemble_and_link_in_bart_tc() -> None:
 )
 async def test_gen_include_resolves_in_bart_tc(adapter: DialectAdapter, name: str, include_line: str) -> None:
     """#122: a module can include ``gen/x.inc`` although ``docker exec`` starts in /work."""
-    files = {name: include_line, "gen/x.inc": "; generated\n"}
+    files = {name: include_line, "gen/x.inc": "\n"}  # empty: valid in every dialect
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:") as archive:
         for arcname, text in files.items():
