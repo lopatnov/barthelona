@@ -24,6 +24,8 @@ The system runs a **Meta-Agentic Scrum** process:
 
 The result is a self-contained git repository that builds without barthelona.
 
+**Direction (D-050).** Assembly is the first and the proving **target family**. Barthelona is an oracle-driven software builder: later families (C applications, then web and 2D) reuse the same loops, gates and ladder with their own adapters, checks and sandbox profiles, and are scheduled in roadmap Phase 6, after the assembler pipeline works end to end. Everything below describes the assembler family unless it says otherwise.
+
 **Machine** (measured):
 - Windows 11 Pro; Intel Core Ultra 7 155H with Intel Arc iGPU (no NVIDIA GPU); 32 GB RAM.
 - WSL2 Ubuntu 26.04 with Docker.
@@ -98,10 +100,9 @@ Browser -> Streamlit UI (Windows, conda)          Engine worker (Windows, conda,
 | `bart-run` | WSL Docker, one per test batch | Runs generated binaries and C harnesses under the sandbox profile (§13.4). |
 | Emulator child | Windows child process | V3 lint and V4 emulation. Killed on timeout. |
 
-**Why the engine runs on Windows:**
-- conda is installed there;
-- LM Studio is reachable on the host loopback (`127.0.0.1:1234`) without WSL networking;
-- ml64 can later run natively.
+**Where the engine runs (D-049, amends D-006).** The diagram above shows the owner's Windows PC. The same engine runs unchanged on a Linux host with Docker (Debian or Ubuntu): the executor uses `LocalTransport` and the agent runs as a local process, so there is no `wsl.exe` hop. Linux is the reference host (CI exercises it); Windows with WSL2 stays supported and keeps these reasons: conda is installed there, LM Studio is reachable on the host loopback (`127.0.0.1:1234`) without WSL networking, and ml64 can later run natively as a `windows-native` executor. No package outside `executors`, `scripts/` and the runbook may assume a host OS.
+
+**Model endpoints may live on other PCs (D-049, D-047).** LM Studio or Ollama on any PC (Windows, Debian, macOS) is an endpoint of the catalog; the gateway needs only HTTP reach. More PCs add throughput (independent calls in parallel, roles placed on the endpoint that holds the right model, failover), not one bigger model: sharding a model across PCs is out of scope. Toolchains and generated code stay on the engine host.
 
 All Linux tools run in pinned images, so the product needs no `apt` installs in WSL and its toolchain is reproducible.
 
