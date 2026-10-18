@@ -14,7 +14,7 @@ Template: Context (optional), Decision, Rationale, Alternatives considered, Cons
 | [D-005](D-005-two-processes-a-thin-streamlit-ui-and-an-engine.md) | Two processes: a thin Streamlit UI and an engine worker over SQLite WAL | Proposed | amended by D-045 |
 | [D-006](D-006-engine-runs-on-windows-toolchains-run-in-pinned.md) | Engine runs on Windows; toolchains run in pinned WSL Docker images through one persistent WSL agent | Proposed | amended by D-043 |
 | [D-007](D-007-the-verification-ladder-is-the-judge-definition.md) | The verification ladder is the judge; Definition of Done is set per story kind and target | Proposed | amended by D-046 |
-| [D-008](D-008-the-contract-registry-is-the-single-source-of.md) | The contract registry is the single source of truth; interface files are generated | Proposed |  |
+| [D-008](D-008-the-contract-registry-is-the-single-source-of.md) | The contract registry is the single source of truth; interface files are generated | Proposed | amended by D-048 |
 | [D-009](D-009-frozen-tests-and-contracts-tamper-and-minimality.md) | Frozen tests and contracts; tamper and minimality gates | Proposed |  |
 | [D-010](D-010-sandbox-execution-policy.md) | Sandbox execution policy | Proposed | amended by D-043 |
 | [D-011](D-011-code-travels-in-text-envelopes-json-only-for.md) | Code travels in text envelopes; JSON only for small structured artifacts | Proposed | amended by D-029 |
@@ -51,6 +51,7 @@ Template: Context (optional), Decision, Rationale, Alternatives considered, Cons
 | [D-042](D-042-adequacy-and-verifier-check.md) | Adequacy and verifier check for dev threads and the product pipeline | Proposed | amends D-033 |
 | [D-043](D-043-executor-contract-async-session-scoped-transport-pluggable.md) | Executor contract: async, session-scoped, transport-pluggable | Proposed | amends D-006, D-010 |
 | [D-044](D-044-state-ownership-and-crash-consistency.md) | State ownership and crash consistency | Proposed | amends D-002, D-003, D-024 |
-| [D-045](D-045-module-dependency-matrix-and-sdk-containment.md) | Module dependency matrix and SDK containment | Proposed | amends D-002, D-005 |
+| [D-045](D-045-module-dependency-matrix-and-sdk-containment.md) | Module dependency matrix and SDK containment | Proposed | amends D-002, D-005; amended by D-048 |
 | [D-046](D-046-verification-levels-are-registered-checks.md) | Verification levels are registered checks selected by target family | Proposed | amends D-007 |
 | [D-047](D-047-model-endpoints-are-the-scheduling-unit.md) | Model endpoints are the scheduling unit of the catalog | Proposed | amends D-029 |
+| [D-048](D-048-ci-cd-templates-are-a-scaffold-output.md) | CI/CD workflows are a deterministic scaffold output, selected by target family | Proposed | amends D-008, D-045 |
