@@ -11,6 +11,7 @@ from barthelona.executors._types import ExecutorId
 from barthelona.executors.sandbox import SandboxExecutor
 
 _TC_CONTAINER = "bart-tc"
+_RUN_IMAGE = "bart-run"
 _RUN_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}")
 
 
@@ -41,9 +42,26 @@ class AgentExecutor:
         return AgentSession(self._link, self._container, work_dir)
 
     async def image_digest(self, image: str) -> str:
+        return await self._inspect(image, "{{index .RepoDigests 0}}")
+
+    async def toolchain_problems(self, run_image: str = _RUN_IMAGE) -> list[str]:
+        """What is missing before any tool can run: the ``bart-tc`` container, the runner image.
+
+        Each entry names the missing piece; the fix for all of them is ``scripts/setup-toolchain.sh``.
+        """
+        problems: list[str] = []
+        running = await self._inspect(self._container, "{{.State.Running}}")
+        if running != "true":
+            problems.append(f"the {self._container} container is not running")
+        if not await self._inspect(run_image, "{{.Id}}"):
+            problems.append(f"the {run_image} image is not built")
+        return problems
+
+    async def _inspect(self, target: str, template: str) -> str:
+        """First line of ``docker inspect --format template target``; empty when docker fails."""
         reply = unwrap(
             await self._link.request(
-                {"cmd": ["docker", "inspect", "--format", "{{index .RepoDigests 0}}", image], "timeout": 10}
+                {"cmd": ["docker", "inspect", "--format", template, target], "timeout": 10}
             )
         )
         if reply["returncode"] != 0:
