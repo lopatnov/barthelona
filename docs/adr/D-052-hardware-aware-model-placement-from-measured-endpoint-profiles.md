@@ -29,6 +29,6 @@ Completion time is what the owner waits for, and it differs by an order of magni
 
 ## Consequences
 
-- Roadmap F-81: calibration in the Phase 0/1a bake-off harness, routing in the Phase 1b scheduler.
+- Roadmap F-82: calibration in the Phase 0/1a bake-off harness, routing in the Phase 1b scheduler.
 - `LLMCallRecord` already carries timings; the ledger is the drift source.
 - D-047 and D-049 get "amended by D-052" in the ADR index.

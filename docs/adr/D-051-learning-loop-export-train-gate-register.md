@@ -34,6 +34,6 @@ Capture without a defined loop is a hope. Keeping training outside the product r
 
 ## Consequences
 
-- Roadmap F-80 (export in Phase 1b; train, eval and registry as Phase 2 track 2c); issue #155.
+- Roadmap F-81 (export in Phase 1b; train, eval and registry as Phase 2 track 2c); issue #155.
 - `TrainingSample` gets an export test against a golden JSONL as soon as the engine writes samples.
 - D-036 is amended: the export formats above replace "chosen when training starts".
