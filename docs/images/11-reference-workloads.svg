@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 850" width="1100" height="850" role="img" aria-label="Matrix of capabilities against five reference workloads with their status" font-family="Arial, Helvetica, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 918" width="1100" height="918" role="img" aria-label="Matrix of capabilities against five reference workloads with their status" font-family="Arial, Helvetica, sans-serif">
 <title>11. Capabilities the reference workloads need</title>
 <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#37474f"/></marker></defs>
-<rect x="0" y="0" width="1100" height="850" fill="#ffffff"/>
+<rect x="0" y="0" width="1100" height="918" fill="#ffffff"/>
 <text x="24" y="36" font-size="18" fill="#1a1a1a" text-anchor="start" font-weight="bold">11. Capabilities the reference workloads need</text>
 <text x="24" y="58" font-size="13" fill="#455a64" text-anchor="start">Hardest version of each demo; status checked against docs and main on 2026-10-18 (docs/requirements.md)</text>
 <rect x="560" y="86" width="22" height="14" rx="3" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.5"/>
@@ -150,13 +150,29 @@
 <circle cx="870" cy="768" r="8" fill="#37474f"/>
 <circle cx="950" cy="768" r="8" fill="#37474f"/>
 <circle cx="1030" cy="768" r="8" fill="#37474f"/>
-<rect x="40" y="788" width="630" height="28" rx="5" fill="#eceff1" stroke="#607d8b" stroke-width="1.5"/>
-<text x="48" y="807" font-size="12.5" fill="#1a1a1a" text-anchor="start">B1-2  Multi-PC endpoints, measured profiles</text>
-<text x="490" y="807" font-size="12.5" fill="#263238" text-anchor="start">planned D-047/052</text>
-<circle cx="710" cy="802" r="8" fill="#37474f"/>
-<circle cx="790" cy="802" r="8" fill="#37474f"/>
-<circle cx="870" cy="802" r="8" fill="#37474f"/>
-<circle cx="950" cy="802" r="8" fill="#37474f"/>
+<rect x="40" y="788" width="630" height="28" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="48" y="807" font-size="12.5" fill="#1a1a1a" text-anchor="start">F1-3  Disassembly, decompilation, training data</text>
+<text x="490" y="807" font-size="12.5" fill="#263238" text-anchor="start">D-055; decompile missing #203</text>
+<circle cx="710" cy="802" r="7" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<circle cx="790" cy="802" r="7" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<circle cx="870" cy="802" r="7" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<circle cx="950" cy="802" r="7" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
 <circle cx="1030" cy="802" r="8" fill="#37474f"/>
-<text x="40" y="836" font-size="12" fill="#455a64" text-anchor="start">Filled dot: required for the hardest version. Open dot: helpful. Row colour is the status.</text>
+<rect x="40" y="822" width="630" height="28" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="48" y="841" font-size="12.5" fill="#1a1a1a" text-anchor="start">F4  gcc -S pairs as training data</text>
+<text x="490" y="841" font-size="12.5" fill="#263238" text-anchor="start">missing (comment on #171)</text>
+<circle cx="710" cy="836" r="8" fill="#37474f"/>
+<circle cx="790" cy="836" r="8" fill="#37474f"/>
+<circle cx="870" cy="836" r="8" fill="#37474f"/>
+<circle cx="950" cy="836" r="8" fill="#37474f"/>
+<circle cx="1030" cy="836" r="8" fill="#37474f"/>
+<rect x="40" y="856" width="630" height="28" rx="5" fill="#eceff1" stroke="#607d8b" stroke-width="1.5"/>
+<text x="48" y="875" font-size="12.5" fill="#1a1a1a" text-anchor="start">B1-2  Multi-PC endpoints, measured profiles</text>
+<text x="490" y="875" font-size="12.5" fill="#263238" text-anchor="start">planned D-047/052</text>
+<circle cx="710" cy="870" r="8" fill="#37474f"/>
+<circle cx="790" cy="870" r="8" fill="#37474f"/>
+<circle cx="870" cy="870" r="8" fill="#37474f"/>
+<circle cx="950" cy="870" r="8" fill="#37474f"/>
+<circle cx="1030" cy="870" r="8" fill="#37474f"/>
+<text x="40" y="904" font-size="12" fill="#455a64" text-anchor="start">Filled dot: required for the hardest version. Open dot: helpful. Row colour is the status.</text>
 </svg>

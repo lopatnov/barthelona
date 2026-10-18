@@ -89,11 +89,27 @@ Columns: **R** = required for the workload's hardest version, **o** = helpful, b
 | D2 | Asset pipeline with provenance (images, vector art via vtracer, ComfyUI) | | R | R | R | | planned | #151, roadmap Phase 6 |
 | D3 | Non-image assets: audio, fonts, 3D models, textures; binary storage, size limit, licence record | | o | R | R | | missing | #151 names images only; FILE envelopes are text (invariant 5) → comment on #151 |
 | D4 | Linking against system libraries and toolkits (libc dynamic, X11, SDL, GTK, GL): declared, pinned, present in the sandbox | | R | R | R | | missing | `TargetProfile.link` is `none\|ld\|libc\|mingw\|msvc\|lld-link` (`docs/architecture.md:150`), no library list → **new** |
-| D5 | Disassembly as licence-gated input and repair aid | o | | | | | planned | D-055, #180 (F-88), PR #187 |
+| D5 | Disassembly: see group F | | | | | | planned | F1 |
 | D6 | CI and release for produced projects | R | R | R | R | R | covered for templates, planned for emission | `src/barthelona/scaffold/ci.py`, D-048, #126 (F-68) |
 | D7 | Packaging beyond a static binary: installer or AppImage, config file schema, service unit, man page, container image | R | R | o | o | o | missing | D-048 renders tag build, checksum, publish for `linux-x64` only → **new** |
 | D8 | More targets: Win64 (user32 GUI, wine), AArch64, 32-bit | | o | o | o | | planned | Phase 4 (`docs/roadmap.md:94`) |
 | D9 | Native GUI and 3D families have a phase and an ADR | | R | | R | | missing | Phase 6 lists C, web and a 2D game only (`docs/roadmap.md:108`); D-050 excludes 3D → **new** |
+
+### F. Binary analysis, training data and operations (added after the owner's review)
+
+The owner allows disassembly and asked that decompilation and the training discussions be reflected. Sources: the threads on the pure-assembly bar (D-054, D-055), registries (D-053), the fine-tuning guide and the Hugging Face datasets (`asm-models/guide.md`), and the thermal and bench-resume issues.
+
+| ID | Capability | NET | GUI | 2D | 3D | CLI | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| F1 | Disassembly of compiler output and of binaries with a permissive licence: as input (port, re-implement), as a repair aid (what the assembler emitted), never as an oracle | o | o | o | o | o | planned | D-055, #180 (F-88); today only Capstone inside V3/V4 and `nm` + Capstone in edit mode (`docs/architecture.md:390`) |
+| F2 | Decompilation and lifting (binary to C or an IR) to understand code for edit mode and repair, with the same licence gate and output treated as untrusted data | o | o | o | o | o | missing | D-055 stops at disassembly → #203 (F-107) |
+| F3 | Disassembly and decompiled pairs as training data, with a licence manifest (repo, commit, path, licence, hash) | R | R | R | R | R | planned for disassembly, missing for decompilation | #171, D-055 clause 1, #203 |
+| F4 | C-to-assembly pairs from `gcc -S -O0/-O2` over many small C programs: free, assembler-checked training and bench data | R | R | R | R | R | missing | named in the fine-tuning threads, not in #171 or D-051; comment added on #171; relates to D-040 |
+| F5 | Training-corpus builders: docs Q&A, fix-the-error pairs from real diagnostics, repo-derived task pairs, per-dialect balance (FASM and MASM have no public data) | R | R | R | R | R | planned | #171; prototype `build_dataset.py` lives outside the repo in `asm-models/` |
+| F6 | Learning loop: export, train off-box (Colab or Kaggle), one model for all dialects with the dialect in the system prompt, adopt only on a paired bench win | R | R | R | R | R | planned | D-051, #155 (F-81); `asm-models/guide.md` |
+| F7 | Resumable, per-model bench runs that do not duplicate rows | R | R | R | R | R | planned | #168, #170; fixed for resume in PR #170 per `docs/roadmap.md`, open for the runbook note (#169) |
+| F8 | Notice when an optional token or secret is missing (names only) | o | o | o | o | o | decided, not built | #201, PR #202 records the decision |
+| F9 | Registries instead of enums, so a new role, dialect, tool or check is data | R | R | R | R | R | planned | D-053, #172 to #176 (same as B6) |
 
 ### E. Human gates and the UI
 
@@ -111,7 +127,8 @@ Columns: **R** = required for the workload's hardest version, **o** = helpful, b
 4. **Measurement of progress is missing.** The bench has ten integer functions. Nothing tells the owner whether Barthelona is one step or fifty from the reference workloads, or what each PC can handle (B4). Section 5 proposes tiers.
 5. **Performance is not an oracle.** Throughput, latency and frame time decide whether a proxy or a game is acceptable (C12).
 6. **Scheduling ignores the owner's PC limits.** The laptop overheated during the bake-off; D-052 measures speed only (B3).
-7. **Most standing goals are planned and consistent.** A1, A7 to A11, B1, B2, B6 and C17 are issues with phases. The risk there is order, not absence (section 4).
+7. **Binary analysis stops at disassembly.** D-055 allows disassembly; decompilation has nothing (F2). The training discussion is only partly in the plan: the `gcc -S` pair source (F4) was named in the threads but is in no issue, and the corpus builders (F5) exist only as a script outside the repo.
+8. **Most standing goals are planned and consistent.** A1, A7 to A11, B1, B2, B6 and C17 are issues with phases. The risk there is order, not absence (section 4).
 
 ## 4. Architecture changes needed
 
@@ -158,7 +175,7 @@ The ladder doubles as the capability curve for fine-tuning (A11): each tier yiel
 
 ## 6. Issues
 
-Existing issues that cover rows are cited in the matrix and not repeated. New `agent-system-gap` issues from this pass, all labelled and each with a roadmap Follow-ups row (F-95 to F-106, in the same order):
+Existing issues that cover rows are cited in the matrix and not repeated. New `agent-system-gap` issues from this pass, all labelled and each with a roadmap Follow-ups row (F-95 to F-107, in the same order):
 
 | Row | Issue | Title |
 | --- | --- | --- |
@@ -174,8 +191,9 @@ Existing issues that cover rows are cited in the matrix and not repeated. New `a
 | D7 | #197 | Packaging and release beyond a static linux-x64 binary |
 | D9 | #198 | Native GUI and 3D have no family, phase or scope |
 | E1 | #199 | G4 cannot show screenshots, recordings or a live session |
+| F2 | #203 | Decompilation and binary lifting are not planned |
 
-Comments added instead of new issues: #151 (non-image assets, D3) and #181 (context and repo-map scale, A6).
+Comments added instead of new issues: #151 (non-image assets, D3), #181 (context and repo-map scale, A6) and #171 (gcc -S pairs, F4).
 
 ## 7. Decisions for the owner
 
