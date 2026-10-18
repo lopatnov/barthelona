@@ -165,6 +165,36 @@ models:
     context: 16384
     strip_think: true
     enabled: false                 # dense 14B: slower; bake-off candidate only
+  # Bake-off candidates (Phase 0): LM Studio ids seen by `bench models` on 2026-10-18. Not in any profile;
+  # run one with `bench run --model <key>`. Delete the losers after the model choice.
+  bake_qwen25_coder_7b:
+    provider: lmstudio
+    model: qwen2.5-coder-7b-instruct
+    price_class: local
+    context: 16384
+  bake_codestral_22b:
+    provider: lmstudio
+    model: codestral-22b-v0.1
+    price_class: local
+    context: 16384
+  bake_r1_distill_14b:
+    provider: lmstudio
+    model: deepseek-r1-distill-qwen-14b
+    price_class: local
+    context: 16384
+    strip_think: true
+  bake_ministral_14b_2512:
+    provider: lmstudio
+    model: ministral-3-14b-reasoning-2512
+    price_class: local
+    context: 16384
+    strip_think: true
+  bake_deepseek_v4_flash:
+    provider: lmstudio
+    model: deepseek-v4-flash-0731
+    price_class: local
+    context: 16384
+    strip_think: true
   embed_local:
     provider: lmstudio
     model: text-embedding-nomic-embed-text-v1.5   # needs search_document:/search_query: prefixes
