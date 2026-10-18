@@ -1,0 +1,35 @@
+{
+  "toolchain_image_digest": "",
+  "runner_image_digest": "bart-run@sha256:7bd5b5a9e8b45bd07ce121c7214a6f3adb217f24f9a805f8ca6f9cf2f69d803e",
+  "tools": {
+    "nasm": {
+      "version": "NASM version 3.01",
+      "path": "/usr/bin/nasm"
+    },
+    "as": {
+      "version": "GNU assembler (GNU Binutils for Ubuntu) 2.46",
+      "path": "/usr/bin/as"
+    },
+    "ld": {
+      "version": "GNU ld (GNU Binutils for Ubuntu) 2.46",
+      "path": "/usr/bin/ld"
+    },
+    "gcc": {
+      "version": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+      "path": "/usr/bin/gcc"
+    },
+    "nm": {
+      "version": "GNU nm (GNU Binutils for Ubuntu) 2.46",
+      "path": "/usr/bin/nm"
+    },
+    "make": {
+      "version": "GNU Make 4.4.1",
+      "path": "/usr/bin/make"
+    },
+    "gdb": {
+      "version": "GNU gdb (Ubuntu 17.1-2ubuntu1) 17.1",
+      "path": "/usr/bin/gdb"
+    }
+  },
+  "probed_at": "2026-10-18T14:11:51.871348Z"
+}
