@@ -118,6 +118,14 @@ Current status (2026-10-14): **Phase 0 in progress** — repository and environm
 - Web and 2D: a 2D game (Snake first) and a small web app pass their ladder, and the owner approves their look at G4.
 - The phase review (D-037) ran, and its blocking issues are fixed.
 
+## Phase 7 — Reference ambition: pure-assembly TLS 1.3 and HTTP/2 reverse proxy (D-054)
+
+**Goal:** a reverse proxy for files and API requests with HTTP/2, with TLS 1.3 and its crypto written in assembly and no linked TLS or crypto library, built by Barthelona (mostly local models) in the network demo repo. This is the reference complexity for architecture reviews (owner, 2026-10-18), not a commitment to a date. Starts only after Phase 6 and a working multi-module edit mode.
+
+**Deliverables:** the F-87 to F-94 items: module-DAG decomposition, spec ingestion with traceability, crypto vector and differential oracles, constant-time checks, loopback-only interop sandbox with conformance tools, fuzzing and memory-safety checks, disassembly aid (D-055).
+
+**Exit criteria:** the proxy completes TLS 1.3 handshakes and serves HTTP/2 requests to `openssl s_client`, `curl --http2` and `h2spec` inside budget; all known-answer and differential crypto tests pass; the constant-time check passes on secret-handling code; fuzzing finds no unresolved crash; the demo README states that the result is an unaudited experiment; the phase review (D-037) ran.
+
 ## Open decisions (owner)
 
 Each has a recommended default that the docs already assume. Change any of them and the affected ADR is updated.
@@ -229,6 +237,14 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-84 | The c-gcc arm picks GAS Intel by re-targeting NASM tasks in code (D-040 workaround a); the NASM-vs-GAS dialect decision for compile-down is not recorded, and the arm has not yet been measured on the PC | #131, 2026-10-18 | Needs the bake-off numbers (Phase 0 exit) | After the bake-off, compare the `c-gcc` arm with `single` and `fix` and record the dialect decision in D-040 or its successor. Checked by hand 2026-10-18: gcc 13.3 `-O2 -S -masm=intel -fno-asynchronous-unwind-tables -fno-pie -fcf-protection=none` emits a module that GAS accepts with `--fatal-warnings` and that already carries `.note.GNU-stack` | open (#131), Phase 0 exit |
 | F-85 | Five `bake_*` candidate models in `config/models.yaml` serve only the Phase 0 bake-off | bake-off PR, 2026-10-18 | The model choice | Delete the losers, and one of `local_reasoning` / `bake_ministral_14b_2512`, once the main local model is chosen | open (#164), Phase 0 exit |
 | F-86 | Variation points (agent roles, dialects and targets, provider kinds, tools, verification levels) are closed enums and if/elif factories, not registries; adding an agent, dialect or tool needs code edits | owner, 2026-10-18 | Schemas freeze in Phase 1b | One ADR for the registry/strategy pattern, then #172 roles, #173 dialects, #174 provider kinds and endpoints, #175 tools and checks; done when a fake entry is added with no enum or factory edit | open (#176), Phase 1b |
+| F-87 | Reference ambition: a pure-assembly TLS 1.3 + HTTP/2 reverse proxy (no linked TLS or crypto library) is the bar for architecture reviews; the plan reaches only a C proxy with linked TLS | owner, 2026-10-18 | Direction, not a gate; Phase 7 after Phase 6 | D-054; children F-88 to F-94 | open (#179), Phase 7 |
+| F-88 | Disassembly (objdump, Capstone) is internal only: no tool, input path, repair aid, training use or licence rule | owner, 2026-10-18 | Needs the tool registry (#175) | D-055: licence-gated input and aid, never an oracle | open (#180), Phase 1b to 3 |
+| F-89 | No long-horizon decomposition for multi-module assembly systems (module DAG, per-module contracts and budgets, incremental integration, resumable projects) | owner ambition bar, 2026-10-18 | Needs edit mode (Phase 3) and stable contracts | Planner node plus module-DAG artifact; measure per-PC capability ceiling (D-052) | open (#181), Phase 7 |
+| F-90 | No spec ingestion: RFC MUST/SHOULD requirements are not extracted, traced to tests or checked for coverage | owner ambition bar, 2026-10-18 | Needs task-description input (#145) | `requirements.yaml` artifact and a coverage gate | open (#182), Phase 7 |
+| F-91 | No crypto oracles: known-answer vectors (CAVP, RFC 8439/7748/5869/8448, Wycheproof) and differential tests against a reference library | owner ambition bar, 2026-10-18 | Needs the V5 sandbox and the check registry | Pinned, hashed vector corpus with licence record; `crypto-vectors` check family | open (#183), Phase 7 |
+| F-92 | No constant-time / secret-flow oracle for assembly crypto | owner ambition bar, 2026-10-18 | Needs V3/V4 | Contract `secret: true`; static V3 extension plus Unicorn taint and trace comparison | open (#184), Phase 7 |
+| F-93 | No protocol conformance or interop oracles; the assembly sandbox has no loopback-only profile | owner ambition bar, 2026-10-18 | Needs the tool registry (#175) | Loopback-only profile; registered openssl s_client, curl, nghttp, h2spec, tlsfuzzer, TLS-Anvil | open (#185), Phase 7 |
+| F-94 | No fuzzing or memory-safety oracle for generated assembly (parsers, record layer, HPACK) | owner ambition bar, 2026-10-18 | Complements F-27 and F-77 | Contract-derived harness; Unicorn bounds hooks; crash corpus as frozen tests | open (#186), Phase 7 |
 
 ## Parked ideas (not scheduled)
 
