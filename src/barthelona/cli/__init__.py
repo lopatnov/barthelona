@@ -13,6 +13,7 @@ from rich.console import Console
 
 import barthelona
 from barthelona.cli._report import report, report_json
+from barthelona.cli._toolchain import ensure_toolchain
 from barthelona.cli.bench import bench_app
 from barthelona.domain import DOCUMENTS, LevelResult, Verdict
 from barthelona.domain.enums import Dialect, Level, ObjFormat
@@ -89,6 +90,7 @@ async def _probe(executor: AgentExecutor) -> ToolchainLock:
     from barthelona.toolchains import run_probe
 
     try:
+        await ensure_toolchain(executor)
         return await run_probe(executor)
     finally:
         await executor.aclose()
@@ -100,6 +102,7 @@ async def _verify(executor: AgentExecutor, **ladder_args: Any) -> list[LevelResu
     options: LadderOptions = ladder_args.pop("options")
     options.sandbox = executor.sandbox()
     try:
+        await ensure_toolchain(executor)
         return await run_ladder(executor=executor, options=options, **ladder_args)
     finally:
         await executor.aclose()

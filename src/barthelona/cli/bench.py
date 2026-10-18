@@ -20,6 +20,7 @@ from barthelona.bench import (
 from barthelona.bench.endpoint import EndpointError, served_models
 from barthelona.bench.report import append_result, format_report, read_results
 from barthelona.bench.suite import run_suite
+from barthelona.cli._toolchain import ToolchainMissingError, ensure_toolchain
 from barthelona.llm import CatalogError, Gateway, OpenAIChatBackend, load_catalog
 from barthelona.llm.catalog import Catalog, ChainEntry, ModelTarget
 
@@ -155,6 +156,7 @@ def run(
 
     async def go() -> None:
         try:
+            await ensure_toolchain(executor)
             await run_suite(
                 tasks,
                 arms,
@@ -169,7 +171,11 @@ def run(
         finally:
             await executor.aclose()
 
-    asyncio.run(go())
+    try:
+        asyncio.run(go())
+    except ToolchainMissingError as exc:
+        _err.print(f"[bold red]bench run failed:[/bold red] {exc}")
+        raise typer.Exit(2) from exc
     _out.print(f"Results appended to {output}; run `barthelona bench report {output}`.")
 
 

@@ -59,10 +59,13 @@ Never run generated binaries directly in WSL. WSL interop lets a Linux binary st
 
 ### 2.3 Toolchain images (Phase 0)
 
-```bash
-docker build -t barthelona/toolchain:0.1 docker/toolchain
-docker build -t barthelona/runner:0.1 docker/runner
+One command builds `bart-tc` and `bart-run` and starts the long-lived `bart-tc` container the agent execs into (idempotent):
+
+```powershell
+wsl -d Ubuntu -e bash scripts/setup-toolchain.sh   # Windows; on Linux: scripts/setup-toolchain.sh
 ```
+
+`probe`, `verify` and `bench run` check this first and name the missing piece and this command. On Windows the worker copies its WSL agent to `~/.local/share/barthelona/agent.py` in the distro on every start, so nothing else needs deploying.
 
 `barthelona probe` records the image digests and tool versions in `config/toolchains.lock.json`.
 
@@ -164,6 +167,7 @@ Cloud use is opt-in per run, and a dollar cap is optional. A provider that fails
 | `conda activate` does nothing in a new PowerShell | Dot-source the script: `. .\scripts\activate.ps1` (note the leading dot) |
 | `pip ... THESE PACKAGES DO NOT MATCH THE HASHES` | The lock is stale for this platform; run `.\scripts\lock.ps1`, then `create_env.ps1` |
 | Qdrant or Qdrant MCP `ECONNREFUSED` | The WSL VM is stopped; start it (`wsl -d Ubuntu -e true`) |
+| `probe`, `verify` or `bench run` says a container is not running or an image is not built | Run `scripts/setup-toolchain.sh` (§2.3) |
 | `wsl -l` output looks garbled | Set `WSL_UTF8=1` (activate does this) |
 | Assembler errors only in WSL, not on Windows | CRLF line endings; `.gitattributes` forces LF for sources, so re-checkout the files |
 | `python3` in Git Bash prints "Python was not found" | It is the Windows Store alias; use `scripts/dev.sh python` (or `python` in an activated terminal) |

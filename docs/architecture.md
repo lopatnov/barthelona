@@ -825,7 +825,7 @@ Normalization:
 - `error_sig` is a hash of the tool, the code, and the message with paths, line numbers, symbols and numbers replaced by placeholders.
 
 **Windows ↔ WSL bridge.**
-- **One agent process.** The worker starts `wsl.exe -d Ubuntu -e python3 -u ~/.local/share/barthelona/agent.py`. The agent file is copied from the repository and its sha256 verified. It speaks JSON lines; binary data is base64; `WSL_UTF8=1` is set.
+- **One agent process.** The worker copies the agent file from the repository to `~/.local/share/barthelona/agent.py` in the distro on every start (written to a temp file, then moved into place), then starts it with `wsl.exe -d Ubuntu -e sh -c 'exec python3 -u "$HOME/.local/share/barthelona/agent.py"'` (`-e` has no shell, so `~` would not expand). It speaks JSON lines; binary data is base64; `WSL_UTF8=1` is set.
 - **Staging.** The worker tars sources, `gen/`, tests and the Makefile, and the agent extracts them to `~/.cache/barthelona/runs/<run>/<attempt>/` on ext4. `/mnt/c` is a slow 9P share, so it is never used. Artifacts are tarred back.
 - **Agent allowlist:**
   - `docker exec bart-tc …`;
