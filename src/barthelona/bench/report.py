@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from barthelona.bench.runner import TaskResult
 from barthelona.bench.stats import compare_paired, pass_rates, seed_noise, wilson
 from barthelona.bench.task import BenchError
+from barthelona.domain.enums import StopReason
 
 
 def append_result(path: Path, result: TaskResult) -> None:
@@ -30,6 +31,26 @@ def read_results(path: Path) -> list[TaskResult]:
         return [TaskResult.model_validate_json(line) for line in lines if line.strip()]
     except ValidationError as exc:
         raise BenchError(f"{path}: {exc}") from exc
+
+
+def result_model(result: TaskResult) -> str:
+    """Catalog key of the model that answered first; empty when no attempt got an answer."""
+    return result.attempts[0].served_by if result.attempts else ""
+
+
+def latest_per_run(results: Iterable[TaskResult]) -> list[TaskResult]:
+    """One result per (model, arm, task, seed): a rerun replaces the earlier row, in file order."""
+    latest = {(result_model(r), r.arm, r.task_id, r.seed): r for r in results}
+    return list(latest.values())
+
+
+def finished_runs(results: Iterable[TaskResult], model: str) -> frozenset[tuple[str, str, int]]:
+    """(arm, task, seed) of *model*'s runs that need no rerun; a run with no model answer does."""
+    return frozenset(
+        (r.arm, r.task_id, r.seed)
+        for r in results
+        if result_model(r) == model and r.stop_reason != StopReason.NO_MODEL_AVAILABLE
+    )
 
 
 @dataclass(frozen=True)
@@ -79,7 +100,28 @@ def _optional(value: float | None, template: str) -> str:
     return "-" if value is None else template.format(value)
 
 
-def format_report(results: Sequence[TaskResult], baseline: str | None = None) -> list[str]:
+def format_report(
+    results: Sequence[TaskResult], baseline: str | None = None, model: str | None = None
+) -> list[str]:
+    """The arm table of each model (only *model* when given), one run per (arm, task, seed).
+
+    Several models in one file get a heading each; their runs are never pooled.
+    """
+    unique = latest_per_run(results)
+    models = list(dict.fromkeys(result_model(r) for r in unique if model in (None, result_model(r))))
+    if not models:
+        raise BenchError("no results to report" if model is None else f"no results for model {model!r}")
+    if len(models) == 1:
+        return _arm_table([r for r in unique if result_model(r) == models[0]], baseline)
+    lines: list[str] = []
+    for name in models:
+        lines.append(f"model: {name or '(no answer)'}")
+        lines.extend(_arm_table([r for r in unique if result_model(r) == name], baseline))
+        lines.append("")
+    return lines[:-1]
+
+
+def _arm_table(results: Sequence[TaskResult], baseline: str | None) -> list[str]:
     """One text row per arm, then each other arm against *baseline* (the first arm by default)."""
     arms = list(dict.fromkeys(r.arm for r in results))
     if not arms:

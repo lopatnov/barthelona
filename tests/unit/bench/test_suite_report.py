@@ -17,7 +17,7 @@ from barthelona.bench import (
     load_prompts,
     load_suite,
 )
-from barthelona.bench.report import append_result, format_report, read_results, summarize
+from barthelona.bench.report import append_result, finished_runs, format_report, read_results, summarize
 from barthelona.bench.suite import run_suite
 from barthelona.bench.verifier import adapter_for
 from barthelona.cli import app
@@ -108,6 +108,56 @@ def test_the_report_has_a_row_per_arm_and_a_paired_line() -> None:
     rows = [line.split()[0] for line in lines[1:3]]
     assert rows == ["single", "fix"]
     assert lines[-1].startswith("fix vs single: +")
+
+
+def _by(model: str, result: TaskResult) -> TaskResult:
+    attempt = result.attempts[0].model_copy(update={"served_by": model})
+    return result.model_copy(update={"attempts": (attempt,)})
+
+
+def test_the_report_keeps_models_apart_and_a_rerun_replaces_the_earlier_row() -> None:
+    results = [
+        _by("a", _result("gcd", "single", 0, green=False)),
+        _by("b", _result("gcd", "single", 0, green=True)),
+        _by("a", _result("gcd", "single", 0, green=True)),  # rerun of the first row
+    ]
+    lines = format_report(results)
+    assert [line for line in lines if line.startswith("model:")] == ["model: a", "model: b"]
+    assert [line.split()[1] for line in lines if line.startswith("single")] == ["1", "1"]
+    assert all("100%" in line for line in lines if line.startswith("single"))
+    assert format_report(results, model="b")[1].startswith("single")
+    with pytest.raises(BenchError, match="nope"):
+        format_report(results, model="nope")
+
+
+def test_finished_runs_exclude_other_models_and_runs_without_an_answer() -> None:
+    unanswered = TaskResult(
+        task_id="gcd", arm="fix", seed=0, stop_reason=StopReason.NO_MODEL_AVAILABLE, attempts=()
+    )
+    results = [
+        _by("a", _result("gcd", "single", 0, green=True)),
+        _by("b", _result("gcd", "single", 1, green=True)),
+        unanswered,
+    ]
+    assert finished_runs(results, "a") == {("single", "gcd", 0)}
+    assert finished_runs(results, "") == frozenset()
+
+
+async def test_a_resumed_suite_skips_what_is_done(tmp_path: Path) -> None:
+    replies = [f"=== FILE: {task.source_name} ===\nret\n=== END ===" for task in TASKS]
+    results = await run_suite(
+        TASKS,
+        [Arm("single", 0)],
+        [0],
+        FakeGateway(replies),
+        _AlwaysGreen(),
+        load_prompts(BENCH),
+        tmp_path,
+        RunSettings(),
+        lambda _result: None,
+        {("single", TASKS[0].id, 0)},
+    )
+    assert [r.task_id for r in results] == [TASKS[1].id]
 
 
 def test_an_unknown_arm_has_no_summary() -> None:
