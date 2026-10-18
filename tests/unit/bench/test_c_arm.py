@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from barthelona.bench import Arm, BenchTask, RunSettings, TaskRun, load_prompts, load_suite, run_task
-from barthelona.bench.c_arm import CGccVerifier, c_source_name, gas_intel_variant, gcc_argv
+from barthelona.bench.c_arm import CGccVerifier, c_source_name, gas_intel_variant, gcc_argv, with_gnu_stack
 from barthelona.bench.prompts import render_c_prompt
 from barthelona.domain.enums import DiagnosticLevel, Dialect, StopReason
 from barthelona.domain.verification import LevelResult
@@ -83,6 +83,12 @@ async def test_a_c_source_is_compiled_and_the_assembly_goes_to_the_ladder_as_gas
     assert task.dialect == Dialect.GAS_INTEL
     assert [path.name for path in sources] == ["gcd.s"]
     assert sources[0].read_text(encoding="utf-8") == ASSEMBLY
+
+
+def test_a_missing_gnu_stack_note_is_appended_and_an_existing_one_is_kept() -> None:
+    bare = ".intel_syntax noprefix\n.globl gcd\ngcd:\n\tret\n"
+    assert with_gnu_stack(bare).endswith('.section\t.note.GNU-stack,"",@progbits\n')
+    assert with_gnu_stack(ASSEMBLY) == ASSEMBLY
 
 
 async def test_an_assembly_source_bypasses_gcc(tmp_path: Path) -> None:

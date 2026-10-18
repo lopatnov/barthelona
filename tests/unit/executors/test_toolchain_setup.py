@@ -107,5 +107,6 @@ def test_a_failed_deploy_says_why(monkeypatch: pytest.MonkeyPatch) -> None:
         return subprocess.CompletedProcess(argv, 1, b"", b"There is no distribution with the supplied name.")
 
     monkeypatch.setattr(wsl_module.subprocess, "run", failing)
+    transport = _windows_transport(monkeypatch)
     with pytest.raises(ExecutorInfraError, match="no distribution"):
-        _windows_transport(monkeypatch)._deploy_agent()
+        transport._deploy_agent()
