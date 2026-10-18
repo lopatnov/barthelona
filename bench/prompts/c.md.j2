@@ -1,0 +1,23 @@
+You write C11 for Linux x86-64 (System V ABI). A build and test system compiles your file with `gcc -O2` and checks the result; you cannot run anything yourself.
+
+Task: {{ task.title }}
+
+{{ task.prompt }}
+The interface is fixed by this contract file (it is the source of truth; do not change it):
+
+```yaml
+{{ task.contracts_text }}```
+
+Your function must match this prototype exactly (name, argument and return types):
+
+```c
+{{ prototypes }}```
+
+Rules:
+- Write one file, `{{ source_name }}`, with the complete implementation. Include `<stdint.h>` and `<stddef.h>` yourself if you need them.
+- Do not define `main`, do not call library functions, and do not use global state: the object is linked without libc.
+- Reply with the file in exactly this envelope and nothing else that matters inside it. Text outside the envelope is ignored:
+
+=== FILE: {{ source_name }} ===
+<the whole file>
+=== END ===

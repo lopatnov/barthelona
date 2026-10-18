@@ -31,7 +31,11 @@ _DEFAULT_PROFILE = "local-only"  # the bake-off measures local models
 
 
 def _arms(names: list[str], fix_iterations: int) -> list[Arm]:
-    known = {"single": Arm("single", 0), "fix": Arm("fix", fix_iterations)}
+    known = {
+        "single": Arm("single", 0),
+        "fix": Arm("fix", fix_iterations),
+        "c-gcc": Arm("c-gcc", fix_iterations, language="c"),
+    }
     unknown = [name for name in names if name not in known]
     if unknown:
         raise typer.BadParameter(f"unknown arm {unknown[0]!r}; choose {', '.join(known)}")
@@ -53,7 +57,9 @@ def _catalog(path: Path, profile: str, model: str | None) -> tuple[Catalog, str]
 def run(
     suite: Annotated[str, typer.Option(help="Suite under bench/tasks/.")] = "dev",
     dialect: Annotated[str, typer.Option(help="Task dialect directory: nasm, gas-intel, gas-att.")] = "nasm",
-    arm: Annotated[list[str] | None, typer.Option(help="single and/or fix; default both.")] = None,
+    arm: Annotated[
+        list[str] | None, typer.Option(help="single, fix and/or c-gcc; default single and fix.")
+    ] = None,
     seeds: Annotated[int, typer.Option(min=1, help="Seeds per task; 3 or more to measure noise.")] = 3,
     fix_iterations: Annotated[int, typer.Option(min=1, help="Fix attempts of the fix arm.")] = 3,
     task: Annotated[list[str] | None, typer.Option(help="Only these task ids.")] = None,
@@ -72,6 +78,7 @@ def run(
     transport: Annotated[str, typer.Option(help="auto, wsl or local.")] = "auto",
 ) -> None:
     """Run the arms over the suite for several seeds and append every task result to --output."""
+    from barthelona.bench.c_arm import CGccVerifier
     from barthelona.bench.verifier import LadderVerifier
     from barthelona.cli import _make_executor
 
@@ -99,7 +106,7 @@ def run(
                 arms,
                 range(seeds),
                 gateway,
-                LadderVerifier(executor),
+                CGccVerifier(executor, LadderVerifier(executor)),
                 prompts,
                 output.parent / "work",
                 RunSettings(temperature=temperature, max_tokens=max_tokens),
