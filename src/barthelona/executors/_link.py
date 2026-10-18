@@ -11,6 +11,7 @@ import asyncio
 import contextlib
 import itertools
 import json
+import os
 import subprocess
 import threading
 from concurrent.futures import Future, InvalidStateError
@@ -89,7 +90,8 @@ class ProcessTransport:
     def _drain_stderr(self, process: subprocess.Popen[bytes], buffer: bytearray) -> None:
         """Read stderr until EOF so the pipe never fills, keeping only the last bytes in *buffer*."""
         assert process.stderr is not None  # noqa: S101  -- PIPE set in start()
-        while chunk := process.stderr.read1(1024):
+        descriptor = process.stderr.fileno()
+        while chunk := os.read(descriptor, 1024):  # returns what is available; b"" at EOF
             with self._stderr_lock:
                 buffer += chunk
                 del buffer[:-STDERR_TAIL_BYTES]
