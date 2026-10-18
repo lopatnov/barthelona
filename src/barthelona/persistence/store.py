@@ -219,6 +219,7 @@ class Store:
                     raise ValueError(
                         f"gate {request.gate_id!r} belongs to run {request.run_id!r}, not {command.run_id!r}"
                     )
+                self._refuse_second_pending_resume(command.decision.gate_id)
             try:
                 cursor = self._conn.execute(
                     "INSERT INTO commands (run_id, kind, created_at, doc) VALUES (?, ?, ?, ?)",
@@ -229,6 +230,15 @@ class Store:
         if cursor.lastrowid is None:
             raise RuntimeError("SQLite returned no rowid for the new command")
         return cursor.lastrowid
+
+    def _refuse_second_pending_resume(self, gate_id: str) -> None:
+        """Raise if an unclaimed resume already answers `gate_id`, so the worker never sees two (#12)."""
+        row = self._conn.execute(
+            "SELECT 1 FROM commands WHERE claimed_at IS NULL AND json_extract(doc, '$.decision.gate_id') = ?",
+            (gate_id,),
+        ).fetchone()
+        if row is not None:
+            raise ConflictError(f"gate {gate_id!r} already has a queued resume")
 
     def claim_commands(self, run_id: str) -> list[RunCommand]:
         """Return the run's unclaimed commands in order and mark them claimed, so each runs once."""
