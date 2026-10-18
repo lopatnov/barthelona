@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Container, Sequence
 from pathlib import Path
 
 from barthelona.bench.prompts import PromptSet
@@ -21,13 +21,19 @@ async def run_suite(
     work_root: Path,
     settings: RunSettings,
     on_result: Callable[[TaskResult], None],
+    done: Container[tuple[str, str, int]] = frozenset(),
 ) -> list[TaskResult]:
-    """Seed by seed, so an interrupted run holds complete seeds; `on_result` sees each result at once."""
+    """Seed by seed, so an interrupted run holds complete seeds; `on_result` sees each result at once.
+
+    *done* holds (arm, task id, seed) of runs to skip, so a stopped run can be continued (#168).
+    """
     results: list[TaskResult] = []
     for seed in seeds:
         for task in tasks:
             run = TaskRun(task, seed, gateway, verifier, prompts, task.source_name, work_root, settings)
             for arm in arms:
+                if (arm.name, task.id, seed) in done:
+                    continue
                 result = await run_task(run, arm)
                 on_result(result)
                 results.append(result)

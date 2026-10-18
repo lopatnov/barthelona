@@ -18,7 +18,7 @@ from barthelona.bench import (
     load_suite,
 )
 from barthelona.bench.endpoint import EndpointError, served_models
-from barthelona.bench.report import append_result, format_report, read_results
+from barthelona.bench.report import append_result, finished_runs, format_report, read_results
 from barthelona.bench.suite import run_suite
 from barthelona.cli._toolchain import ToolchainMissingError, ensure_toolchain
 from barthelona.llm import CatalogError, Gateway, OpenAIChatBackend, load_catalog
@@ -109,7 +109,7 @@ def models(
 
 @bench_app.command("run")
 def run(
-    suite: Annotated[str, typer.Option(help="Suite under bench/tasks/.")] = "dev",
+    suite: Annotated[str, typer.Option(help="Suite under bench/tasks/.")] = "dev",  # NOSONAR S107
     dialect: Annotated[str, typer.Option(help="Task dialect directory: nasm, gas-intel, gas-att.")] = "nasm",
     arm: Annotated[
         list[str] | None, typer.Option(help="single, fix and/or c-gcc; default single and fix.")
@@ -130,8 +130,14 @@ def run(
     temperature: Annotated[float, typer.Option(help="Sampling temperature (local models only).")] = 0.2,
     max_tokens: Annotated[int, typer.Option(help="Reply cap per attempt.")] = 4096,
     transport: Annotated[str, typer.Option(help="auto, wsl or local.")] = "auto",
+    rerun: Annotated[
+        bool, typer.Option("--rerun", help="Run again what --output already holds for this model.")
+    ] = False,
 ) -> None:
-    """Run the arms over the suite for several seeds and append every task result to --output."""
+    """Run the arms over the suite for several seeds and append every task result to --output.
+
+    A stopped run continues where it left off: runs --output already holds for the model are skipped.
+    """
     from barthelona.bench.c_arm import CGccVerifier
     from barthelona.bench.verifier import LadderVerifier
     from barthelona.cli import _make_executor
@@ -146,7 +152,15 @@ def run(
     if not tasks:
         raise typer.BadParameter("no task matches")
     arms = _arms(arm or ["single", "fix"], fix_iterations)
-    _preflight(catalog.resolve("worker", resolved))
+    targets = catalog.resolve("worker", resolved)
+    _preflight(targets)
+    done = (
+        frozenset() if rerun or not output.exists() else finished_runs(read_results(output), targets[0].key)
+    )
+    if done:
+        _out.print(
+            f"Skipping {len(done)} runs of {targets[0].key} already in {output}; --rerun repeats them."
+        )
     executor = _make_executor(transport, "bench run")
     gateway = Gateway(catalog, {"openai_chat": OpenAIChatBackend()}, profile=resolved)
 
@@ -167,6 +181,7 @@ def run(
                 output.parent / "work",
                 RunSettings(temperature=temperature, max_tokens=max_tokens),
                 record,
+                done,
             )
         finally:
             await executor.aclose()
@@ -183,10 +198,11 @@ def run(
 def report(
     results: Annotated[Path, typer.Argument(help="JSONL file written by `bench run`.")],
     baseline: Annotated[str | None, typer.Option(help="Arm the others are compared with.")] = None,
+    model: Annotated[str | None, typer.Option(help="Only this catalog model key.")] = None,
 ) -> None:
-    """Print pass@1, first try, attempts, tok/s, seed noise and the paired comparison."""
+    """Print pass@1, first try, attempts, tok/s, seed noise and the paired comparison, per model."""
     try:
-        lines = format_report(read_results(results), baseline)
+        lines = format_report(read_results(results), baseline, model)
     except BenchError as exc:
         _err.print(f"[bold red]bench report failed:[/bold red] {exc}")
         raise typer.Exit(1) from exc

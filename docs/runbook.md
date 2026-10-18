@@ -144,7 +144,9 @@ LM Studio and Ollama may run on other PCs, so the engine host and the models nee
 Run the bake-off on the dev tasks (needs the `bart-tc` and `bart-run` containers, as for `verify`):
 - run `python -m barthelona bench models` to see what each local endpoint serves (it reports a stopped LM Studio server as `down`; `bench run` also stops before any task when the endpoint is down or does not serve the model);
 - add the candidate to `config/models.yaml` as a local model, then `python -m barthelona bench run --model <catalog key> --seeds 3`;
-- the results append to `var/bench/results.jsonl`; `python -m barthelona bench report var/bench/results.jsonl` prints pass@1 with its interval, first try, attempts, tok/s, seed noise and the paired `fix` vs `single` comparison;
+- the results append to `var/bench/results.jsonl`; `python -m barthelona bench report var/bench/results.jsonl` prints pass@1 with its interval, first try, attempts, tok/s, seed noise and the paired `fix` vs `single` comparison, one table per model (`--model <key>` shows one; a rerun row replaces the earlier row of the same model, arm, task and seed);
+- a stopped run continues: `bench run` skips the runs the output file already holds for the model (`--rerun` repeats them). A model unloaded mid-run leaves unanswered rows that are retried;
+- a full bake-off is hours of sustained GPU and CPU load: run it on a desktop PC with proper cooling, not a laptop, and not overnight in a bedroom;
 - hidden tests stay out of prompts and out of the conversation; read only the report.
 
 ## 5. Cloud providers
