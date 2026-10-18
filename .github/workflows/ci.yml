@@ -96,6 +96,27 @@ jobs:
           $found | Format-Table -AutoSize RuleName, Severity, ScriptName, Line, Message | Out-String -Width 250
           if ($found) { exit 1 }
 
+  templates:
+    # The CI/CD templates the scaffolder emits (D-048) must pass actionlint when rendered.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Install the hash-locked runtime dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --require-hashes --no-deps -r requirements/runtime.linux.lock
+          python -m pip install --disable-pip-version-check --no-deps -e .
+      - name: Render the templates for a sample project
+        run: python scripts/render_ci_templates.py rendered
+      - name: actionlint
+        working-directory: rendered
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -color ./*/.github/workflows/*.yml
+
   yaml:
     runs-on: ubuntu-latest
     timeout-minutes: 5

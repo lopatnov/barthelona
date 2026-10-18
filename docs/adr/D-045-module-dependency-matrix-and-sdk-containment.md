@@ -17,7 +17,7 @@ Separately, D-002 makes LangGraph the only orchestrator, and D-003 keeps an inte
    | Package | May import |
    | --- | --- |
    | `domain` | nothing from barthelona (Pydantic and stdlib only) |
-   | `persistence`, `executors`, `training`, `contracts`, `knowledge`, `memory`, `policy`, `llm` | `domain` |
+   | `persistence`, `executors`, `training`, `contracts`, `knowledge`, `memory`, `policy`, `llm`, `scaffold` (D-048) | `domain` |
    | `toolchains` | `domain`, `executors` |
    | `verification` | `domain`, `executors`, `toolchains`, `contracts` |
    | `workspace` | `domain`, `contracts` |

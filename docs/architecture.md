@@ -362,6 +362,7 @@ SPRINT LOOP: sprint_planner -> compose -> validate_topology (<=2 repairs, else d
    - contract-honouring `gen/stubs/*.asm`;
    - `gen/contracts.h`, C harnesses, emulator fixtures;
    - the `Makefile`, `.gitattributes` (LF line endings);
+   - `.github/workflows/ci.yml`, `release.yml` and `.github/dependabot.yml` from the target family's templates (D-048; `linux-x64` only until further presets land);
    - then runs `git init` and creates branch `bart/<run_id>`.
 8. **Skeleton build.** The all-stub project must pass V0–V2 before any LLM-written code exists. This proves the generators and the toolchain.
 9. **G2.**
@@ -1352,6 +1353,7 @@ src/*.asm | *.s      LLM-written, only within each task's write scope
 gen/                 GENERATED, hash header, committed: *.inc, stubs/, contracts.h, harness/*.c, fixtures/
 tests/               acceptance.yaml, unit/*.yaml, reference/*.py, characterization/ (locked, hashed)
 Makefile, .gitattributes (eol=lf), README.md   generated
+.github/             GENERATED once (D-048): workflows/ci.yml, workflows/release.yml, dependabot.yml
 build/               ignored
 .barthelona/         backlog.yaml, sprints/NN/{plan,topology,review,retro}.json, repomap.json,
                      policy_overlay.yaml, inferred_contracts.yaml, baseline/
