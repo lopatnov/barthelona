@@ -2,6 +2,8 @@
 
 A local-first agentic system that creates or edits **multi-file assembly projects** from a natural-language request.
 
+Assembly is the first target family of a wider aim (D-050): an oracle-driven software builder. C applications, then web and 2D, are planned as roadmap Phase 6, after the assembler pipeline works end to end. The engine runs on Linux or Windows, and models can be served from several PCs (D-049).
+
 You choose an assembler dialect (NASM and GNU as first; FASM, MASM-compatible and others later) and a target (architecture, OS, ABI, output format). You choose whether to create a new project or change an existing one, and describe the goal in English, Russian or Ukrainian. The system then:
 
 1. turns the request into a spec, interface contracts and tests that you approve;
