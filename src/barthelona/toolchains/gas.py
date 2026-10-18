@@ -42,7 +42,8 @@ class GasIntelAdapter:
     ) -> tuple[str, ...]:
         """V1: assemble *source* to *output*."""
         arch_flags = _GAS_ARCH_FLAGS.get(obj_format, ("--64",))
-        return ("as", "-msyntax=intel", "-mnaked-reg", *arch_flags, "-I", include_dir(source), "-o", output, source)
+        include = ("-I", include_dir(source))
+        return ("as", "-msyntax=intel", "-mnaked-reg", *arch_flags, *include, "-o", output, source)
 
     def parse_diagnostics(
         self,

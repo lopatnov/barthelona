@@ -31,7 +31,8 @@ def test_is_dialect_adapter(adapter: object) -> None:
 def test_include_path_is_the_source_directory(adapter: DialectAdapter) -> None:
     """#122: ``docker exec`` starts in /work, so ``gen/x.inc`` needs ``-I <session dir>/``."""
     source = "/cache/runs/r1/a1/main.asm"
-    for argv in (adapter.syntax_check_argv(source), adapter.assemble_argv(source, "/cache/runs/r1/a1/main.o")):
+    assemble = adapter.assemble_argv(source, "/cache/runs/r1/a1/main.o")
+    for argv in (adapter.syntax_check_argv(source), assemble):
         assert argv[argv.index("-I") + 1] == "/cache/runs/r1/a1/"
 
 
