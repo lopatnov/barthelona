@@ -72,7 +72,7 @@ Phase 2 runs two tracks: 2a oracles plus the MCP server, 2b meta-agency (plan re
 
 ![Phases and what each one adds](images/10-phases.svg)
 
-Phases 6 and 7 and the purple "new" marks were added on 2026-10-18 from `docs/requirements.md`. Drawings 1 to 9 were not redrawn in that pass: 1 (Windows-only processes, no Linux host or multi-PC endpoints, D-049), 6 (ladder without the proposed checks) and 8 (gateway without endpoint scheduling policy) are known to lag the ADRs.
+Phases 6 and 7 and the purple "new" marks were added on 2026-10-18 from `docs/requirements.md`. Drawings 1, 6 and 8 got a text refresh and a purple "proposed" box in the same pass (Linux host and multi-PC endpoints, new check families, endpoint scheduling policy); a full redraw happens when their phases land.
 
 ## 11. Capabilities the reference workloads need
 

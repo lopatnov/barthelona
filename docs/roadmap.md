@@ -118,6 +118,14 @@ Current status (2026-10-14): **Phase 0 in progress** — repository and environm
 - Web and 2D: a 2D game (Snake first) and a small web app pass their ladder, and the owner approves their look at G4.
 - The phase review (D-037) ran, and its blocking issues are fixed.
 
+## Phase 7 — Reference ambition: pure-assembly TLS 1.3 and HTTP/2 reverse proxy (D-054)
+
+**Goal:** a reverse proxy for files and API requests with HTTP/2, with TLS 1.3 and its crypto written in assembly and no linked TLS or crypto library, built by Barthelona (mostly local models) in the network demo repo. This is the reference complexity for architecture reviews (owner, 2026-10-18), not a commitment to a date. Starts only after Phase 6 and a working multi-module edit mode.
+
+**Deliverables:** the F-87 to F-94 items: module-DAG decomposition, spec ingestion with traceability, crypto vector and differential oracles, constant-time checks, loopback-only interop sandbox with conformance tools, fuzzing and memory-safety checks, disassembly aid (D-055).
+
+**Exit criteria:** the proxy completes TLS 1.3 handshakes and serves HTTP/2 requests to `openssl s_client`, `curl --http2` and `h2spec` inside budget; all known-answer and differential crypto tests pass; the constant-time check passes on secret-handling code; fuzzing finds no unresolved crash; the demo README states that the result is an unaudited experiment; the phase review (D-037) ran.
+
 ## Open decisions (owner)
 
 Each has a recommended default that the docs already assume. Change any of them and the affected ADR is updated.
@@ -239,8 +247,16 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-102 | No visual oracles for native, frame-buffer or 3D output | requirements pass, 2026-10-18 (`docs/requirements.md`) | Needs the engine and its registries | Golden frames, perceptual diff, accessibility tree, vision critique; do F-72 survey first | open (#195), Phase 6 |
 | F-103 | No model for linking system libraries and toolkits | requirements pass, 2026-10-18 (`docs/requirements.md`) | Needs the engine and its registries | Pinned `libs` list in `project.yaml`, library import allow-list at V1 | open (#196), Phase 1b field, Phase 6 |
 | F-104 | Packaging and release beyond a static linux-x64 binary | requirements pass, 2026-10-18 (`docs/requirements.md`) | Needs the engine and its registries | Package kinds as scaffold outputs per family, with install smoke tests | open (#197), Phase 6 |
-| F-105 | Native GUI and 3D have no target family, phase or scope | requirements pass, 2026-10-18 (`docs/requirements.md`) | Needs the engine and its registries | ADR amending D-050; GUI in the C family first; 3D as deterministic software renderer (owner decision) | open (#198), Phase 6 |
+| F-105 | Native GUI and 3D have no target family, phase or scope | requirements pass, 2026-10-18 (`docs/requirements.md`) | Needs the engine and its registries | ADR amending D-050; GUI in assembly over the OS windowing protocol (recommended; C toolkit is option B); 3D as a deterministic software renderer (owner decision) | open (#198), Phase 6 |
 | F-106 | Gate G4 cannot show screenshots, recordings or a live session | requirements pass, 2026-10-18 (`docs/requirements.md`) | Needs the engine and its registries | Artefact record and Review page rendering images and recordings | open (#199), Phase 1b record, Phase 6 |
+| F-87 | Reference ambition: a pure-assembly TLS 1.3 + HTTP/2 reverse proxy (no linked TLS or crypto library) is the bar for architecture reviews; the plan reaches only a C proxy with linked TLS | owner, 2026-10-18 | Direction, not a gate; Phase 7 after Phase 6 | D-054; children F-88 to F-94 | open (#179), Phase 7 |
+| F-88 | Disassembly (objdump, Capstone) is internal only: no tool, input path, repair aid, training use or licence rule | owner, 2026-10-18 | Needs the tool registry (#175) | D-055: licence-gated input and aid, never an oracle | open (#180), Phase 1b to 3 |
+| F-89 | No long-horizon decomposition for multi-module assembly systems (module DAG, per-module contracts and budgets, incremental integration, resumable projects) | owner ambition bar, 2026-10-18 | Needs edit mode (Phase 3) and stable contracts | Planner node plus module-DAG artifact; measure per-PC capability ceiling (D-052) | open (#181), Phase 7 |
+| F-90 | No spec ingestion: RFC MUST/SHOULD requirements are not extracted, traced to tests or checked for coverage | owner ambition bar, 2026-10-18 | Needs task-description input (#145) | `requirements.yaml` artifact and a coverage gate | open (#182), Phase 7 |
+| F-91 | No crypto oracles: known-answer vectors (CAVP, RFC 8439/7748/5869/8448, Wycheproof) and differential tests against a reference library | owner ambition bar, 2026-10-18 | Needs the V5 sandbox and the check registry | Pinned, hashed vector corpus with licence record; `crypto-vectors` check family | open (#183), Phase 7 |
+| F-92 | No constant-time / secret-flow oracle for assembly crypto | owner ambition bar, 2026-10-18 | Needs V3/V4 | Contract `secret: true`; static V3 extension plus Unicorn taint and trace comparison | open (#184), Phase 7 |
+| F-93 | No protocol conformance or interop oracles; the assembly sandbox has no loopback-only profile | owner ambition bar, 2026-10-18 | Needs the tool registry (#175) | Loopback-only profile; registered openssl s_client, curl, nghttp, h2spec, tlsfuzzer, TLS-Anvil | open (#185), Phase 7 |
+| F-94 | No fuzzing or memory-safety oracle for generated assembly (parsers, record layer, HPACK) | owner ambition bar, 2026-10-18 | Complements F-27 and F-77 | Contract-derived harness; Unicorn bounds hooks; crash corpus as frozen tests | open (#186), Phase 7 |
 
 ## Parked ideas (not scheduled)
 
