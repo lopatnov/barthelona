@@ -94,8 +94,8 @@ class TestNasmAdapter:
         argv = self.a.assemble_argv("hello.asm", "out.o")
         assert "out.o" in argv
 
-    def test_parse_diagnostics_stub_returns_empty(self) -> None:
-        assert self.a.parse_diagnostics(b"", b"error: something", "hello.asm") == []
+    def test_parse_diagnostics_skips_unrecognised_lines(self) -> None:
+        assert self.a.parse_diagnostics(b"", b"something odd happened", "hello.asm") == []
 
 
 # ---------------------------------------------------------------------------
