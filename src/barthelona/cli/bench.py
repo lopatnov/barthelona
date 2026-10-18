@@ -17,10 +17,11 @@ from barthelona.bench import (
     load_prompts,
     load_suite,
 )
+from barthelona.bench.endpoint import EndpointError, served_models
 from barthelona.bench.report import append_result, format_report, read_results
 from barthelona.bench.suite import run_suite
 from barthelona.llm import CatalogError, Gateway, OpenAIChatBackend, load_catalog
-from barthelona.llm.catalog import Catalog, ChainEntry
+from barthelona.llm.catalog import Catalog, ChainEntry, ModelTarget
 
 bench_app = typer.Typer(help="Benchmark models on the dev tasks (architecture §20).", no_args_is_help=True)
 _out = Console(soft_wrap=True, highlight=False)
@@ -51,6 +52,58 @@ def _catalog(path: Path, profile: str, model: str | None) -> tuple[Catalog, str]
         raise typer.BadParameter(f"unknown model {model!r}; the catalog has {', '.join(catalog.models)}")
     pinned = {**catalog.profiles, _BENCH_PROFILE: {"worker": [ChainEntry(model=model)]}}
     return catalog.model_copy(update={"profiles": pinned}), _BENCH_PROFILE
+
+
+def _provider_target(catalog: Catalog, provider_id: str) -> ModelTarget:
+    """Any catalog model of the provider: listing an endpoint needs its URL, not a particular model."""
+    key, model = next((k, m) for k, m in catalog.models.items() if m.provider == provider_id)
+    return ModelTarget(key=key, provider_id=provider_id, provider=catalog.providers[provider_id], model=model)
+
+
+def _preflight(targets: list[ModelTarget]) -> None:
+    """Stop before any task runs when the first worker endpoint is down or does not serve its model."""
+    head = targets[0]
+    try:
+        served = asyncio.run(served_models(head))
+    except EndpointError as exc:
+        _err.print(f"[bold red]bench run failed:[/bold red] {exc}")
+        raise typer.Exit(2) from exc
+    if head.model.model not in served:
+        listing = ", ".join(served) or "no models"
+        _err.print(
+            f"[bold red]bench run failed:[/bold red] {head.provider_id} serves {listing}, "
+            f"not {head.model.model!r}; load it first or pick another with --model"
+        )
+        raise typer.Exit(2)
+
+
+@bench_app.command("models")
+def models(
+    catalog_path: Annotated[Path, typer.Option("--catalog", help="Model catalog.")] = Path(
+        "config/models.yaml"
+    ),
+) -> None:
+    """List the models each local endpoint in the catalog serves right now."""
+    try:
+        catalog = load_catalog(catalog_path)
+    except CatalogError as exc:
+        _err.print(f"[bold red]bench models failed:[/bold red] {exc}")
+        raise typer.Exit(2) from exc
+    local = [
+        pid
+        for pid, provider in catalog.providers.items()
+        if provider.local and provider.enabled and any(m.provider == pid for m in catalog.models.values())
+    ]
+    for provider_id in local:
+        target = _provider_target(catalog, provider_id)
+        try:
+            served = asyncio.run(served_models(target))
+        except EndpointError as exc:
+            _out.print(f"{provider_id}: down ({exc})", markup=False)
+            continue
+        _out.print(f"{provider_id}: {', '.join(served) or 'no models loaded'}", markup=False)
+    if not local:
+        _out.print("no enabled local provider in the catalog", markup=False)
 
 
 @bench_app.command("run")
@@ -92,6 +145,7 @@ def run(
     if not tasks:
         raise typer.BadParameter("no task matches")
     arms = _arms(arm or ["single", "fix"], fix_iterations)
+    _preflight(catalog.resolve("worker", resolved))
     executor = _make_executor(transport, "bench run")
     gateway = Gateway(catalog, {"openai_chat": OpenAIChatBackend()}, profile=resolved)
 
