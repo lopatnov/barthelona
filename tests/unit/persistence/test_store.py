@@ -355,6 +355,17 @@ def test_commands_are_claimed_once_in_order(store: Store) -> None:
         store.enqueue_command(orphan)
 
 
+def test_a_second_queued_resume_for_one_gate_is_refused(store: Store) -> None:
+    """#12: the worker must never see two resumes for one gate."""
+    decision = GateDecision(gate_id="g1", decision="approve", at=T0)
+    resume = RunCommand(run_id="r1", kind=CommandKind.RESUME, decision=decision)
+    store.open_gate(_gate())
+    store.enqueue_command(resume)
+    with pytest.raises(ConflictError, match="already has a queued resume"):
+        store.enqueue_command(resume)
+    assert store.claim_commands("r1") == [resume]
+
+
 def test_resume_names_a_gate_of_its_own_run(store: Store) -> None:
     store.create_run(_run("r2"))
     store.open_gate(_gate())
