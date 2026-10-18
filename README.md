@@ -14,7 +14,14 @@ Models are pluggable:
 - Anthropic, OpenAI, Google Gemini and DeepSeek are optional accelerators, configured in `config/models.yaml`;
 - dollar budgets are optional (spending is always metered; time and token limits always apply), and provider outages or empty balances fall back automatically to the next model, ending with the local one.
 
-**Status:** Phase 0 in progress: repository and environment done, code skeleton not started. See `docs/roadmap.md`.
+## Status: not ready yet
+
+**Barthelona cannot create or edit projects yet.** The agent engine (the Meta-Agentic Scrum loop, the UI and the model-driven pipeline) does not exist; the description above is the design, not today's behavior.
+
+- **Current phase:** Phase 0, foundations and the deterministic spine (last updated 2026-10-18). Done: design docs, agent configuration, environment scripts, domain models, the SQLite store, executors, NASM/GAS adapters, the verification ladder (`python -m barthelona verify`), the model gateway, the bench library and the ABI mutation corpus. Still open: the bake-off and local-model choice, Docker image digests, and the Phase 0 review. Next is Phase 1 (an end-to-end run from the UI).
+- **What you can try today:** the CLI (`python -m barthelona version | schema | probe | verify | training status`) and the demo below.
+- **Demo caveat:** `demos/simplest-demo` was written by hand by Claude, because the engine does not exist yet. Barthelona's verification ladder checks it; barthelona did not generate it.
+- **Where to look:** phases and exit criteria in `docs/roadmap.md` (its "Current status" line is the source of truth). When a phase changes, update this section and that line together.
 
 ## Quick start (Windows, PowerShell)
 
