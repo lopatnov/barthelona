@@ -123,6 +123,7 @@ Load the chosen model with:
 Keep only one large model loaded at a time.
 
 Run the bake-off on the dev tasks (needs the `bart-tc` and `bart-run` containers, as for `verify`):
+- run `python -m barthelona bench models` to see what each local endpoint serves (it reports a stopped LM Studio server as `down`; `bench run` also stops before any task when the endpoint is down or does not serve the model);
 - add the candidate to `config/models.yaml` as a local model, then `python -m barthelona bench run --model <catalog key> --seeds 3`;
 - the results append to `var/bench/results.jsonl`; `python -m barthelona bench report var/bench/results.jsonl` prints pass@1 with its interval, first try, attempts, tok/s, seed noise and the paired `fix` vs `single` comparison;
 - hidden tests stay out of prompts and out of the conversation; read only the report.
