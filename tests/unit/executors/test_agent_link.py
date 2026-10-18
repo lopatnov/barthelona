@@ -7,13 +7,15 @@ import base64
 import io
 import json
 import queue
+import sys
 import tarfile
+import time
 from pathlib import Path
 
 import pytest
 
 from barthelona.executors import AgentExecutor, ExecutorInfraError, ExecutorRejectedError, LocalTransport
-from barthelona.executors._link import PROTOCOL_VERSION, AgentLink
+from barthelona.executors._link import PROTOCOL_VERSION, STDERR_TAIL_BYTES, AgentLink, ProcessTransport
 
 
 def _hello(protocol: int = PROTOCOL_VERSION) -> bytes:
@@ -222,3 +224,25 @@ async def test_sandbox_open_session_rejects_unsafe_ids() -> None:
     sandbox = AgentExecutor(ScriptedTransport(_hello(), lambda r: [_ok(r)])).sandbox()
     with pytest.raises(ValueError, match="invalid session id"):
         await sandbox.open_session("../x", 0)
+
+
+async def test_agent_stderr_is_in_the_infra_error() -> None:
+    """#78: a crashing agent's traceback reaches the caller instead of being discarded."""
+    crash = "import sys; sys.stderr.write('Traceback: boom'); sys.exit(1)"
+    link = AgentLink(ProcessTransport([sys.executable, "-c", crash]))
+    with pytest.raises(ExecutorInfraError, match="agent stderr: Traceback: boom"):
+        await link.request({"cmd": ["a"]})
+
+
+def test_stderr_tail_keeps_only_the_last_bytes() -> None:
+    noisy = f"import sys; sys.stderr.write('x' * {STDERR_TAIL_BYTES * 3} + 'END')"
+    transport = ProcessTransport([sys.executable, "-c", noisy])
+    transport.start()
+    deadline = time.monotonic() + 10
+    tail = transport.stderr_tail()
+    while not tail.endswith("END") and time.monotonic() < deadline:  # slow CI hosts drain late
+        time.sleep(0.05)
+        tail = transport.stderr_tail()
+    transport.close()
+    assert len(tail) == STDERR_TAIL_BYTES
+    assert tail.endswith("END")
