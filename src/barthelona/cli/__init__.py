@@ -223,6 +223,21 @@ def _load_tests(path: Path | None) -> list[TestCase]:
         raise typer.BadParameter(str(exc)) from exc
 
 
+def _parse_required(raw: str | None, up_to: Level) -> frozenset[Level] | None:
+    """The ``--require`` levels, each of which must be a ladder level that this run reaches."""
+    if raw is None:
+        return None
+    try:
+        required = frozenset(Level(part.strip()) for part in raw.split(",") if part.strip())
+    except ValueError:
+        choices = ", ".join(Level)
+        raise typer.BadParameter(f"unknown level in --require {raw!r}; choose from {choices}") from None
+    unreached = sorted(level for level in required if level > up_to)
+    if not required or unreached:
+        raise typer.BadParameter(f"--require needs at least one level, all at or below --level {up_to}")
+    return required
+
+
 @app.command()
 def verify(
     workspace: Annotated[Path, typer.Argument(help="Directory containing source files.")],
@@ -261,6 +276,14 @@ def verify(
             "--json", help="Print one JSON document (status and levels) on stdout; progress goes to stderr."
         ),
     ] = False,
+    require: Annotated[
+        str | None,
+        typer.Option(
+            "--require",
+            help="Comma-separated levels that must pass (e.g. V0,V1,V2,V5,V6). Other unsupported "
+            "levels are reported but do not fail the run; any failure still does.",
+        ),
+    ] = None,
 ) -> None:
     """Run the verification ladder on the assembly sources in WORKSPACE (V0-V2, V6).
 
@@ -279,6 +302,7 @@ def verify(
     except ValueError:
         raise typer.BadParameter(f"unknown level {level!r}; choose one of {', '.join(Level)}") from None
 
+    required = _parse_required(require, up_to)
     resolved_dialect = dialect or _detect_dialect(workspace)
     adapter = _make_adapter(resolved_dialect)
     ext = _DIALECT_EXTENSION.get(resolved_dialect, ".asm")
@@ -291,7 +315,7 @@ def verify(
     gate = _tamper_gate(registry, workspace, test_cases)
     emit = report_json if json_output else report
     if gate is not None and gate.status == "fail":
-        raise typer.Exit(emit([gate]))
+        raise typer.Exit(emit([gate], required))
     executor = _make_executor(transport, "verify")
 
     from barthelona.verification import LadderOptions
@@ -312,7 +336,7 @@ def verify(
         _err.print(f"[bold red]verify failed:[/bold red] {exc}")
         raise typer.Exit(1) from exc
 
-    raise typer.Exit(emit([*([gate] if gate else []), *results]))
+    raise typer.Exit(emit([*([gate] if gate else []), *results], required))
 
 
 def main() -> None:
