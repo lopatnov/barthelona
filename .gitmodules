@@ -1,0 +1,3 @@
+[submodule "demos/simplest-demo"]
+	path = demos/simplest-demo
+	url = https://github.com/lopatnov/barthelona-simplest-demo
