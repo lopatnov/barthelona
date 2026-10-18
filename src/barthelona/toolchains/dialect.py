@@ -11,10 +11,21 @@ Diagnostics parsers are tested against real captured tool output in
 
 from __future__ import annotations
 
+from pathlib import PurePosixPath
 from typing import Protocol, runtime_checkable
 
 from barthelona.domain.enums import ObjFormat
 from barthelona.domain.verification import Diagnostic
+
+
+def include_dir(source: str) -> str:
+    """The directory of *source* with a trailing slash, for the assembler's ``-I`` flag.
+
+    ``docker exec`` starts in the image's ``/work``, not in the attempt's directory, so
+    ``%include "gen/x.inc"`` and ``.include "gen/x.inc"`` only resolve with an explicit
+    include path (NASM manual 3.02, ``-I`` option; GNU as ``-I``). NASM needs the trailing slash.
+    """
+    return f"{PurePosixPath(source).parent}/"
 
 
 @runtime_checkable

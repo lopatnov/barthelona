@@ -23,6 +23,19 @@ def test_is_dialect_adapter(adapter: object) -> None:
     assert isinstance(adapter, DialectAdapter)
 
 
+@pytest.mark.parametrize(
+    "adapter",
+    [NasmAdapter(), GasIntelAdapter(), GasAttAdapter()],
+    ids=["nasm", "gas-intel", "gas-att"],
+)
+def test_include_path_is_the_source_directory(adapter: DialectAdapter) -> None:
+    """#122: ``docker exec`` starts in /work, so ``gen/x.inc`` needs ``-I <session dir>/``."""
+    source = "/cache/runs/r1/a1/main.asm"
+    assemble = adapter.assemble_argv(source, "/cache/runs/r1/a1/main.o")
+    for argv in (adapter.syntax_check_argv(source), assemble):
+        assert argv[argv.index("-I") + 1] == "/cache/runs/r1/a1/"
+
+
 # ---------------------------------------------------------------------------
 # NasmAdapter
 # ---------------------------------------------------------------------------

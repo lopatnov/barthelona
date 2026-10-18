@@ -9,6 +9,9 @@ from pathlib import Path
 import pytest
 
 from barthelona.executors import AgentExecutor, Command, LocalTransport
+from barthelona.toolchains.dialect import DialectAdapter
+from barthelona.toolchains.gas import GasAttAdapter, GasIntelAdapter
+from barthelona.toolchains.nasm import NasmAdapter
 
 pytestmark = pytest.mark.docker
 
@@ -37,6 +40,37 @@ async def test_assemble_and_link_in_bart_tc() -> None:
     assert nasm.returncode == 0, nasm.stderr
     assert link.returncode == 0, link.stderr
     assert {"./hello.o", "./hello"} <= set(names)
+
+
+@pytest.mark.parametrize(
+    ("adapter", "name", "include_line"),
+    [
+        (NasmAdapter(), "main.asm", '%include "gen/x.inc"\n'),
+        (GasIntelAdapter(), "main.s", '.include "gen/x.inc"\n'),
+        (GasAttAdapter(), "main.s", '.include "gen/x.inc"\n'),
+    ],
+    ids=["nasm", "gas-intel", "gas-att"],
+)
+async def test_gen_include_resolves_in_bart_tc(adapter: DialectAdapter, name: str, include_line: str) -> None:
+    """#122: a module can include ``gen/x.inc`` although ``docker exec`` starts in /work."""
+    files = {name: include_line, "gen/x.inc": "\n"}  # empty: valid in every dialect
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:") as archive:
+        for arcname, text in files.items():
+            data = text.encode()
+            info = tarfile.TarInfo(arcname)
+            info.size = len(data)
+            archive.addfile(info, io.BytesIO(data))
+
+    executor = AgentExecutor(LocalTransport())
+    try:
+        session = await executor.open_session("docker-include", 0)
+        await session.stage(buf.getvalue())
+        result = await session.run(Command(argv=adapter.syntax_check_argv(session.path(name))))
+    finally:
+        await executor.aclose()
+
+    assert result.returncode == 0, result.stderr
 
 
 async def test_run_in_bart_run_sandbox() -> None:
