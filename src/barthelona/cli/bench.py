@@ -108,8 +108,8 @@ def models(
 
 
 @bench_app.command("run")
-def run(  # NOSONAR S107: Typer maps each parameter to one command-line option
-    suite: Annotated[str, typer.Option(help="Suite under bench/tasks/.")] = "dev",
+def run(
+    suite: Annotated[str, typer.Option(help="Suite under bench/tasks/.")] = "dev",  # NOSONAR S107
     dialect: Annotated[str, typer.Option(help="Task dialect directory: nasm, gas-intel, gas-att.")] = "nasm",
     arm: Annotated[
         list[str] | None, typer.Option(help="single, fix and/or c-gcc; default single and fix.")
