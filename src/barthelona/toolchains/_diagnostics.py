@@ -19,10 +19,13 @@ _LINE = re.compile(
     r"(?P<severity>fatal|error|warning|note): (?P<message>.+)$",
     re.IGNORECASE,
 )
+# GNU as prints "Error: ..." / "Fatal error: ..." with no location when it cannot open or write a file.
+_GAS_NO_LOCATION = re.compile(r"^(?P<severity>fatal error|error): (?P<message>.+)$", re.IGNORECASE)
 # NASM appends the warning class, e.g. "[-w+label-orphan]".
 _NASM_CODE = re.compile(r"\[(?P<code>-w[^\]]+)\]$")
 _SEVERITY: dict[str, Severity] = {
     "fatal": Severity.FATAL,
+    "fatal error": Severity.FATAL,
     "error": Severity.FATAL,  # an assembler error leaves no object file, so it blocks the level
     "warning": Severity.WARNING,
     "note": Severity.NOTE,
@@ -43,8 +46,21 @@ def parse_assembler_output(tool: str, output: bytes) -> list[Diagnostic]:
     """
     diagnostics: list[Diagnostic] = []
     for raw_line in output.decode("utf-8", errors="replace").splitlines():
-        match = _LINE.match(raw_line.strip())
+        stripped = raw_line.strip()
+        match = _LINE.match(stripped)
         if match is None:
+            bare = _GAS_NO_LOCATION.match(stripped)
+            if bare is not None:
+                message = bare["message"]
+                diagnostics.append(
+                    Diagnostic(
+                        tool=tool,
+                        level=DiagnosticLevel.V0,
+                        severity=_SEVERITY[bare["severity"].lower()],
+                        message=message,
+                        error_sig=error_signature(tool, message),
+                    )
+                )
             continue
         message = match["message"]
         code_match = _NASM_CODE.search(message)

@@ -1,0 +1,2 @@
+Assembler messages:
+Fatal error: can't create /nonexistent_dir/o.o: No such file or directory
