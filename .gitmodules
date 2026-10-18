@@ -1,3 +1,15 @@
 [submodule "demos/simplest-demo"]
 	path = demos/simplest-demo
 	url = https://github.com/lopatnov/barthelona-simplest-demo
+[submodule "demos/gui-desktop-demo"]
+	path = demos/gui-desktop-demo
+	url = https://github.com/lopatnov/barthelona-gui-dektop-demo
+[submodule "demos/network-demo"]
+	path = demos/network-demo
+	url = https://github.com/lopatnov/barthelona-network-demo
+[submodule "demos/2d-game-demo"]
+	path = demos/2d-game-demo
+	url = https://github.com/lopatnov/barthelona-2d-game-demo
+[submodule "demos/3d-game-demo"]
+	path = demos/3d-game-demo
+	url = https://github.com/lopatnov/barthelona-3d-game-demo
