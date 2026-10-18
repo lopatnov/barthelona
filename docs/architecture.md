@@ -678,6 +678,8 @@ Re-planning is bounded by `max_replans`. Resume after a crash uses the latest pe
 
 ## 10. Node registry
 
+**Registries (D-053):** roles, dialects and targets, provider backends, tools and checks are registries of string-keyed entries that declare their own metadata, validated at load time; core code never branches on a concrete id. The node registry below is one instance. Planned for Phase 1b (F-86).
+
 **Registry entry fields:**
 - `type`, a `Params` model, `reads` and `writes` (state keys);
 - `write_scope` globs, `outcomes`, `max_role` (the highest role the node may run under), `dialects`;
