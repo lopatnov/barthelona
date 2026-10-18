@@ -51,11 +51,12 @@ Template: Context (optional), Decision, Rationale, Alternatives considered, Cons
 | [D-042](D-042-adequacy-and-verifier-check.md) | Adequacy and verifier check for dev threads and the product pipeline | Proposed | amends D-033 |
 | [D-043](D-043-executor-contract-async-session-scoped-transport-pluggable.md) | Executor contract: async, session-scoped, transport-pluggable | Proposed | amends D-006, D-010 |
 | [D-044](D-044-state-ownership-and-crash-consistency.md) | State ownership and crash consistency | Proposed | amends D-002, D-003, D-024 |
-| [D-045](D-045-module-dependency-matrix-and-sdk-containment.md) | Module dependency matrix and SDK containment | Proposed | amends D-002, D-005; amended by D-048 |
-| [D-046](D-046-verification-levels-are-registered-checks.md) | Verification levels are registered checks selected by target family | Proposed | amends D-007 |
-| [D-047](D-047-model-endpoints-are-the-scheduling-unit.md) | Model endpoints are the scheduling unit of the catalog | Proposed | amends D-029; amended by D-049, D-052 |
+| [D-045](D-045-module-dependency-matrix-and-sdk-containment.md) | Module dependency matrix and SDK containment | Proposed | amends D-002, D-005; amended by D-048, D-053 |
+| [D-046](D-046-verification-levels-are-registered-checks.md) | Verification levels are registered checks selected by target family | Proposed | amends D-007; amended by D-053 |
+| [D-047](D-047-model-endpoints-are-the-scheduling-unit.md) | Model endpoints are the scheduling unit of the catalog | Proposed | amends D-029; amended by D-049, D-052, D-053 |
 | [D-048](D-048-ci-cd-templates-are-a-scaffold-output.md) | CI/CD workflows are a deterministic scaffold output, selected by target family | Proposed | amends D-008, D-045 |
 | [D-049](D-049-linux-capable-engine-and-model-endpoints-across-pcs.md) | The engine runs on Linux or Windows, and model endpoints may live on any PC | Proposed | amends D-006, D-047 |
 | [D-050](D-050-oracle-driven-builder-assembly-first-then-more-target-families.md) | Barthelona is an oracle-driven software builder; assembly is the first target family | Proposed | amends D-021, D-040 |
 | [D-051](D-051-learning-loop-export-train-gate-register.md) | The learning loop: export training data, train outside the product, gate on the bench, register the model | Proposed | amends D-036 |
 | [D-052](D-052-hardware-aware-model-placement-from-measured-endpoint-profiles.md) | Hardware-aware model placement from measured endpoint profiles | Proposed | amends D-047, D-049 |
+| [D-053](D-053-variation-points-are-registries-not-enums.md) | Variation points are registries of self-describing entries, not enums and factory chains | Proposed | amends D-045, D-046, D-047 |
