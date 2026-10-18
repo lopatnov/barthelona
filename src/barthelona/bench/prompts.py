@@ -10,6 +10,7 @@ from jinja2 import Environment, StrictUndefined, select_autoescape
 
 from barthelona.bench.task import BenchTask
 from barthelona.contracts import render_module_inc
+from barthelona.contracts.cgen import render_contracts_h
 from barthelona.domain.enums import Dialect
 from barthelona.domain.verification import LevelResult
 
@@ -25,10 +26,11 @@ _MAX_MESSAGE_CHARS = 600
 
 @dataclass(frozen=True)
 class PromptSet:
-    """Template texts: `single` for the first attempt, `fix` for each retry."""
+    """Template texts: first-attempt `single` (asm) or `c` (c-gcc), and `fix` for each retry."""
 
     single: str
     fix: str
+    c: str
 
 
 def load_prompts(root: Path) -> PromptSet:
@@ -36,6 +38,7 @@ def load_prompts(root: Path) -> PromptSet:
     return PromptSet(
         single=(directory / "single.md.j2").read_text(encoding="utf-8"),
         fix=(directory / "fix.md.j2").read_text(encoding="utf-8"),
+        c=(directory / "c.md.j2").read_text(encoding="utf-8"),
     )
 
 
@@ -62,6 +65,12 @@ def render_first_prompt(prompts: PromptSet, task: BenchTask, source_name: str) -
         include_name=include_name,
         include_directive=directive,
         include_text=render_module_inc(task.registry, task.module),
+    )
+
+
+def render_c_prompt(prompts: PromptSet, task: BenchTask, source_name: str) -> str:
+    return _ENV.from_string(prompts.c).render(
+        task=task, source_name=source_name, prototypes=render_contracts_h(task.registry)
     )
 
 

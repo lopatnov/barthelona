@@ -9,11 +9,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
 from pydantic import Field
 
-from barthelona.bench.prompts import PromptSet, render_feedback, render_first_prompt, render_fix_prompt
+from barthelona.bench.prompts import (
+    PromptSet,
+    render_c_prompt,
+    render_feedback,
+    render_first_prompt,
+    render_fix_prompt,
+)
 from barthelona.bench.task import BenchTask
 from barthelona.domain._base import DomainModel
 from barthelona.domain.enums import StopReason
@@ -36,6 +42,7 @@ class Arm:
     name: str
     max_fix_iterations: int  # 0 is the bare single prompt
     max_total_tokens: int = 60_000  # input + output over all attempts of one task
+    language: Literal["asm", "c"] = "asm"  # "c": the model writes C and gcc produces the assembly
 
 
 @dataclass(frozen=True)
@@ -114,6 +121,17 @@ def _write(workspace: Path, name: str, content: str) -> list[Path]:
     return [path]
 
 
+def _source_name(run: TaskRun, arm: Arm) -> str:
+    """The one file the model writes: the task's module, as C source in the c-gcc arm."""
+    return Path(run.source_name).with_suffix(".c").name if arm.language == "c" else run.source_name
+
+
+def _first_prompt(run: TaskRun, arm: Arm) -> str:
+    if arm.language == "c":
+        return render_c_prompt(run.prompts, run.task, _source_name(run, arm))
+    return render_first_prompt(run.prompts, run.task, run.source_name)
+
+
 async def _attempt(
     run: TaskRun, arm: Arm, number: int, first_prompt: str, previous: _Turn | None
 ) -> tuple[AttemptResult, _Turn]:
@@ -134,25 +152,26 @@ async def _attempt(
         tok_per_s=record.tok_per_s,
         served_by=completion.served_by,
     )
+    source_name = _source_name(run, arm)
     try:
-        files = parse_files(completion.text, write_scope=[run.source_name])
+        files = parse_files(completion.text, write_scope=[source_name])
     except EnvelopeError as exc:
         feedback = "Your reply was not accepted: " + "; ".join(exc.errors)
         attempt = attempt.model_copy(update={"envelope_errors": exc.errors})
     else:
         workspace = run.work_root / f"{run.run_id}-{arm.name}" / str(number)
-        sources = _write(workspace, run.source_name, files[0].content)
+        sources = _write(workspace, source_name, files[0].content)
         results = await run.verifier.verify(run.task, sources, f"{run.run_id}-{arm.name}", number)
         passed = dod_satisfied(run.task.required_levels, results)
         levels = {str(r.level): r.status for r in results}
         attempt = attempt.model_copy(update={"levels": levels, "passed": passed})
         feedback = render_feedback(results)
-    fix_prompt = render_fix_prompt(run.prompts, run.task, run.source_name, feedback)
+    fix_prompt = render_fix_prompt(run.prompts, run.task, source_name, feedback)
     return attempt, _Turn(completion.text, fix_prompt)
 
 
 async def run_task(run: TaskRun, arm: Arm) -> TaskResult:
-    first_prompt = render_first_prompt(run.prompts, run.task, run.source_name)
+    first_prompt = _first_prompt(run, arm)
     attempts: list[AttemptResult] = []
     previous: _Turn | None = None
     spent = 0
