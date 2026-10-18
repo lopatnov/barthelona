@@ -1,0 +1,49 @@
+- id: fib_0
+  kind: c_harness
+  symbol: fib
+  level: V5
+  origin: bench
+  inputs: {rdi: 0}
+  expect: {ret: 0}
+- id: fib_1
+  kind: c_harness
+  symbol: fib
+  level: V5
+  origin: bench
+  inputs: {rdi: 1}
+  expect: {ret: 1}
+- id: fib_2
+  kind: c_harness
+  symbol: fib
+  level: V5
+  origin: bench
+  inputs: {rdi: 2}
+  expect: {ret: 1}
+- id: fib_3
+  kind: c_harness
+  symbol: fib
+  level: V5
+  origin: bench
+  inputs: {rdi: 10}
+  expect: {ret: 55}
+- id: fib_4
+  kind: c_harness
+  symbol: fib
+  level: V5
+  origin: bench
+  inputs: {rdi: 50}
+  expect: {ret: 12586269025}
+- id: fib_5
+  kind: c_harness
+  symbol: fib
+  level: V5
+  origin: bench
+  inputs: {rdi: 90}
+  expect: {ret: 2880067194370816120}
+- id: fib_6
+  kind: c_harness
+  symbol: fib
+  level: V5
+  origin: bench
+  inputs: {rdi: 93}
+  expect: {ret: 12200160415121876738}

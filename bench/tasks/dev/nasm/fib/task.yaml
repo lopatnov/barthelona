@@ -1,0 +1,8 @@
+id: fib
+title: Fibonacci number
+dialect: nasm
+module: fib
+prompt: |
+  Implement the function `fib` (n in rdi). Return the n-th Fibonacci number, with fib(0) = 0 and
+  fib(1) = 1. `n` is at most 93, so the result fits in an unsigned 64-bit integer.
+  The result goes in rax. Registers rbx, rbp and r12-r15 must be preserved.

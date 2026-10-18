@@ -1,0 +1,70 @@
+- id: is_prime_0
+  kind: c_harness
+  symbol: is_prime
+  level: V5
+  origin: bench
+  inputs: {rdi: 0}
+  expect: {ret: 0}
+- id: is_prime_1
+  kind: c_harness
+  symbol: is_prime
+  level: V5
+  origin: bench
+  inputs: {rdi: 1}
+  expect: {ret: 0}
+- id: is_prime_2
+  kind: c_harness
+  symbol: is_prime
+  level: V5
+  origin: bench
+  inputs: {rdi: 2}
+  expect: {ret: 1}
+- id: is_prime_3
+  kind: c_harness
+  symbol: is_prime
+  level: V5
+  origin: bench
+  inputs: {rdi: 3}
+  expect: {ret: 1}
+- id: is_prime_4
+  kind: c_harness
+  symbol: is_prime
+  level: V5
+  origin: bench
+  inputs: {rdi: 4}
+  expect: {ret: 0}
+- id: is_prime_5
+  kind: c_harness
+  symbol: is_prime
+  level: V5
+  origin: bench
+  inputs: {rdi: 97}
+  expect: {ret: 1}
+- id: is_prime_6
+  kind: c_harness
+  symbol: is_prime
+  level: V5
+  origin: bench
+  inputs: {rdi: 100}
+  expect: {ret: 0}
+- id: is_prime_7
+  kind: c_harness
+  symbol: is_prime
+  level: V5
+  origin: bench
+  inputs: {rdi: 7919}
+  expect: {ret: 1}
+- id: is_prime_8
+  kind: c_harness
+  symbol: is_prime
+  level: V5
+  origin: bench
+  inputs: {rdi: 1000003}
+  expect: {ret: 1}
+- id: is_prime_9
+  kind: c_harness
+  symbol: is_prime
+  level: V5
+  origin: bench
+  inputs: {rdi: 1000001}
+  expect: {ret: 0}

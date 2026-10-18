@@ -1,0 +1,31 @@
+version: 1
+target:
+  preset: linux-x64-nasm
+  dialect: nasm
+  arch: x86-64
+  os: linux
+  abi: sysv64
+  obj_format: elf64
+  link: ld
+  run_env: docker-native
+symbols:
+  triple:
+    name: triple
+    kind: func
+    module: src/math.asm
+    inputs:
+      - {reg: rdi, type: u64}
+    outputs:
+      - {reg: rax, type: u64}
+  emit_char:
+    name: emit_char
+    kind: func
+    module: src/io.asm
+    inputs:
+      - {reg: rdi, type: u64}
+    clobbers: [rax, rcx, rdx, rsi, r11]
+  _start:
+    name: _start
+    kind: func
+    module: src/main.asm
+    calls: [triple, emit_char]

@@ -10,6 +10,7 @@ from collections.abc import Callable, Sequence
 
 from barthelona.contracts._gen import GEN_DIR, CodegenError, stamp
 from barthelona.contracts.cgen import c_harness_cases, render_contracts_h, render_harness
+from barthelona.contracts.stubs import STUB_DIR, render_stub, stub_extension
 from barthelona.contracts.symbols import called_imports, expected_exports, module_stem
 from barthelona.domain.contracts import ContractRegistry, StructDef, SymbolKind
 from barthelona.domain.enums import Dialect
@@ -78,7 +79,11 @@ def render_module_inc(registry: ContractRegistry, stem: str) -> str:
 
 def render_all(registry: ContractRegistry, tests: Sequence[TestCase] = ()) -> dict[str, str]:
     """Every generated file, keyed by its path relative to the workspace root."""
-    files = {f"{GEN_DIR}/{stem}.inc": render_module_inc(registry, stem) for stem in _module_stems(registry)}
+    stems = _module_stems(registry)
+    files = {f"{GEN_DIR}/{stem}.inc": render_module_inc(registry, stem) for stem in stems}
+    for stem in stems:
+        if (stub := render_stub(registry, stem)) is not None:
+            files[f"{STUB_DIR}/{stem}{stub_extension(registry.target.dialect)}"] = stub
     files[f"{GEN_DIR}/contracts.h"] = render_contracts_h(registry)
     cases = c_harness_cases(tests)
     ids = [case.id.casefold() for case in cases]

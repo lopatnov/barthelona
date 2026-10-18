@@ -1,0 +1,19 @@
+version: 1
+target:
+  preset: linux-x64-nasm
+  dialect: nasm
+  arch: x86-64
+  os: linux
+  abi: sysv64
+  obj_format: elf64
+  link: ld
+  run_env: docker-native
+symbols:
+  collatz_steps:
+    name: collatz_steps
+    kind: func
+    module: src/collatz_steps.asm
+    inputs:
+      - {reg: rdi, type: u64}
+    outputs:
+      - {reg: rax, type: u64}

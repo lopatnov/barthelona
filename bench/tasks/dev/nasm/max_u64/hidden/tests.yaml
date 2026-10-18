@@ -1,0 +1,42 @@
+- id: max_u64_0
+  kind: c_harness
+  symbol: max_u64
+  level: V5
+  origin: bench
+  inputs: {rdi: 1, rsi: 2}
+  expect: {ret: 2}
+- id: max_u64_1
+  kind: c_harness
+  symbol: max_u64
+  level: V5
+  origin: bench
+  inputs: {rdi: 2, rsi: 1}
+  expect: {ret: 2}
+- id: max_u64_2
+  kind: c_harness
+  symbol: max_u64
+  level: V5
+  origin: bench
+  inputs: {rdi: 7, rsi: 7}
+  expect: {ret: 7}
+- id: max_u64_3
+  kind: c_harness
+  symbol: max_u64
+  level: V5
+  origin: bench
+  inputs: {rdi: 0, rsi: 18446744073709551615}
+  expect: {ret: 18446744073709551615}
+- id: max_u64_4
+  kind: c_harness
+  symbol: max_u64
+  level: V5
+  origin: bench
+  inputs: {rdi: 18446744073709551615, rsi: 1}
+  expect: {ret: 18446744073709551615}
+- id: max_u64_5
+  kind: c_harness
+  symbol: max_u64
+  level: V5
+  origin: bench
+  inputs: {rdi: 9223372036854775808, rsi: 9223372036854775807}
+  expect: {ret: 9223372036854775808}

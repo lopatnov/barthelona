@@ -1,0 +1,52 @@
+name: sonar-issues
+
+# Prints the open SonarCloud issues of a pull request into the job log, so a cloud session that cannot
+# reach sonarcloud.io can read them with the Actions API. The project is public: no token is used.
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: Pull request number
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Wait for the SonarCloud analysis
+        run: sleep 120
+      - name: List open issues and hotspots
+        env:
+          PR: ${{ github.event.pull_request.number || inputs.pull_request }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          base = "https://sonarcloud.io/api"
+          key = "lopatnov_barthelona"
+          pr = os.environ["PR"]
+
+
+          def fetch(path):
+              with urllib.request.urlopen(f"{base}/{path}", timeout=30) as response:  # noqa: S310
+                  return json.load(response)
+
+
+          issues = fetch(f"issues/search?componentKeys={key}&pullRequest={pr}&resolved=false&ps=100")
+          for issue in issues["issues"]:
+              where = issue["component"].split(":", 1)[-1] + ":" + str(issue.get("line", ""))
+              print(issue["severity"], issue["type"], issue["rule"], where, issue["message"])
+          print(issues["total"], "issues")
+          hotspots = fetch(f"hotspots/search?projectKey={key}&pullRequest={pr}&status=TO_REVIEW&ps=100")
+          for hotspot in hotspots["hotspots"]:
+              where = hotspot["component"].split(":", 1)[-1] + ":" + str(hotspot.get("line", ""))
+              print("HOTSPOT", hotspot["securityCategory"], hotspot["ruleKey"], where, hotspot["message"])
+          print(len(hotspots["hotspots"]), "hotspots")
+          PY

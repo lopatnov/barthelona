@@ -12,6 +12,8 @@ import typer
 from rich.console import Console
 
 import barthelona
+from barthelona.cli._report import report, report_json
+from barthelona.cli.bench import bench_app
 from barthelona.domain import DOCUMENTS, LevelResult, Verdict
 from barthelona.domain.enums import Dialect, Level, ObjFormat
 from barthelona.toolchains.dialect import DialectAdapter
@@ -31,6 +33,7 @@ app = typer.Typer(
 )
 training_app = typer.Typer(help="The local training dataset (opt-in, D-036).", no_args_is_help=True)
 app.add_typer(training_app, name="training")
+app.add_typer(bench_app, name="bench")
 _out = Console(soft_wrap=True, highlight=False)
 _err = Console(stderr=True, soft_wrap=True, highlight=False)
 
@@ -184,19 +187,6 @@ def _detect_dialect(workspace: Path) -> str:
     raise typer.BadParameter(f"no .asm or .s files found in {workspace}; specify --dialect explicitly")
 
 
-_STATUS_ICON: dict[str, str] = {"pass": "✓", "skipped": "—"}
-
-
-def _report(results: list[LevelResult]) -> int:
-    """Print each ladder level and its diagnostics; return the process exit code."""
-    for r in results:
-        _out.print(f"  {_STATUS_ICON.get(r.status, '✗')} {r.level}: {r.status} ({r.secs:.2f}s)")
-        for d in r.diagnostics:
-            loc = f"{d.file}:{d.line}" if d.file and d.line else (d.file or "")
-            _out.print(f"    {d.severity} [{d.level}] {loc} {d.message}", markup=False)
-    return 1 if any(r.status in ("fail", "unsupported") for r in results) else 0
-
-
 def _load_contracts(path: Path | None) -> ContractRegistry | None:
     if path is None:
         return None
@@ -265,6 +255,12 @@ def verify(
         ),
     ] = None,
     transport: TransportOption = "auto",
+    json_output: Annotated[
+        bool,
+        typer.Option(
+            "--json", help="Print one JSON document (status and levels) on stdout; progress goes to stderr."
+        ),
+    ] = False,
 ) -> None:
     """Run the verification ladder on the assembly sources in WORKSPACE (V0-V2, V6).
 
@@ -293,13 +289,14 @@ def verify(
     registry = _load_contracts(contracts)
     test_cases = _load_tests(tests)
     gate = _tamper_gate(registry, workspace, test_cases)
+    emit = report_json if json_output else report
     if gate is not None and gate.status == "fail":
-        raise typer.Exit(_report([gate]))
+        raise typer.Exit(emit([gate]))
     executor = _make_executor(transport, "verify")
 
     from barthelona.verification import LadderOptions
 
-    _out.print(f"Verifying {len(source_files)} file(s) up to {up_to} ({resolved_dialect}) …")
+    _err.print(f"Verifying {len(source_files)} file(s) up to {up_to} ({resolved_dialect}) …")
     try:
         results = asyncio.run(
             _verify(
@@ -315,7 +312,7 @@ def verify(
         _err.print(f"[bold red]verify failed:[/bold red] {exc}")
         raise typer.Exit(1) from exc
 
-    raise typer.Exit(_report([*([gate] if gate else []), *results]))
+    raise typer.Exit(emit([*([gate] if gate else []), *results]))
 
 
 def main() -> None:

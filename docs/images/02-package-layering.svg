@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 820" width="1300" height="820" role="img" aria-label="Each package imports only the packages below it; ui and engine never import each other and everything rests on domain." font-family="Arial, Helvetica, sans-serif">
+<title>2. Package layering</title>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#37474f"/></marker><marker id="ahs" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M10,0 L0,5 L10,10 Z" fill="#37474f"/></marker></defs>
+<rect x="0" y="0" width="1300" height="820" fill="#ffffff"/>
+<text x="24" y="36" font-size="18" fill="#1a1a1a" text-anchor="start" font-weight="bold">2. Package layering</text>
+<text x="24" y="58" font-size="13" fill="#455a64" text-anchor="start">Delivered: bottom layers in Phase 0; nodes, engine and ui in Phase 1 (architecture §3, D-045)</text>
+<rect x="560" y="86" width="22" height="14" rx="3" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.5"/><text x="588" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Exists on main</text><rect x="700.4615384615385" y="86" width="22" height="14" rx="3" fill="#ffe0b2" stroke="#ef6c00" stroke-width="1.5"/><text x="728.462" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">In progress (Phase 0)</text><rect x="886.1538461538462" y="86" width="22" height="14" rx="3" fill="#eceff1" stroke="#607d8b" stroke-width="1.5"/><text x="914.154" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Planned</text>
+<rect x="445" y="130" width="170" height="50" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="530" y="151.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">cli</text>
+<text x="530" y="168.05" font-size="13" fill="#1a1a1a" text-anchor="middle">(__main__)</text>
+<rect x="1045" y="130" width="170" height="50" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="1130" y="151.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">ui</text>
+<text x="1130" y="168.05" font-size="13" fill="#1a1a1a" text-anchor="middle">(Streamlit only)</text>
+<rect x="445" y="230" width="170" height="50" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="530" y="251.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">engine</text>
+<text x="530" y="268.05" font-size="13" fill="#1a1a1a" text-anchor="middle">(LangGraph only)</text>
+<rect x="445" y="330" width="170" height="50" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="530" y="351.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">nodes</text>
+<text x="530" y="368.05" font-size="13" fill="#1a1a1a" text-anchor="middle">plain async functions</text>
+<rect x="45" y="430" width="170" height="50" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="130" y="459.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">prompting</text>
+<rect x="245" y="430" width="170" height="50" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="330" y="459.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">workspace</text>
+<rect x="445" y="430" width="170" height="50" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="530" y="451.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">verification</text>
+<text x="530" y="468.05" font-size="13" fill="#1a1a1a" text-anchor="middle">ladder, LevelChecks</text>
+<rect x="645" y="430" width="170" height="50" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="730" y="451.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">llm</text>
+<text x="730" y="468.05" font-size="13" fill="#1a1a1a" text-anchor="middle">(SDKs only here)</text>
+<rect x="45" y="530" width="170" height="50" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="130" y="551.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">knowledge</text>
+<text x="130" y="568.05" font-size="13" fill="#1a1a1a" text-anchor="middle">/ memory / policy</text>
+<rect x="245" y="530" width="170" height="50" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="330" y="551.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">contracts</text>
+<text x="330" y="568.05" font-size="13" fill="#1a1a1a" text-anchor="middle">registry, codegen</text>
+<rect x="445" y="530" width="170" height="50" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="530" y="551.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">toolchains</text>
+<text x="530" y="568.05" font-size="13" fill="#1a1a1a" text-anchor="middle">NASM / GAS adapters</text>
+<rect x="445" y="630" width="170" height="50" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="530" y="651.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">executors</text>
+<text x="530" y="668.05" font-size="13" fill="#1a1a1a" text-anchor="middle">WSL agent, sandbox</text>
+<rect x="845" y="630" width="170" height="50" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="930" y="651.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">training</text>
+<text x="930" y="668.05" font-size="13" fill="#1a1a1a" text-anchor="middle">opt-in samples (D-036)</text>
+<rect x="1045" y="630" width="170" height="50" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="1130" y="651.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">persistence</text>
+<text x="1130" y="668.05" font-size="13" fill="#1a1a1a" text-anchor="middle">var/app.sqlite</text>
+<rect x="45" y="730" width="1170" height="50" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="630" y="751.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">domain</text>
+<text x="630" y="768.05" font-size="13" fill="#1a1a1a" text-anchor="middle">Pydantic models, stdlib only: imports nothing from the project</text>
+<rect x="660" y="290" width="420" height="70" rx="6" fill="#ffcdd2" stroke="#c62828" stroke-width="1.8"/>
+<text x="870" y="312.55" font-size="13" fill="#1a1a1a" text-anchor="middle">Never: ui and engine import each other (inv. 8);</text>
+<text x="870" y="329.55" font-size="13" fill="#1a1a1a" text-anchor="middle">Streamlit outside ui, LangGraph outside engine,</text>
+<text x="870" y="346.55" font-size="13" fill="#1a1a1a" text-anchor="middle">provider SDKs outside llm</text>
+<polyline points="530,180 530,230" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="530,280 530,330" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="615,255 1100,255 1100,630" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="1160,180 1160,630" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="530,380 530,405 130,405 130,430" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="530,380 530,405 330,405 330,430" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="530,380 530,405 530,405 530,430" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="530,380 530,405 730,405 730,430" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="190,480 190,505 290,505 290,530" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="130,480 130,530" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="330,480 330,530" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="470,480 470,512 370,512 370,530" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="560,480 560,530" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="530,580 530,630" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="615,555 630,555 630,730" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="130,580 130,730" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="330,580 330,730" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="730,480 730,730" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="530,680 530,730" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="930,680 930,730" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="1130,680 1130,730" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="24" y="92" font-size="13" fill="#1a1a1a" text-anchor="start" font-weight="bold">Arrow A to B: A may import B</text>
+<text x="660" y="380" font-size="12" fill="#455a64" text-anchor="start">Enforced by tests/unit/test_layering.py (#65, open)</text>
+<rect x="489.2" y="197" width="81.6" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="530" y="209" font-size="12" fill="#263238" text-anchor="middle">runs headless</text>
+<rect x="471.754" y="297" width="116.492" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="530" y="309" font-size="12" fill="#263238" text-anchor="middle">adapts to LangGraph</text>
+<rect x="801.754" y="247" width="116.492" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="860" y="259" font-size="12" fill="#263238" text-anchor="middle">runs, events, gates</text>
+<rect x="1163" y="544.5" width="75.7846" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1166" y="556.5" font-size="12" fill="#263238" text-anchor="start">queues runs,</text>
+<rect x="1163" y="559.5" width="75.7846" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1166" y="571.5" font-size="12" fill="#263238" text-anchor="start">reads events</text>
+<text x="640" y="397" font-size="12" fill="#263238" text-anchor="start">uses</text>
+<rect x="133" y="497" width="87.4154" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="136" y="509" font-size="12" fill="#263238" text-anchor="start">facts, lessons</text>
+<rect x="563" y="497" width="81.6" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="566" y="509" font-size="12" fill="#263238" text-anchor="start">assembles via</text>
+<text x="255" y="500" font-size="12" fill="#263238" text-anchor="middle">contracts</text>
+<rect x="533" y="597" width="87.4154" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="536" y="609" font-size="12" fill="#263238" text-anchor="start">argv lists via</text>
+<text x="736" y="610" font-size="12" fill="#263238" text-anchor="start">shared models</text>
+</svg>

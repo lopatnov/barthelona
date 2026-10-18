@@ -1,0 +1,35 @@
+- id: sum_to_n_0
+  kind: c_harness
+  symbol: sum_to_n
+  level: V5
+  origin: bench
+  inputs: {rdi: 0}
+  expect: {ret: 0}
+- id: sum_to_n_1
+  kind: c_harness
+  symbol: sum_to_n
+  level: V5
+  origin: bench
+  inputs: {rdi: 1}
+  expect: {ret: 1}
+- id: sum_to_n_2
+  kind: c_harness
+  symbol: sum_to_n
+  level: V5
+  origin: bench
+  inputs: {rdi: 10}
+  expect: {ret: 55}
+- id: sum_to_n_3
+  kind: c_harness
+  symbol: sum_to_n
+  level: V5
+  origin: bench
+  inputs: {rdi: 100000}
+  expect: {ret: 5000050000}
+- id: sum_to_n_4
+  kind: c_harness
+  symbol: sum_to_n
+  level: V5
+  origin: bench
+  inputs: {rdi: 4294967295}
+  expect: {ret: 9223372034707292160}

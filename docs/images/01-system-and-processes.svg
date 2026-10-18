@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 770" width="1440" height="770" role="img" aria-label="Two Windows processes, the Streamlit UI and the engine worker, talk only through var/app.sqlite; generated code runs only in WSL Docker containers or the emulator child process." font-family="Arial, Helvetica, sans-serif">
+<title>1. System and processes</title>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#37474f"/></marker><marker id="ahs" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M10,0 L0,5 L10,10 Z" fill="#37474f"/></marker></defs>
+<rect x="0" y="0" width="1440" height="770" fill="#ffffff"/>
+<text x="24" y="36" font-size="18" fill="#1a1a1a" text-anchor="start" font-weight="bold">1. System and processes</text>
+<text x="24" y="58" font-size="13" fill="#455a64" text-anchor="start">Delivered: executors, store and toolchain probe in Phase 0; UI, engine worker and gateway backends in Phase 1</text>
+<rect x="760" y="86" width="22" height="14" rx="3" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.5"/><text x="788" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Exists on main</text><rect x="900.4615384615385" y="86" width="22" height="14" rx="3" fill="#ffe0b2" stroke="#ef6c00" stroke-width="1.5"/><text x="928.462" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">In progress (Phase 0)</text><rect x="1086.1538461538462" y="86" width="22" height="14" rx="3" fill="#eceff1" stroke="#607d8b" stroke-width="1.5"/><text x="1114.15" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Planned</text>
+<rect x="20" y="150" width="955" height="590" rx="10" fill="#f7f9fa" stroke="#90a4ae" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="32" y="172" font-size="15" fill="#1a1a1a" text-anchor="start" font-weight="bold">Windows host</text>
+<text x="145.708" y="172" font-size="12" fill="#455a64" text-anchor="start">conda env barthelona</text>
+<rect x="430" y="180" width="525" height="410" rx="10" fill="#eef2f4" stroke="#90a4ae" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="442" y="202" font-size="15" fill="#1a1a1a" text-anchor="start" font-weight="bold">Engine worker</text>
+<text x="564.35" y="202" font-size="12" fill="#455a64" text-anchor="start">one instance</text>
+<rect x="1040" y="150" width="380" height="270" rx="10" fill="#f7f9fa" stroke="#90a4ae" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="1052" y="172" font-size="15" fill="#1a1a1a" text-anchor="start" font-weight="bold">Model endpoints</text>
+<rect x="1040" y="450" width="380" height="290" rx="10" fill="#f7f9fa" stroke="#90a4ae" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="1052" y="472" font-size="15" fill="#1a1a1a" text-anchor="start" font-weight="bold">WSL2 Ubuntu</text>
+<rect x="240" y="84" width="180" height="40" rx="20" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<text x="330" y="108.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Owner (browser)</text>
+<rect x="40" y="200" width="310" height="60" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="195" y="226.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Streamlit UI</text>
+<text x="195" y="243.05" font-size="13" fill="#1a1a1a" text-anchor="middle">queues runs, answers gates, shows events</text>
+<path d="M40,307 L40,363 A145,7 0 0 0 330,363 L330,307 A145,7 0 0 0 40,307 Z" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/><path d="M40,307 A145,7 0 0 0 330,307" fill="none" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="185" y="337.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">var/app.sqlite (WAL)</text>
+<text x="185" y="354.05" font-size="13" fill="#1a1a1a" text-anchor="middle">runs, commands, events, gates</text>
+<path d="M40,407 L40,453 A145,7 0 0 0 330,453 L330,407 A145,7 0 0 0 40,407 Z" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/><path d="M40,407 A145,7 0 0 0 330,407" fill="none" stroke="#607d8b" stroke-width="1.8"/>
+<text x="185" y="432.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">var/checkpoints.sqlite</text>
+<text x="185" y="449.05" font-size="13" fill="#1a1a1a" text-anchor="middle">LangGraph control position</text>
+<path d="M40,507 L40,553 A145,7 0 0 0 330,553 L330,507 A145,7 0 0 0 40,507 Z" fill="#ffe0b2" stroke="#ef6c00" stroke-width="1.8"/><path d="M40,507 A145,7 0 0 0 330,507" fill="none" stroke="#ef6c00" stroke-width="1.8"/>
+<text x="185" y="532.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Workspaces</text>
+<text x="185" y="549.05" font-size="13" fill="#1a1a1a" text-anchor="middle">one git repo per project</text>
+<rect x="460" y="230" width="180" height="330" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="550" y="374.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Outer run graph</text>
+<text x="550" y="391.05" font-size="13" fill="#1a1a1a" text-anchor="middle">+ sprint subgraphs</text>
+<text x="550" y="408.05" font-size="13" fill="#1a1a1a" text-anchor="middle"></text>
+<text x="550" y="425.05" font-size="13" fill="#1a1a1a" text-anchor="middle">LangGraph</text>
+<rect x="740" y="230" width="195" height="56" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="837.5" y="254.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">LLM gateway</text>
+<text x="837.5" y="271.05" font-size="13" fill="#1a1a1a" text-anchor="middle">routing, ledger, breakers</text>
+<rect x="740" y="320" width="195" height="56" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="837.5" y="344.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Knowledge</text>
+<text x="837.5" y="361.05" font-size="13" fill="#1a1a1a" text-anchor="middle">facts.sqlite + FTS5</text>
+<rect x="740" y="404" width="195" height="72" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="837.5" y="427.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Emulator child process</text>
+<text x="837.5" y="444.55" font-size="13" fill="#1a1a1a" text-anchor="middle">Unicorn + Capstone</text>
+<text x="837.5" y="461.55" font-size="13" fill="#1a1a1a" text-anchor="middle">(V3, V4)</text>
+<rect x="740" y="504" width="195" height="56" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="837.5" y="528.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Executors</text>
+<text x="837.5" y="545.05" font-size="13" fill="#1a1a1a" text-anchor="middle">WslExecutor, FakeExecutor</text>
+<rect x="40" y="660" width="600" height="56" rx="6" fill="#ffcdd2" stroke="#c62828" stroke-width="1.8"/>
+<text x="340" y="684.05" font-size="13" fill="#1a1a1a" text-anchor="middle">Never: the UI imports the engine, or the engine imports Streamlit (inv. 8);</text>
+<text x="340" y="701.05" font-size="13" fill="#1a1a1a" text-anchor="middle">generated code never runs on Windows (inv. 2)</text>
+<rect x="1080" y="230" width="310" height="56" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="1235" y="254.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">LM Studio 127.0.0.1:1234</text>
+<text x="1235" y="271.05" font-size="13" fill="#1a1a1a" text-anchor="middle">local main model</text>
+<rect x="1080" y="316" width="310" height="76" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="1235" y="341.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Cloud: Anthropic / OpenAI /</text>
+<text x="1235" y="358.55" font-size="13" fill="#1a1a1a" text-anchor="middle">Gemini / DeepSeek / Qwen</text>
+<text x="1235" y="375.55" font-size="13" fill="#1a1a1a" text-anchor="middle">opt-in, per-run consent</text>
+<rect x="1060" y="504" width="340" height="56" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="1230" y="528.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">WSL agent</text>
+<text x="1230" y="545.05" font-size="13" fill="#1a1a1a" text-anchor="middle">JSON lines, path fence, allowlist</text>
+<rect x="1060" y="620" width="160" height="100" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="1140" y="649.05" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">bart-tc container</text>
+<text x="1140" y="666.05" font-size="13" fill="#1a1a1a" text-anchor="middle">nasm, as, ld,</text>
+<text x="1140" y="683.05" font-size="13" fill="#1a1a1a" text-anchor="middle">gcc, make, gdb</text>
+<text x="1140" y="700.05" font-size="13" fill="#1a1a1a" text-anchor="middle">no network</text>
+<rect x="1240" y="620" width="160" height="100" rx="6" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.8"/>
+<text x="1320" y="657.55" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">bart-run container</text>
+<text x="1320" y="674.55" font-size="13" fill="#1a1a1a" text-anchor="middle">ephemeral sandbox</text>
+<text x="1320" y="691.55" font-size="13" fill="#1a1a1a" text-anchor="middle">per test batch</text>
+<polyline points="330,124 330,200" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="80,260 80,300" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="300,300 300,260" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="460,335 330,335" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)" marker-start="url(#ahs)"/>
+<polyline points="460,430 330,430" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)" marker-start="url(#ahs)"/>
+<polyline points="460,530 330,530" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="640,258 740,258" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="640,348 740,348" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="640,440 740,440" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="640,532 740,532" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="935,258 1080,258" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="935,278 1060,278 1060,354 1080,354" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="935,532 1060,532" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="1140,560 1140,620" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="1320,560 1320,620" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="312.462" y="154" width="35.0769" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="330" y="166" font-size="12" fill="#263238" text-anchor="middle">opens</text>
+<rect x="83" y="272" width="128.123" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="86" y="284" font-size="12" fill="#263238" text-anchor="start">writes runs, commands</text>
+<rect x="303" y="272" width="81.6" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="306" y="284" font-size="12" fill="#263238" text-anchor="start">events, gates</text>
+<rect x="348.385" y="319.5" width="93.2308" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="395" y="331.5" font-size="12" fill="#263238" text-anchor="middle">reads commands,</text>
+<rect x="354.2" y="334.5" width="81.6" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="395" y="346.5" font-size="12" fill="#263238" text-anchor="middle">writes events</text>
+<rect x="354.2" y="414.5" width="81.6" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="395" y="426.5" font-size="12" fill="#263238" text-anchor="middle">saves control</text>
+<rect x="368.738" y="429.5" width="52.5231" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="395" y="441.5" font-size="12" fill="#263238" text-anchor="middle">position</text>
+<rect x="351.292" y="522" width="87.4154" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="395" y="534" font-size="12" fill="#263238" text-anchor="middle">edits, commits</text>
+<rect x="657.923" y="250" width="64.1538" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="690" y="262" font-size="12" fill="#263238" text-anchor="middle">calls LLMs</text>
+<rect x="663.738" y="340" width="52.5231" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="690" y="352" font-size="12" fill="#263238" text-anchor="middle">looks up</text>
+<rect x="655.015" y="432" width="69.9692" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="690" y="444" font-size="12" fill="#263238" text-anchor="middle">V3, V4 runs</text>
+<rect x="660.831" y="524" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="690" y="536" font-size="12" fill="#263238" text-anchor="middle">tool runs</text>
+<rect x="983.646" y="250" width="46.7077" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1007" y="262" font-size="12" fill="#263238" text-anchor="middle">default</text>
+<rect x="986.554" y="270" width="40.8923" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1007" y="282" font-size="12" fill="#263238" text-anchor="middle" font-style="italic">opt-in</text>
+<rect x="980.738" y="524" width="52.5231" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1007" y="536" font-size="12" fill="#263238" text-anchor="middle">requests</text>
+<rect x="1096.29" y="582" width="87.4154" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1140" y="594" font-size="12" fill="#263238" text-anchor="middle">assemble, link</text>
+<rect x="1290.83" y="582" width="58.3385" height="15" fill="#ffffff" fill-opacity="0.92"/>
+<text x="1320" y="594" font-size="12" fill="#263238" text-anchor="middle">run tests</text>
+</svg>
