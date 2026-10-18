@@ -17,15 +17,16 @@ from barthelona.bench.runner import Verifier
 from barthelona.bench.task import BenchTask
 from barthelona.domain.enums import DiagnosticLevel, Dialect, Level
 from barthelona.domain.verification import Diagnostic, LevelResult, Severity
-from barthelona.executors import Executor
-from barthelona.executors._types import Command, ExecLimits
-from barthelona.toolchains._diagnostics import parse_assembler_output
+from barthelona.executors import Command, ExecLimits, Executor
+from barthelona.toolchains import parse_assembler_output
 
 _GAS_INTEL_PRESET = "linux-x64-gas-intel"
 _COMPILE_TIMEOUT = 20.0
 _MAX_STDERR = 64 * 1024
 _MAX_ASSEMBLY = 4 * 1024 * 1024
 _MAX_MESSAGE_CHARS = 600
+_GNU_STACK = ".note.GNU-stack"
+_GNU_STACK_SECTION = '\t.section\t.note.GNU-stack,"",@progbits\n'
 _COLUMN = re.compile(
     rb"^([^:\s][^:]*:\d+):\d+: ", re.MULTILINE
 )  # gcc prints file:line:col:, the parser wants file:line:
@@ -63,6 +64,13 @@ def gas_intel_variant(task: BenchTask) -> BenchTask:
     )
     registry = task.registry.model_copy(update={"target": target, "symbols": symbols})
     return task.model_copy(update={"dialect": Dialect.GAS_INTEL, "registry": registry})
+
+
+def with_gnu_stack(assembly: str) -> str:
+    """*assembly* with a non-executable-stack note: gcc normally emits one, ld >= 2.39 warns without it."""
+    if _GNU_STACK in assembly:
+        return assembly
+    return assembly.rstrip("\n") + "\n" + _GNU_STACK_SECTION
 
 
 def _tar_of(path: Path) -> bytes:
@@ -113,7 +121,7 @@ class CGccVerifier:
         if isinstance(assembly, LevelResult):
             return [assembly.model_copy(update={"secs": time.monotonic() - started})]
         target = source.with_suffix(".s")
-        target.write_text(assembly, encoding="utf-8", newline="\n")
+        target.write_text(with_gnu_stack(assembly), encoding="utf-8", newline="\n")
         return await self._ladder.verify(gas_intel_variant(task), [target], run_id, attempt)
 
     async def _compile(self, source: Path, run_id: str, attempt: int) -> str | LevelResult:
