@@ -29,7 +29,16 @@ The editable install of the barthelona package (`pip install --no-deps -e .`) fe
 
 Copy `.env.example` to `.env` and fill in only the keys you want to use. If PowerShell refuses to run scripts, run them as `powershell -ExecutionPolicy Bypass -File scripts\create_env.ps1`. Changing the machine execution policy is your decision; the scripts never do it.
 
+### 1.1 Linux host (D-049)
+
+The engine runs on Linux as well as Windows; Linux is the reference host and CI uses it. What works today and what is planned:
+- Today: `scripts/create_env.sh`, `source scripts/activate.sh` and `scripts/dev.sh <cmd>` do what the PowerShell scripts do. Docker must be installed and your user allowed to run it. Build the toolchain images as in §2.3 on the host itself; there is no WSL layer.
+- Planned (Phase 1a, D-043): a local executor transport that talks to Docker directly, so a Linux host needs no WSL agent. Until it lands, a Linux host can run the unit tests, lint and type checks, but not the `wsl`-marked integration tests or `verify`.
+- The Windows/WSL rules in §2 and §8 apply only to a Windows host.
+
 ## 2. WSL (Ubuntu 26.04, distro name `Ubuntu`)
+
+Windows host only; skip this section on Linux.
 
 Already present: gcc, binutils (as/ld/objdump), make, python3, docker. The product needs only Docker plus the toolchain images (Phase 0).
 
@@ -124,6 +133,13 @@ Load the chosen model with:
 - q8_0 KV-cache quantization, if offered.
 
 Keep only one large model loaded at a time.
+
+### 4.1 Models on other PCs (D-049, D-052)
+
+LM Studio and Ollama may run on other PCs, so the engine host and the models need not share a machine:
+- On the model PC, enable the server's network listening (LM Studio: "Serve on Local Network"; Ollama: `OLLAMA_HOST=0.0.0.0`) and allow the port in that PC's firewall. Only do this on a trusted LAN; neither server authenticates by default.
+- Today, point the single local endpoint at it with `LMSTUDIO_BASE_URL=http://<lan-ip>:1234/v1` (use the IP address, not `localhost`); `config/models.yaml` also has a `LAN_LMSTUDIO_BASE_URL` entry for a second LM Studio. `python -m barthelona bench models` shows whether it answers and what it serves.
+- Planned: several endpoints at once as `endpoints[]` in `config/models.yaml` (Phase 1a loader, Phase 1b scheduler). Each PC is calibrated once for prompt and decode speed and context (D-052), and the scheduler uses those numbers to place work. Until then, one endpoint at a time.
 
 Run the bake-off on the dev tasks (needs the `bart-tc` and `bart-run` containers, as for `verify`):
 - run `python -m barthelona bench models` to see what each local endpoint serves (it reports a stopped LM Studio server as `down`; `bench run` also stops before any task when the endpoint is down or does not serve the model);
