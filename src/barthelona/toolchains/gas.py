@@ -11,6 +11,7 @@ from __future__ import annotations
 from barthelona.domain.enums import ObjFormat
 from barthelona.domain.verification import Diagnostic
 from barthelona.toolchains._diagnostics import parse_assembler_output
+from barthelona.toolchains.dialect import include_dir
 
 _GAS_ARCH_FLAGS: dict[ObjFormat, tuple[str, ...]] = {
     ObjFormat.ELF64: ("--64",),
@@ -31,7 +32,7 @@ class GasIntelAdapter:
 
     def syntax_check_argv(self, source: str) -> tuple[str, ...]:
         """V0: syntax-only; output discarded via ``/dev/null`` inside the container."""
-        return ("as", "-msyntax=intel", "-mnaked-reg", "-o", "/dev/null", source)
+        return ("as", "-msyntax=intel", "-mnaked-reg", "-I", include_dir(source), "-o", "/dev/null", source)
 
     def assemble_argv(
         self,
@@ -41,7 +42,7 @@ class GasIntelAdapter:
     ) -> tuple[str, ...]:
         """V1: assemble *source* to *output*."""
         arch_flags = _GAS_ARCH_FLAGS.get(obj_format, ("--64",))
-        return ("as", "-msyntax=intel", "-mnaked-reg", *arch_flags, "-o", output, source)
+        return ("as", "-msyntax=intel", "-mnaked-reg", *arch_flags, "-I", include_dir(source), "-o", output, source)
 
     def parse_diagnostics(
         self,
@@ -65,7 +66,7 @@ class GasAttAdapter:
 
     def syntax_check_argv(self, source: str) -> tuple[str, ...]:
         """V0: syntax-only; output discarded via ``/dev/null`` inside the container."""
-        return ("as", "-o", "/dev/null", source)
+        return ("as", "-I", include_dir(source), "-o", "/dev/null", source)
 
     def assemble_argv(
         self,
@@ -75,7 +76,7 @@ class GasAttAdapter:
     ) -> tuple[str, ...]:
         """V1: assemble *source* to *output*."""
         arch_flags = _GAS_ARCH_FLAGS.get(obj_format, ("--64",))
-        return ("as", *arch_flags, "-o", output, source)
+        return ("as", *arch_flags, "-I", include_dir(source), "-o", output, source)
 
     def parse_diagnostics(
         self,

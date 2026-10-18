@@ -12,6 +12,7 @@ from __future__ import annotations
 from barthelona.domain.enums import ObjFormat
 from barthelona.domain.verification import Diagnostic
 from barthelona.toolchains._diagnostics import parse_assembler_output
+from barthelona.toolchains.dialect import include_dir
 
 _NASM_FORMAT_FLAGS: dict[ObjFormat, str] = {
     ObjFormat.ELF64: "elf64",
@@ -38,7 +39,7 @@ class NasmAdapter:
         The ELF64 format is passed because the default ``bin`` format rejects ``extern`` and
         64-bit section attributes, so a module with imports would fail V0 for the wrong reason.
         """
-        return ("nasm", "-f", "elf64", "-o", "/dev/null", source)
+        return ("nasm", "-f", "elf64", "-I", include_dir(source), "-o", "/dev/null", source)
 
     def assemble_argv(
         self,
@@ -48,7 +49,7 @@ class NasmAdapter:
     ) -> tuple[str, ...]:
         """V1: assemble *source* to *output* in the requested format."""
         fmt = _NASM_FORMAT_FLAGS.get(obj_format, "elf64")
-        return ("nasm", "-f", fmt, "-o", output, source)
+        return ("nasm", "-f", fmt, "-I", include_dir(source), "-o", output, source)
 
     def parse_diagnostics(
         self,
