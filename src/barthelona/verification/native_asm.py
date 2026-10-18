@@ -105,12 +105,23 @@ async def _symbol_diagnostics(
     result = await session.run(Command(argv=("nm", "-P", "-g", staged_obj)), limits)
     if result.returncode != 0:
         message = result.stderr.decode("utf-8", errors="replace").strip() or "nm exited non-zero"
-        return [
-            Diagnostic(
-                tool="nm", level=DiagnosticLevel.V1, severity=Severity.FATAL, message=message, file=source
-            )
-        ]
-    return check_object_symbols(contracts, source, parse_nm(result.stdout))
+        return [_nm_failure("nm.failed", message, source)]
+    found = parse_nm(result.stdout)
+    if result.stdout.strip() and not (found.defined or found.undefined):
+        # Garbage on stdout would otherwise look like an object with no symbols and could pass.
+        return [_nm_failure("nm.unparsable", "nm output has no parsable symbol line", source)]
+    return check_object_symbols(contracts, source, found)
+
+
+def _nm_failure(code: str, message: str, source: str) -> Diagnostic:
+    return Diagnostic(
+        tool="nm",
+        level=DiagnosticLevel.V1,
+        severity=Severity.FATAL,
+        code=code,
+        message=message,
+        file=source,
+    )
 
 
 async def run_v1(

@@ -369,6 +369,16 @@ class TestV1Symbols:
         result, _ = await run_v1(session, NasmAdapter(), [_HELLO], contracts=_contracts_for(export="greet"))
         assert result.status == "fail"
         assert "bad file" in result.diagnostics[0].message
+        assert result.diagnostics[0].code == "nm.failed"
+
+    async def test_unparsable_nm_output_is_fatal(self) -> None:
+        responses = {
+            _nm_argv("hello.asm"): ExecResult(returncode=0, stdout=b"garbage\n", stderr=b"", elapsed=0.0)
+        }
+        session = await _session(FakeExecutor(responses=responses))
+        result, _ = await run_v1(session, NasmAdapter(), [_HELLO], contracts=_contracts_for(export="greet"))
+        assert result.status == "fail"
+        assert result.diagnostics[0].code == "nm.unparsable"
 
     async def test_no_contracts_skips_nm(self) -> None:
         responses = {
