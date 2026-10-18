@@ -191,6 +191,8 @@ Items deferred while working, by an agent, the owner or a reviewer. Check this t
 | F-61 | Engine on Windows plus a WSL agent multiplies the execution layer (D-006) | plan review, 2026-10-17 | Owner decision; changes an ADR | One-day spike: engine in WSL or Linux, UI and LM Studio on Windows; compare | open (owner, #103) |
 | F-62 | Process weight: deferred items tracked twice, all 47 ADRs Proposed, review gate covers most of `src/` | plan review, 2026-10-17 | Touches gated files (`AGENTS.md`, `.claude/**`) | Issue as the single record, ADR acceptance sweep, narrower gate path list | open (owner, #104) |
 | F-63 | Scope: assembler product only, or an oracle-driven app builder with assembly as one target (proxy, games, scheduler ambitions) | owner question, 2026-10-17 | Changes F-36 / #61 | Decide A, B or C after the bake-off and the demo repo; B needs `new-adr` | open (owner, #105) |
+| F-66 | NASM `%include "gen/<module>.inc"` fails during verify: no `-I`, cwd is `/work` | Snake demo, 2026-10-18 | Demo declares `global`/`extern` by hand | Pass `-I <session dir>/` in the NASM adapter (and check GAS `.include`); test | open (#122) |
+| F-67 | `verify --level V6` exits 1 while V3 and V4 have no check | Snake demo, 2026-10-18 | Demo CI parses the report instead | `--require` levels and `dod_satisfied` for the exit code; CLI test | open (#123) |
 
 ## Parked ideas (not scheduled)
 
