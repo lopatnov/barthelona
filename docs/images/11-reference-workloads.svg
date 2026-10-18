@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 850" width="1100" height="850" role="img" aria-label="Matrix of capabilities against five reference workloads with their status" font-family="Arial, Helvetica, sans-serif">
+<title>11. Capabilities the reference workloads need</title>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#37474f"/></marker></defs>
+<rect x="0" y="0" width="1100" height="850" fill="#ffffff"/>
+<text x="24" y="36" font-size="18" fill="#1a1a1a" text-anchor="start" font-weight="bold">11. Capabilities the reference workloads need</text>
+<text x="24" y="58" font-size="13" fill="#455a64" text-anchor="start">Hardest version of each demo; status checked against docs and main on 2026-10-18 (docs/requirements.md)</text>
+<rect x="560" y="86" width="22" height="14" rx="3" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.5"/>
+<text x="588" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Exists on main</text>
+<rect x="698" y="86" width="22" height="14" rx="3" fill="#ffe0b2" stroke="#ef6c00" stroke-width="1.5"/>
+<text x="726" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">In progress</text>
+<rect x="815" y="86" width="22" height="14" rx="3" fill="#eceff1" stroke="#607d8b" stroke-width="1.5"/>
+<text x="843" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Planned</text>
+<rect x="904" y="86" width="22" height="14" rx="3" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="932" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">New (requirements pass)</text>
+<text x="710" y="130" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">NET</text>
+<text x="790" y="130" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">GUI</text>
+<text x="870" y="130" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">2D</text>
+<text x="950" y="130" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">3D</text>
+<text x="1030" y="130" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">CLI</text>
+<text x="46" y="130" font-size="13" fill="#1a1a1a" text-anchor="start" font-weight="bold">Capability</text>
+<text x="490" y="130" font-size="13" fill="#1a1a1a" text-anchor="start" font-weight="bold">Status</text>
+<rect x="40" y="142" width="630" height="28" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="48" y="161" font-size="12.5" fill="#1a1a1a" text-anchor="start">A3  Module-DAG decomposition (long horizon)</text>
+<text x="490" y="161" font-size="12.5" fill="#263238" text-anchor="start">missing #181</text>
+<circle cx="710" cy="156" r="8" fill="#37474f"/>
+<circle cx="790" cy="156" r="8" fill="#37474f"/>
+<circle cx="870" cy="156" r="8" fill="#37474f"/>
+<circle cx="950" cy="156" r="8" fill="#37474f"/>
+<circle cx="1030" cy="156" r="7" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<rect x="40" y="176" width="630" height="28" rx="5" fill="#eceff1" stroke="#607d8b" stroke-width="1.5"/>
+<text x="48" y="195" font-size="12.5" fill="#1a1a1a" text-anchor="start">A6  Context and repo map at 10k+ lines</text>
+<text x="490" y="195" font-size="12.5" fill="#263238" text-anchor="start">planned, undersized</text>
+<circle cx="710" cy="190" r="8" fill="#37474f"/>
+<circle cx="790" cy="190" r="8" fill="#37474f"/>
+<circle cx="870" cy="190" r="8" fill="#37474f"/>
+<circle cx="950" cy="190" r="8" fill="#37474f"/>
+<rect x="40" y="210" width="630" height="28" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="48" y="229" font-size="12.5" fill="#1a1a1a" text-anchor="start">B3  Thermal, noise, duty-cycle scheduling</text>
+<text x="490" y="229" font-size="12.5" fill="#263238" text-anchor="start">missing (new)</text>
+<circle cx="710" cy="224" r="8" fill="#37474f"/>
+<circle cx="790" cy="224" r="8" fill="#37474f"/>
+<circle cx="870" cy="224" r="8" fill="#37474f"/>
+<circle cx="950" cy="224" r="8" fill="#37474f"/>
+<circle cx="1030" cy="224" r="7" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<rect x="40" y="244" width="630" height="28" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="48" y="263" font-size="12.5" fill="#1a1a1a" text-anchor="start">B4  Workload ladder, per-PC model ceiling</text>
+<text x="490" y="263" font-size="12.5" fill="#263238" text-anchor="start">missing (new)</text>
+<circle cx="710" cy="258" r="8" fill="#37474f"/>
+<circle cx="790" cy="258" r="8" fill="#37474f"/>
+<circle cx="870" cy="258" r="8" fill="#37474f"/>
+<circle cx="950" cy="258" r="8" fill="#37474f"/>
+<circle cx="1030" cy="258" r="8" fill="#37474f"/>
+<rect x="40" y="278" width="630" height="28" rx="5" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.5"/>
+<text x="48" y="297" font-size="12.5" fill="#1a1a1a" text-anchor="start">C1  Assemble, symbols, link, tamper (V0-V2)</text>
+<text x="490" y="297" font-size="12.5" fill="#263238" text-anchor="start">covered</text>
+<circle cx="710" cy="292" r="8" fill="#37474f"/>
+<circle cx="790" cy="292" r="8" fill="#37474f"/>
+<circle cx="870" cy="292" r="8" fill="#37474f"/>
+<circle cx="950" cy="292" r="8" fill="#37474f"/>
+<circle cx="1030" cy="292" r="8" fill="#37474f"/>
+<rect x="40" y="312" width="630" height="28" rx="5" fill="#eceff1" stroke="#607d8b" stroke-width="1.5"/>
+<text x="48" y="331" font-size="12.5" fill="#1a1a1a" text-anchor="start">C2  V5 harness: pointers, structs, xmm args</text>
+<text x="490" y="331" font-size="12.5" fill="#263238" text-anchor="start">planned (F-56)</text>
+<circle cx="710" cy="326" r="8" fill="#37474f"/>
+<circle cx="790" cy="326" r="8" fill="#37474f"/>
+<circle cx="870" cy="326" r="8" fill="#37474f"/>
+<circle cx="950" cy="326" r="8" fill="#37474f"/>
+<circle cx="1030" cy="326" r="7" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<rect x="40" y="346" width="630" height="28" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="48" y="365" font-size="12.5" fill="#1a1a1a" text-anchor="start">C6  Syscall-heavy dynamic testing, trace, replay</text>
+<text x="490" y="365" font-size="12.5" fill="#263238" text-anchor="start">missing (new)</text>
+<circle cx="710" cy="360" r="8" fill="#37474f"/>
+<circle cx="790" cy="360" r="8" fill="#37474f"/>
+<circle cx="870" cy="360" r="8" fill="#37474f"/>
+<circle cx="950" cy="360" r="8" fill="#37474f"/>
+<rect x="40" y="380" width="630" height="28" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="48" y="399" font-size="12.5" fill="#1a1a1a" text-anchor="start">C7-9  Crypto KAT, constant time, interop</text>
+<text x="490" y="399" font-size="12.5" fill="#263238" text-anchor="start">missing #183-185</text>
+<circle cx="710" cy="394" r="8" fill="#37474f"/>
+<rect x="40" y="414" width="630" height="28" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="48" y="433" font-size="12.5" fill="#1a1a1a" text-anchor="start">C10  Fuzzing and memory-safety oracle</text>
+<text x="490" y="433" font-size="12.5" fill="#263238" text-anchor="start">missing #186</text>
+<circle cx="710" cy="428" r="8" fill="#37474f"/>
+<circle cx="790" cy="428" r="7" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<circle cx="870" cy="428" r="7" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<circle cx="950" cy="428" r="7" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<circle cx="1030" cy="428" r="7" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<rect x="40" y="448" width="630" height="28" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="48" y="467" font-size="12.5" fill="#1a1a1a" text-anchor="start">C11  Floating-point and SIMD oracles</text>
+<text x="490" y="467" font-size="12.5" fill="#263238" text-anchor="start">missing (new)</text>
+<circle cx="790" cy="462" r="7" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<circle cx="870" cy="462" r="8" fill="#37474f"/>
+<circle cx="950" cy="462" r="8" fill="#37474f"/>
+<rect x="40" y="482" width="630" height="28" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="48" y="501" font-size="12.5" fill="#1a1a1a" text-anchor="start">C12  Performance budgets as acceptance</text>
+<text x="490" y="501" font-size="12.5" fill="#263238" text-anchor="start">missing (new)</text>
+<circle cx="710" cy="496" r="8" fill="#37474f"/>
+<circle cx="790" cy="496" r="7" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<circle cx="870" cy="496" r="8" fill="#37474f"/>
+<circle cx="950" cy="496" r="8" fill="#37474f"/>
+<rect x="40" y="516" width="630" height="28" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="48" y="535" font-size="12.5" fill="#1a1a1a" text-anchor="start">C13  Deterministic clock, RNG, input scripts</text>
+<text x="490" y="535" font-size="12.5" fill="#263238" text-anchor="start">C and web only</text>
+<circle cx="710" cy="530" r="7" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<circle cx="790" cy="530" r="8" fill="#37474f"/>
+<circle cx="870" cy="530" r="8" fill="#37474f"/>
+<circle cx="950" cy="530" r="8" fill="#37474f"/>
+<rect x="40" y="550" width="630" height="28" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="48" y="569" font-size="12.5" fill="#1a1a1a" text-anchor="start">C14  Display and audio sandbox profile</text>
+<text x="490" y="569" font-size="12.5" fill="#263238" text-anchor="start">missing (new)</text>
+<circle cx="790" cy="564" r="8" fill="#37474f"/>
+<circle cx="870" cy="564" r="8" fill="#37474f"/>
+<circle cx="950" cy="564" r="8" fill="#37474f"/>
+<rect x="40" y="584" width="630" height="28" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="48" y="603" font-size="12.5" fill="#1a1a1a" text-anchor="start">C15  Visual oracles (frames, a11y, critique)</text>
+<text x="490" y="603" font-size="12.5" fill="#263238" text-anchor="start">web only</text>
+<circle cx="790" cy="598" r="8" fill="#37474f"/>
+<circle cx="870" cy="598" r="8" fill="#37474f"/>
+<circle cx="950" cy="598" r="8" fill="#37474f"/>
+<rect x="40" y="618" width="630" height="28" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="48" y="637" font-size="12.5" fill="#1a1a1a" text-anchor="start">D4  Linking system libraries and toolkits</text>
+<text x="490" y="637" font-size="12.5" fill="#263238" text-anchor="start">missing (new)</text>
+<circle cx="790" cy="632" r="8" fill="#37474f"/>
+<circle cx="870" cy="632" r="8" fill="#37474f"/>
+<circle cx="950" cy="632" r="8" fill="#37474f"/>
+<rect x="40" y="652" width="630" height="28" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="48" y="671" font-size="12.5" fill="#1a1a1a" text-anchor="start">D7  Packaging beyond a static binary</text>
+<text x="490" y="671" font-size="12.5" fill="#263238" text-anchor="start">missing (new)</text>
+<circle cx="710" cy="666" r="8" fill="#37474f"/>
+<circle cx="790" cy="666" r="8" fill="#37474f"/>
+<circle cx="870" cy="666" r="7" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<circle cx="950" cy="666" r="7" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<circle cx="1030" cy="666" r="7" fill="#ffffff" stroke="#37474f" stroke-width="1.8"/>
+<rect x="40" y="686" width="630" height="28" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="48" y="705" font-size="12.5" fill="#1a1a1a" text-anchor="start">D9  Native GUI and 3D family, phase, scope</text>
+<text x="490" y="705" font-size="12.5" fill="#263238" text-anchor="start">missing (new)</text>
+<circle cx="790" cy="700" r="8" fill="#37474f"/>
+<circle cx="950" cy="700" r="8" fill="#37474f"/>
+<rect x="40" y="720" width="630" height="28" rx="5" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="48" y="739" font-size="12.5" fill="#1a1a1a" text-anchor="start">E1  G4 with screenshots, video, live view</text>
+<text x="490" y="739" font-size="12.5" fill="#263238" text-anchor="start">missing (new)</text>
+<circle cx="790" cy="734" r="8" fill="#37474f"/>
+<circle cx="870" cy="734" r="8" fill="#37474f"/>
+<circle cx="950" cy="734" r="8" fill="#37474f"/>
+<rect x="40" y="754" width="630" height="28" rx="5" fill="#eceff1" stroke="#607d8b" stroke-width="1.5"/>
+<text x="48" y="773" font-size="12.5" fill="#1a1a1a" text-anchor="start">A1  Prompt or task repo as only input</text>
+<text x="490" y="773" font-size="12.5" fill="#263238" text-anchor="start">planned #145</text>
+<circle cx="710" cy="768" r="8" fill="#37474f"/>
+<circle cx="790" cy="768" r="8" fill="#37474f"/>
+<circle cx="870" cy="768" r="8" fill="#37474f"/>
+<circle cx="950" cy="768" r="8" fill="#37474f"/>
+<circle cx="1030" cy="768" r="8" fill="#37474f"/>
+<rect x="40" y="788" width="630" height="28" rx="5" fill="#eceff1" stroke="#607d8b" stroke-width="1.5"/>
+<text x="48" y="807" font-size="12.5" fill="#1a1a1a" text-anchor="start">B1-2  Multi-PC endpoints, measured profiles</text>
+<text x="490" y="807" font-size="12.5" fill="#263238" text-anchor="start">planned D-047/052</text>
+<circle cx="710" cy="802" r="8" fill="#37474f"/>
+<circle cx="790" cy="802" r="8" fill="#37474f"/>
+<circle cx="870" cy="802" r="8" fill="#37474f"/>
+<circle cx="950" cy="802" r="8" fill="#37474f"/>
+<circle cx="1030" cy="802" r="8" fill="#37474f"/>
+<text x="40" y="836" font-size="12" fill="#455a64" text-anchor="start">Filled dot: required for the hardest version. Open dot: helpful. Row colour is the status.</text>
+</svg>
