@@ -11,13 +11,19 @@ import asyncio
 import contextlib
 import itertools
 import json
+import os
 import subprocess
 import threading
 from concurrent.futures import Future, InvalidStateError
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 #: Must equal ``PROTOCOL_VERSION`` in ``_wsl_agent.py``.
 PROTOCOL_VERSION = 2
+
+#: How much of the agent's stderr is kept for crash diagnostics.
+STDERR_TAIL_BYTES = 4096
+#: How long a failure path waits for the agent's last stderr bytes to be drained.
+_STDERR_DRAIN_SECONDS = 0.5
 
 
 class ExecutorInfraError(RuntimeError):
@@ -44,22 +50,58 @@ class AgentTransport(Protocol):
         ...
 
 
+@runtime_checkable
+class StderrTail(Protocol):
+    """A transport that keeps the end of the agent's stderr for crash diagnostics (#78)."""
+
+    def stderr_tail(self) -> str:
+        """The last :data:`STDERR_TAIL_BYTES` of the agent's stderr, decoded; empty when none."""
+        ...
+
+
 class ProcessTransport:
-    """Transport over the stdin/stdout of a spawned process."""
+    """Transport over the stdin/stdout of a spawned process; the tail of its stderr is kept."""
 
     def __init__(self, argv: list[str], env: dict[str, str] | None = None) -> None:
         self._argv = argv
         self._env = env
         self._process: subprocess.Popen[bytes] | None = None
+        self._stderr_buffer = bytearray()
+        self._stderr_lock = threading.Lock()
+        self._stderr_thread: threading.Thread | None = None
 
     def start(self) -> None:
+        self._stderr_buffer = bytearray()  # fresh per start: a late reader of a dead agent cannot write here
         self._process = subprocess.Popen(  # noqa: S603  -- argv is a fixed interpreter plus the agent path; shell=False
             self._argv,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
             env=self._env,
         )
+        self._stderr_thread = threading.Thread(
+            target=self._drain_stderr,
+            args=(self._process, self._stderr_buffer),
+            name="agent-stderr",
+            daemon=True,
+        )
+        self._stderr_thread.start()
+
+    def _drain_stderr(self, process: subprocess.Popen[bytes], buffer: bytearray) -> None:
+        """Read stderr until EOF so the pipe never fills, keeping only the last bytes in *buffer*."""
+        assert process.stderr is not None  # noqa: S101  -- PIPE set in start()
+        descriptor = process.stderr.fileno()
+        while chunk := os.read(descriptor, 1024):  # returns what is available; b"" at EOF
+            with self._stderr_lock:
+                buffer += chunk
+                del buffer[:-STDERR_TAIL_BYTES]
+
+    def stderr_tail(self) -> str:
+        thread = self._stderr_thread
+        if thread is not None:
+            thread.join(timeout=_STDERR_DRAIN_SECONDS)  # a dead agent closes its stderr promptly
+        with self._stderr_lock:
+            return bytes(self._stderr_buffer).decode("utf-8", errors="replace").strip()
 
     def write_line(self, data: bytes) -> None:
         process = self._require()
@@ -157,7 +199,7 @@ class AgentLink:
     def _read_hello(self) -> dict[str, Any]:
         line = self._transport.read_line()
         if not line:
-            raise ExecutorInfraError("agent exited before sending its hello")
+            raise ExecutorInfraError(self._with_stderr("agent exited before sending its hello"))
         try:
             hello = json.loads(line)["hello"]
         except (ValueError, KeyError, TypeError) as exc:
@@ -178,7 +220,15 @@ class AgentLink:
         except (OSError, ExecutorInfraError):
             pass
         finally:
-            self._fail_pending("agent closed the pipe")
+            self._fail_pending(self._with_stderr("agent closed the pipe"))
+
+    def _with_stderr(self, message: str) -> str:
+        """*message* plus the agent's last stderr, when the transport kept any and we are not closing."""
+        transport = self._transport
+        if self._closed or not isinstance(transport, StderrTail):
+            return message
+        tail = transport.stderr_tail()
+        return f"{message}; agent stderr: {tail}" if tail else message
 
     def _route(self, line: bytes) -> None:
         try:
