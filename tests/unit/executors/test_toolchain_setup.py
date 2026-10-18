@@ -13,6 +13,7 @@ import pytest
 
 from barthelona.cli._toolchain import ToolchainMissingError, ensure_toolchain
 from barthelona.executors import AgentExecutor, ExecutorInfraError
+from barthelona.executors import _wsl_agent as agent
 from barthelona.executors import wsl as wsl_module
 from barthelona.executors._link import PROTOCOL_VERSION
 
@@ -110,3 +111,20 @@ def test_a_failed_deploy_says_why(monkeypatch: pytest.MonkeyPatch) -> None:
     transport = _windows_transport(monkeypatch)
     with pytest.raises(ExecutorInfraError, match="no distribution"):
         transport._deploy_agent()
+
+
+async def test_image_digest_asks_for_the_image_and_falls_back_to_its_id() -> None:
+    transport = ScriptedTransport(_hello(), _inspect_reply("true\n", "sha256:abc\n"))
+    seen: list[list[str]] = []
+    original = transport.write_line
+
+    def record(data: bytes) -> None:
+        seen.append(json.loads(data)["cmd"])
+        original(data)
+
+    transport.write_line = record  # type: ignore[method-assign]  # capture the request in this test only
+    assert await AgentExecutor(transport).image_digest("bart-run") == "sha256:abc"
+    cmd = seen[0]
+    assert "--type=image" in cmd
+    assert "{{.Id}}" in cmd[cmd.index("--format") + 1]
+    assert agent._validate_docker_inspect_argv(cmd)
