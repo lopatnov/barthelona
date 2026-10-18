@@ -47,7 +47,7 @@ Git Bash: `scripts/create_env.sh`, then `source scripts/activate.sh`. WSL2 (Ubun
 
 ## Demo
 
-`demos/simplest-demo` is a git submodule ([barthelona-simplest-demo](https://github.com/lopatnov/barthelona-simplest-demo)): a Snake game in four NASM modules that passes barthelona's verification ladder (tamper gate, V0-V2, V5, V6) in its own CI. Its README says which parts the pipeline did and which Claude wrote by hand because the engine does not exist yet. Clone with `git clone --recurse-submodules`, or run `git submodule update --init` afterwards.
+`demos/simplest-demo` is a git submodule ([barthelona-simplest-demo](https://github.com/lopatnov/barthelona-simplest-demo)): an interactive console temperament questionnaire (Russian interface) in four NASM modules that passes barthelona's verification ladder (tamper gate, V0-V2, V5, V6) in its own CI. Its README says which parts the pipeline did and which Claude wrote by hand because the engine does not exist yet. Clone with `git clone --recurse-submodules`, or run `git submodule update --init` afterwards.
 
 ## License
 
