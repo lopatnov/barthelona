@@ -14,7 +14,7 @@ Legend for status:
 
 ## 1. Reference workloads
 
-The demo repos hold only a title and a licence today (checked 2026-10-18), so these definitions are mine. They are the *hardest credible version*, the bar for architecture reviews. Easier versions are steps on the way (section 5). Items marked **[owner]** are decisions in section 7.
+The demo repos ([network](https://github.com/lopatnov/barthelona-network-demo), [GUI](https://github.com/lopatnov/barthelona-gui-dektop-demo), [2D game](https://github.com/lopatnov/barthelona-2d-game-demo), [3D game](https://github.com/lopatnov/barthelona-3d-game-demo), and [simplest](https://github.com/lopatnov/barthelona-simplest-demo)) hold only a title and a licence today (checked 2026-10-18), so these definitions are mine. They are the *hardest credible version*, the bar for architecture reviews. Easier versions are steps on the way (section 5). Items marked **[owner]** are decisions in section 7.
 
 | ID | Workload (demo repo) | Hardest version | What makes it hard |
 | --- | --- | --- | --- |
