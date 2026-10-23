@@ -12,7 +12,7 @@ import re
 import shutil
 import subprocess  # argv list only, never a shell (invariant 9)
 import tempfile
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -104,3 +104,23 @@ def assemble_source(
     return AssembleResult(
         "fail", errors or (done.stderr.decode("utf-8", "replace").strip()[:500] or "nasm failed",)
     )
+
+
+def assemble_best(joined: str, blocks: Sequence[str], nasm: str | None = None) -> tuple[str, AssembleResult]:
+    """The joined source if it assembles, else the last single block that does; NASM still decides.
+
+    Seen live: a model restates the program in a later chunk with small changes, so the blocks joined
+    define every label twice although one block alone is a valid program.
+    """
+    gate = assemble_source(joined, nasm)
+    if gate.status != "fail":
+        return joined, gate
+    tried = {joined}
+    for block in reversed(blocks):
+        if block in tried:
+            continue
+        tried.add(block)
+        trial = assemble_source(block, nasm)
+        if trial.status == "pass":
+            return block, trial
+    return joined, gate

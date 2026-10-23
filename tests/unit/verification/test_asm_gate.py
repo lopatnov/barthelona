@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from barthelona.verification.asm_gate import assemble_source, find_nasm
+from barthelona.verification.asm_gate import AssembleResult, assemble_best, assemble_source, find_nasm
 
 _HELLO = """\
 section .data
@@ -135,3 +135,39 @@ def test_real_nasm_accepts_hello_and_rejects_a_program_written_twice() -> None:
     twice = assemble_source(_HELLO + _HELLO)
     assert twice.status == "fail"
     assert any("redefined" in error for error in twice.errors)
+
+
+def _accepts_only(good: str, seen: list[str]) -> Any:
+    def fake(source: str, nasm: str | None = None) -> AssembleResult:
+        seen.append(source)
+        return AssembleResult("pass") if source == good else AssembleResult("fail", ("line 1: bad",))
+
+    return fake
+
+
+def test_a_block_alone_is_used_when_the_blocks_together_are_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[str] = []
+    monkeypatch.setattr("barthelona.verification.asm_gate.assemble_source", _accepts_only("second", seen))
+    chosen, gate = assemble_best("first\nsecond", ["first", "second"], "nasm")
+    assert (chosen, gate.status) == ("second", "pass")
+    assert seen == ["first\nsecond", "second"]  # the last block is tried first
+
+
+def test_when_no_block_assembles_the_joined_failure_is_kept(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[str] = []
+    monkeypatch.setattr("barthelona.verification.asm_gate.assemble_source", _accepts_only("none", seen))
+    chosen, gate = assemble_best("a\nb", ["a", "b"], "nasm")
+    assert (chosen, gate.status) == ("a\nb", "fail")
+    assert seen == ["a\nb", "b", "a"]
+
+
+def test_a_missing_assembler_does_not_try_the_blocks(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[str] = []
+
+    def fake(source: str, nasm: str | None = None) -> AssembleResult:
+        seen.append(source)
+        return AssembleResult("unavailable", ("nasm was not found",))
+
+    monkeypatch.setattr("barthelona.verification.asm_gate.assemble_source", fake)
+    assert assemble_best("a\nb", ["a", "b"], "nasm")[1].status == "unavailable"
+    assert seen == ["a\nb"]
