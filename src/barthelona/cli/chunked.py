@@ -25,6 +25,7 @@ from barthelona.llm import (
     run_markovian,
 )
 from barthelona.llm.hmem import HMem, facts_from_state
+from barthelona.llm.runlog import RunLog
 
 chunked_app = typer.Typer(
     help="Long tasks as bounded chunks with flat context (Markovian).", no_args_is_help=True
@@ -120,6 +121,9 @@ def run(
         ),
     ] = None,
     domain: Annotated[str, typer.Option(help="H-MEM domain used to rank and tag memories.")] = "assembly",
+    stats: Annotated[
+        Path | None, typer.Option(help="Run statistics database (SQLite), e.g. var/runs.sqlite.")
+    ] = None,
     plan_role: Annotated[
         str | None, typer.Option(help="Role that writes a short plan first (e.g. planner).")
     ] = None,
@@ -147,8 +151,10 @@ def run(
     plan = _side_call(gateway, plan_role, "plan", _PLAN, task)
     chunk_task = f"{task}\n\nPlan from the planner (follow it):\n{plan}" if plan else task
     result = asyncio.run(run_markovian(gateway, role, chunk_task, config, recall.context if recall else ""))
-    if store and recall:
-        _remember(store, result, len(recall.memories), domain)
+    recalled = len(recall.memories) if recall else 0
+    _record_stats(stats, result, task, profile, recalled)
+    if store:
+        _remember(store, result, recalled, domain)
     text = _answer_text(result, code, out)
     review = _side_call(gateway, review_role, "review", _REVIEW, f"Task:\n{task}\n\nOutput:\n{text}")
     if review:
@@ -157,6 +163,12 @@ def run(
         out.write_text(text + "\n", encoding="utf-8", newline="\n")
     else:
         _out.print(text, markup=False)
+    _report(result)
+    if result.stop_reason.value != "green":
+        raise typer.Exit(1)
+
+
+def _report(result: MarkovianResult) -> None:
     _err.print(_table(result))
     for chunk in result.chunks:
         for reason in chunk.fallbacks:
@@ -168,5 +180,41 @@ def run(
         f"efficiency={result.efficiency_percent:.1f}%",
         markup=False,
     )
-    if result.stop_reason.value != "green":
-        raise typer.Exit(1)
+
+
+def _record_stats(
+    stats: Path | None, result: MarkovianResult, task: str, profile: str, recalled: int
+) -> None:
+    if stats is None:
+        return
+    log = RunLog(stats)
+    label = next((line for line in task.splitlines() if line.strip()), "(empty task)")
+    run_id = log.record(result, label=label.strip(), profile=profile, recalled=recalled)
+    log.close()
+    _err.print(f"stats: run {run_id} saved to {stats}")
+
+
+@chunked_app.command("stats")
+def stats_command(
+    db: Annotated[Path, typer.Option("--db", help="Run statistics database.")] = Path("var/runs.sqlite"),
+    limit: Annotated[int, typer.Option(help="How many recent runs to list.")] = 10,
+) -> None:
+    """Print the last runs and the totals per serving model from the statistics database."""
+    if not db.exists():
+        raise typer.BadParameter(f"{db} does not exist; run `chunked run --stats {db}` first")
+    log = RunLog(db)
+    runs = Table("run", "task", "status", "chunks", "tokens in", "tokens out", "seconds", "recalled")
+    for row in log.last_runs(limit):
+        runs.add_row(
+            str(row.id), row.label, row.status, str(row.chunks), str(row.tokens_in), str(row.tokens_out),
+            f"{row.elapsed_ms / 1000:.1f}", str(row.recalled),
+        )  # fmt: skip
+    models = Table("served by", "chunks", "tokens in", "tokens out", "avg ms", "fell through")
+    for model in log.per_model():
+        models.add_row(
+            model.served_by, str(model.chunks), str(model.tokens_in), str(model.tokens_out),
+            str(model.avg_latency_ms), str(model.fell_through),
+        )  # fmt: skip
+    log.close()
+    _out.print(runs)
+    _out.print(models)
