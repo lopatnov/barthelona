@@ -90,6 +90,15 @@ def test_extract_code_drops_shell_commands_and_output_blocks() -> None:
     assert extract_code(text) == "_start:\nuntagged source"
 
 
+def test_extract_code_drops_untagged_blocks_that_only_run_build_tools() -> None:
+    text = (
+        "```\nnasm -f elf64 -o hello.o hello.asm\n```\n"
+        "```\n$ ld -o hello hello.o\n$ ./hello\n```\n"
+        "```nasm\nsection .text\n```"
+    )
+    assert extract_code(text) == "section .text"
+
+
 async def test_a_state_block_shorter_than_24_chars_falls_back_to_the_tail() -> None:
     gateway = FakeGateway([f"real work here\n{CHECKPOINT}\ntoo short", f"x\n{COMPLETE}"])
     result = await run_markovian(gateway, "worker", "task", _SMALL)
