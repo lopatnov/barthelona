@@ -48,8 +48,9 @@ def test_only_one_read_only_statement_is_sent(sql: str) -> None:
     def never(request: httpx.Request) -> httpx.Response:
         raise AssertionError("nothing may be sent")
 
+    client = _client(never)
     with pytest.raises(ZetarisError):
-        run_sql(CONFIG, sql, 1, _client(never))
+        run_sql(CONFIG, sql, 1, client)
 
 
 @pytest.mark.parametrize(
@@ -60,20 +61,24 @@ def test_read_only_statements_pass(sql: str) -> None:
 
 
 def test_a_refused_key_and_a_server_error_are_told_apart() -> None:
+    refused = _client(lambda r: httpx.Response(401))
+    broken = _client(lambda r: httpx.Response(500, text="boom"))
+    empty = _client(lambda r: httpx.Response(200, json={"data": None}))
     with pytest.raises(ZetarisError, match="refused the API key"):
-        run_sql(CONFIG, "SELECT 1", 1, _client(lambda r: httpx.Response(401)))
+        run_sql(CONFIG, "SELECT 1", 1, refused)
     with pytest.raises(ZetarisError, match="HTTP 500"):
-        run_sql(CONFIG, "SELECT 1", 1, _client(lambda r: httpx.Response(500, text="boom")))
+        run_sql(CONFIG, "SELECT 1", 1, broken)
     with pytest.raises(ZetarisError, match="no rows"):
-        run_sql(CONFIG, "SELECT 1", 1, _client(lambda r: httpx.Response(200, json={"data": None})))
+        run_sql(CONFIG, "SELECT 1", 1, empty)
 
 
 def test_an_unreachable_zetaris_does_not_leak_the_key() -> None:
     def down(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("refused", request=request)
 
+    client = _client(down)
     with pytest.raises(ZetarisError) as caught:
-        run_sql(CONFIG, "SELECT 1", 1, _client(down))
+        run_sql(CONFIG, "SELECT 1", 1, client)
     assert "secret-key" not in str(caught.value)
     assert "not reachable" in str(caught.value)
 
