@@ -13,7 +13,10 @@ from rich.table import Table
 
 from barthelona.llm import (
     CatalogError,
+    ChatMessage,
+    CompletionRequest,
     Gateway,
+    GatewayError,
     MarkovianConfig,
     MarkovianResult,
     OpenAIChatBackend,
@@ -48,6 +51,37 @@ def _table(result: MarkovianResult) -> Table:
     return table
 
 
+_PLAN = "Write a short numbered plan (at most 8 steps, under 200 words) for the task. No code."
+_REVIEW = (
+    "Review this output against the task. List concrete problems (wrong syntax, missing parts, wrong "
+    "calling convention) in at most 6 bullet points, or say it looks complete. Advisory only."
+)
+
+
+def _side_call(gateway: Gateway, role: str | None, label: str, instruction: str, material: str) -> str:
+    """One bounded call to another role's chain (planner or reviewer); empty when unused or failed."""
+    if role is None:
+        return ""
+    request = CompletionRequest(
+        messages=(
+            ChatMessage(role="system", content=instruction),
+            ChatMessage(role="user", content=material),
+        ),
+        max_tokens=1500,
+    )
+    try:
+        done = asyncio.run(gateway.complete(role, request))
+    except GatewayError as exc:
+        _err.print(f"{label} ({role}) skipped: {exc}", markup=False)
+        return ""
+    _err.print(
+        f"{label} ({role}): served_by={done.served_by} tokens_out={done.record.tokens_out} "
+        f"ms={done.record.latency_ms}",
+        markup=False,
+    )
+    return done.text.strip()
+
+
 @chunked_app.command("run")
 def run(
     task: Annotated[str, typer.Argument(help="The task text, or @file to read it from a file.")],
@@ -66,6 +100,12 @@ def run(
         ),
     ] = None,
     domain: Annotated[str, typer.Option(help="H-MEM domain used to rank and tag memories.")] = "assembly",
+    plan_role: Annotated[
+        str | None, typer.Option(help="Role that writes a short plan first (e.g. planner).")
+    ] = None,
+    review_role: Annotated[
+        str | None, typer.Option(help="Role that reviews the output afterwards (e.g. cheap); advisory.")
+    ] = None,
     chunk_tokens: Annotated[int, typer.Option(help="Tokens per chunk (engine range 1000-128000).")] = 8000,
     carryover_tokens: Annotated[int, typer.Option(help="Tokens of state carried between chunks.")] = 800,
     max_chunks: Annotated[int, typer.Option(help="Upper bound on chunks (1-32).")] = 24,
@@ -84,13 +124,18 @@ def run(
     gateway = Gateway(catalog, {"openai_chat": OpenAIChatBackend()}, profile=profile)
     store = HMem(memory) if memory is not None else None
     recall = store.query(task, domain=domain) if store else None
-    result = asyncio.run(run_markovian(gateway, role, task, config, recall.context if recall else ""))
+    plan = _side_call(gateway, plan_role, "plan", _PLAN, task)
+    chunk_task = f"{task}\n\nPlan from the planner (follow it):\n{plan}" if plan else task
+    result = asyncio.run(run_markovian(gateway, role, chunk_task, config, recall.context if recall else ""))
     if store and recall:
         facts = [fact for chunk in result.chunks for fact in facts_from_state(chunk.state)]
         written = store.ingest(facts, source=f"markovian:run-{int(time.time())}", domain=domain)
         _err.print(f"memory: recalled={len(recall.memories)} written={written} stored={store.count()}")
         store.close()
     text = extract_code(result.text) if code else result.text
+    review = _side_call(gateway, review_role, "review", _REVIEW, f"Task:\n{task}\n\nOutput:\n{text}")
+    if review:
+        _err.print(f"review (advisory, the oracle decides):\n{review}", markup=False)
     if out is not None:
         out.write_text(text + "\n", encoding="utf-8", newline="\n")
     else:

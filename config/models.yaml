@@ -223,6 +223,20 @@ models:
     strip_think: true              # Nemotron reasoning models may emit <think> blocks
     extra_body:                    # Nemotron 3.5: thinking off (measured 5 s vs 12 s, content never starved)
       chat_template_kwargs: {enable_thinking: false}
+  meterless_deep:
+    provider: meterless
+    model: meterless/deep          # Nightshift routes to its strongest reasoning lane (planning, review)
+    price_class: high
+    context: 32768
+    strip_think: true              # thinking stays on: this is the reasoning role
+  meterless_fast:
+    provider: meterless
+    model: meterless/fast          # Nightshift routes to its fastest lane (cheap classification, summaries)
+    price_class: low
+    context: 32768
+    strip_think: true
+    extra_body:
+      chat_template_kwargs: {enable_thinking: false}
   embed_local:
     provider: lmstudio
     model: text-embedding-nomic-embed-text-v1.5   # needs search_document:/search_query: prefixes
@@ -463,12 +477,12 @@ profiles:
     worker: [local_main]
     cheap: [local_main]
     escalation: [local_main]
-  meterless:                       # Nightshift first (Nemotron lanes), the local model as the fallback
+  meterless:                       # Nightshift first, one role per routing class, the local model last
     main: [meterless_auto, local_main]
-    planner: [meterless_auto, local_main]
+    planner: [meterless_deep, meterless_auto, local_main]
     worker: [meterless_auto, local_main]
-    cheap: [meterless_auto, local_main]
-    escalation: [meterless_auto, local_main]
+    cheap: [meterless_fast, meterless_auto, local_main]
+    escalation: [meterless_deep, local_main]
   hybrid:                          # default: local worker, cloud for planning and escalation
     main: [local_main]
     planner:

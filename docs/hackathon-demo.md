@@ -24,6 +24,12 @@ semantic weight 0.35 is dropped and the other six renormalised), dreaming, sleep
 conformance suites are TypeScript and cannot run against the port; `tests/unit/llm/test_hmem.py` covers the
 recall-into-chunk-0, write-back and reinforcement behaviours.
 
+Several models in one run: `--plan-role planner` asks the planner chain (`meterless/deep`) for a short plan that is
+added to the task, the chunks run on the `worker` chain (`meterless/auto`), and `--review-role cheap` asks the cheap
+chain (`meterless/fast`) for an advisory review (the assembler stays the oracle). Which concrete model answers each
+routing class is decided by the lanes in Nightshift; the run prints `served_by` for the plan, every chunk and the
+review. Use at least two different model families in the lanes to show it.
+
 Compounding check: run the same task twice with the same `--memory` file and compare `chunks=` in the two summaries.
 
 ## Reproduce
