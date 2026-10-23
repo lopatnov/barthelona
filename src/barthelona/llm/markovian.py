@@ -12,6 +12,7 @@ of the chunk. Model-based compression, the RESEARCH mode and the reflection pass
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -34,8 +35,15 @@ _SYSTEM = (
     f"- If more work remains, end with a line `{CHECKPOINT}` and under it a compact state block with the "
     "labels COMPLETED, REMAINING, DECISIONS and CONTEXT (names and decisions the next step needs).\n"
     f"- When the whole task is finished, end with a line `{COMPLETE}`.\n"
-    "Never repeat work that the state summary says is done."
+    "Never repeat work that the state summary says is done.\n"
+    "Put all code in fenced blocks (three backticks). Text outside the fences is commentary and is dropped."
 )
+_FENCE = re.compile(r"^```[^\n]*\n(.*?)^```[ \t]*$", re.DOTALL | re.MULTILINE)
+
+
+def extract_code(text: str) -> str:
+    """The fenced code blocks of *text*, joined: the only part of a chunked answer that is source."""
+    return "\n".join(match.group(1).rstrip("\n") for match in _FENCE.finditer(text))
 
 
 @dataclass(frozen=True)

@@ -6,7 +6,7 @@ import pytest
 
 from barthelona.domain.enums import StopReason
 from barthelona.llm import FakeGateway, GatewayError, MarkovianConfig, run_markovian
-from barthelona.llm.markovian import CHECKPOINT, COMPLETE
+from barthelona.llm.markovian import CHECKPOINT, COMPLETE, extract_code
 
 _SMALL = MarkovianConfig(chunk_tokens=2400, carryover_tokens=128, max_chunks=4)
 
@@ -74,6 +74,12 @@ async def test_each_call_asks_for_a_bounded_answer() -> None:
 def test_config_rejects_values_outside_the_engine_ranges(chunk: int, carry: int, chunks: int) -> None:
     with pytest.raises(ValueError, match="must be"):
         MarkovianConfig(chunk_tokens=chunk, carryover_tokens=carry, max_chunks=chunks)
+
+
+def test_extract_code_keeps_only_the_fenced_blocks() -> None:
+    text = "Plan:\n1. write\n```asm\nsection .text\n```\nnote\n```nasm\n_start:\n    ret\n```\nbye"
+    assert extract_code(text) == "section .text\n_start:\n    ret"
+    assert extract_code("no code here") == ""
 
 
 async def test_a_state_block_shorter_than_24_chars_falls_back_to_the_tail() -> None:

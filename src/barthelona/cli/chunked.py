@@ -16,6 +16,7 @@ from barthelona.llm import (
     MarkovianConfig,
     MarkovianResult,
     OpenAIChatBackend,
+    extract_code,
     load_catalog,
     run_markovian,
 )
@@ -53,6 +54,9 @@ def run(
     ] = "meterless",
     role: Annotated[str, typer.Option(help="Catalog role whose chain answers each chunk.")] = "worker",
     out: Annotated[Path | None, typer.Option(help="Write the assembled output to this file.")] = None,
+    code: Annotated[
+        bool, typer.Option("--code", help="Write only the fenced code blocks (a source file), not the prose.")
+    ] = False,
     chunk_tokens: Annotated[int, typer.Option(help="Tokens per chunk (engine range 1000-128000).")] = 8000,
     carryover_tokens: Annotated[int, typer.Option(help="Tokens of state carried between chunks.")] = 800,
     max_chunks: Annotated[int, typer.Option(help="Upper bound on chunks (1-32).")] = 24,
@@ -70,10 +74,11 @@ def run(
         task = Path(task[1:]).read_text(encoding="utf-8")
     gateway = Gateway(catalog, {"openai_chat": OpenAIChatBackend()}, profile=profile)
     result = asyncio.run(run_markovian(gateway, role, task, config))
+    text = extract_code(result.text) if code else result.text
     if out is not None:
-        out.write_text(result.text + "\n", encoding="utf-8", newline="\n")
+        out.write_text(text + "\n", encoding="utf-8", newline="\n")
     else:
-        _out.print(result.text, markup=False)
+        _out.print(text, markup=False)
     _err.print(_table(result))
     for chunk in result.chunks:
         for reason in chunk.fallbacks:
