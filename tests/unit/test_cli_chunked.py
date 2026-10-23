@@ -77,6 +77,19 @@ def test_stats_are_saved_and_printed_by_the_stats_command(
     log.close()
 
 
+def test_a_blank_task_is_still_recorded_with_a_placeholder_label(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake = FakeGateway([f"```asm\n_start:\n```\n{COMPLETE}"])
+    monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
+    db = tmp_path / "runs.sqlite"
+    result = runner.invoke(app, ["chunked", "run", "  \n ", "--code", "--stats", str(db)])
+    assert result.exit_code == 0, result.output
+    log = RunLog(db)
+    assert [row.label for row in log.last_runs()] == ["(empty task)"]
+    log.close()
+
+
 def test_stats_command_without_a_database_is_a_usage_error(tmp_path: Path) -> None:
     result = runner.invoke(app, ["chunked", "stats", "--db", str(tmp_path / "none.sqlite")])
     assert result.exit_code == 2

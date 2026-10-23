@@ -188,7 +188,8 @@ def _record_stats(
     if stats is None:
         return
     log = RunLog(stats)
-    run_id = log.record(result, label=task.strip().splitlines()[0], profile=profile, recalled=recalled)
+    label = next((line for line in task.splitlines() if line.strip()), "(empty task)")
+    run_id = log.record(result, label=label.strip(), profile=profile, recalled=recalled)
     log.close()
     _err.print(f"stats: run {run_id} saved to {stats}")
 
