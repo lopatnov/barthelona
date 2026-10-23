@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from pathlib import Path
 from typing import Annotated
 
@@ -20,6 +21,7 @@ from barthelona.llm import (
     load_catalog,
     run_markovian,
 )
+from barthelona.llm.hmem import HMem, facts_from_state
 
 chunked_app = typer.Typer(
     help="Long tasks as bounded chunks with flat context (Markovian).", no_args_is_help=True
@@ -57,6 +59,13 @@ def run(
     code: Annotated[
         bool, typer.Option("--code", help="Write only the fenced code blocks (a source file), not the prose.")
     ] = False,
+    memory: Annotated[
+        Path | None,
+        typer.Option(
+            help="H-MEM store (SQLite): recall before chunk 1, write what the run learned at the end."
+        ),
+    ] = None,
+    domain: Annotated[str, typer.Option(help="H-MEM domain used to rank and tag memories.")] = "assembly",
     chunk_tokens: Annotated[int, typer.Option(help="Tokens per chunk (engine range 1000-128000).")] = 8000,
     carryover_tokens: Annotated[int, typer.Option(help="Tokens of state carried between chunks.")] = 800,
     max_chunks: Annotated[int, typer.Option(help="Upper bound on chunks (1-32).")] = 24,
@@ -73,7 +82,14 @@ def run(
     if task.startswith("@"):
         task = Path(task[1:]).read_text(encoding="utf-8")
     gateway = Gateway(catalog, {"openai_chat": OpenAIChatBackend()}, profile=profile)
-    result = asyncio.run(run_markovian(gateway, role, task, config))
+    store = HMem(memory) if memory is not None else None
+    recall = store.query(task, domain=domain) if store else None
+    result = asyncio.run(run_markovian(gateway, role, task, config, recall.context if recall else ""))
+    if store and recall:
+        facts = [fact for chunk in result.chunks for fact in facts_from_state(chunk.state)]
+        written = store.ingest(facts, source=f"markovian:run-{int(time.time())}", domain=domain)
+        _err.print(f"memory: recalled={len(recall.memories)} written={written} stored={store.count()}")
+        store.close()
     text = extract_code(result.text) if code else result.text
     if out is not None:
         out.write_text(text + "\n", encoding="utf-8", newline="\n")

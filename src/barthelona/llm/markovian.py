@@ -86,6 +86,7 @@ class ChunkStat:
     marker: Literal["checkpoint", "complete", "none"]
     carryover: CarryoverSource
     fallbacks: tuple[str, ...] = ()  # why earlier chain entries were skipped or failed before this one served
+    state: str = ""  # the state block the model wrote at the end of this chunk (what memory may keep)
 
 
 @dataclass(frozen=True)
@@ -161,16 +162,22 @@ def _carryover(body: str, state: str, limit_chars: int) -> tuple[str, CarryoverS
     return "", "none"
 
 
-def _request(task: str, carryover: str, index: int, config: MarkovianConfig) -> CompletionRequest:
+def _request(
+    task: str, carryover: str, index: int, config: MarkovianConfig, memory_context: str = ""
+) -> CompletionRequest:
     progress = carryover or "(nothing yet: this is the first step)"
     content = f"Task:\n{task}\n\nStep {index + 1} of at most {config.max_chunks}. State so far:\n{progress}"
+    if memory_context and index == 0:  # spec: memory enters chunk 0 only; later chunks get the carryover
+        content = f"{memory_context}\n\n{content}"
     return CompletionRequest(
         messages=(ChatMessage(role="system", content=_SYSTEM), ChatMessage(role="user", content=content)),
         max_tokens=config.chunk_tokens - config.carryover_tokens - _FRAMING_TOKENS,
     )
 
 
-def _stat(index: int, completion: Completion, marker: str, source: CarryoverSource) -> ChunkStat:
+def _stat(
+    index: int, completion: Completion, marker: str, source: CarryoverSource, state: str = ""
+) -> ChunkStat:
     record = completion.record
     measured = record.tokens_out > 0
     return ChunkStat(
@@ -184,13 +191,21 @@ def _stat(index: int, completion: Completion, marker: str, source: CarryoverSour
         marker=marker,  # type: ignore[arg-type]  # _split returns only the three literals
         carryover=source,
         fallbacks=completion.fallbacks,
+        state=state,
     )
 
 
 async def run_markovian(
-    gateway: ModelGateway, role: str, task: str, config: MarkovianConfig | None = None
+    gateway: ModelGateway,
+    role: str,
+    task: str,
+    config: MarkovianConfig | None = None,
+    memory_context: str = "",
 ) -> MarkovianResult:
-    """Run *task* as chunks until the model completes it or `max_chunks` is spent."""
+    """Run *task* as chunks until the model completes it or `max_chunks` is spent.
+
+    *memory_context* (an H-MEM ``[MEMORY CONTEXT]`` block) is put in front of the first chunk only.
+    """
     config = config or MarkovianConfig()
     limit_chars = config.carryover_tokens * _CHARS_PER_TOKEN
     bodies: list[str] = []
@@ -198,7 +213,9 @@ async def run_markovian(
     carryover = ""
     for index in range(config.max_chunks):
         try:
-            completion = await gateway.complete(role, _request(task, carryover, index, config))
+            completion = await gateway.complete(
+                role, _request(task, carryover, index, config, memory_context)
+            )
         except GatewayError:
             return MarkovianResult(
                 "\n".join(bodies), StopReason.NO_MODEL_AVAILABLE, tuple(stats), config.carryover_tokens
@@ -206,7 +223,7 @@ async def run_markovian(
         body, state, marker = _split(completion.text)
         carryover, source = _carryover(body, state, limit_chars) if marker != "complete" else ("", "none")
         bodies.append(body)
-        stats.append(_stat(index, completion, marker, source))
+        stats.append(_stat(index, completion, marker, source, state))
         if marker == "complete":
             return MarkovianResult("\n".join(bodies), StopReason.GREEN, tuple(stats), config.carryover_tokens)
     return MarkovianResult("\n".join(bodies), StopReason.MAX_ATTEMPTS, tuple(stats), config.carryover_tokens)

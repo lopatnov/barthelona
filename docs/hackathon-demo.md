@@ -14,6 +14,18 @@ The Markovian code is a Python port of the Apache-2.0 spec at github.com/Meterle
 conformance suite cannot run against a Python port; `tests/unit/llm/test_markovian.py` covers the spec formulas
 (standard vs Markovian cost, efficiency), the marker protocol, the 24-character state minimum and the chunk bounds.
 
+## Memory plus long tasks (H-MEM into Markovian)
+
+`src/barthelona/llm/hmem.py` is a small Python port of the H-MEM spec (github.com/Meterless/Meterless, `engines/hmem`).
+`chunked run --memory var/hmem.sqlite` recalls what earlier runs learned and puts it in front of chunk 1 only (the
+spec's rule: later chunks get the carryover, so the prompt stays flat), then writes the DECISIONS and CONTEXT lines of
+every chunk's state block back with source `markovian:<run>` and an append-only ledger. Not ported: embeddings (the
+semantic weight 0.35 is dropped and the other six renormalised), dreaming, sleep cycle, conflict resolution. The
+conformance suites are TypeScript and cannot run against the port; `tests/unit/llm/test_hmem.py` covers the
+recall-into-chunk-0, write-back and reinforcement behaviours.
+
+Compounding check: run the same task twice with the same `--memory` file and compare `chunks=` in the two summaries.
+
 ## Reproduce
 
 1. In Nightshift: Setup, Providers, add the NVIDIA key; NIGHT, LANES, add a Nemotron lane (for example
