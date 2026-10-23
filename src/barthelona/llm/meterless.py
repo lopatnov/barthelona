@@ -73,6 +73,8 @@ def usable_token(token: str | None) -> bool:
 def probe(base_url: str, token: str | None, client: httpx.Client | None = None) -> Probe:
     """The runtime's honest state: asks ``/v1/models`` with the real token."""
     url = normalize_base_url(base_url)
+    if urlsplit(url).scheme not in ("http", "https") or not urlsplit(url).hostname:
+        return Probe("offline", url, reason="not an http(s) URL with a host")
     headers = {"meterless-app": APP_ID}
     if usable_token(token):
         headers["Authorization"] = f"Bearer {token}"

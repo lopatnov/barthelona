@@ -106,3 +106,8 @@ async def test_gateway_skips_meterless_with_the_placeholder_token() -> None:
         from barthelona.llm import ChatMessage, CompletionRequest
 
         await gateway.complete("worker", CompletionRequest(messages=(ChatMessage(role="user", content="x"),)))
+
+
+def test_probe_refuses_urls_that_are_not_http() -> None:
+    assert probe("file:///etc/passwd", "tok").state == "offline"
+    assert probe("ftp://host/v1", "tok").reason == "not an http(s) URL with a host"
