@@ -232,3 +232,9 @@ CLAUDE.local.md
 /.reference
 # Claude Code worktrees
 .claude/worktrees/
+
+# Stray outputs of chunked run without --out (write into demos/hello instead)
+/hello.asm
+/hello.asm.raw.txt
+/hello.o
+/body.json
