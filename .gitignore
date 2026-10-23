@@ -232,3 +232,6 @@ CLAUDE.local.md
 /.reference
 # Claude Code worktrees
 .claude/worktrees/
+
+# chunked run raw model output
+demos/**/*.raw.txt
