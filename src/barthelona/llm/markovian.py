@@ -42,12 +42,21 @@ _FENCE = re.compile(r"^```([^\n]*)\n(.*?)^```[ \t]*$", re.DOTALL | re.MULTILINE)
 _SHELL_TAGS = frozenset({"bash", "sh", "shell", "console", "text", "output", "powershell", "cmd", "make"})
 
 
+_SHELL_LINE = re.compile(r"^\s*(\$ |\./|(nasm|ld|as|gcc|cc|clang|make|gdb|objdump|strace)\s+-)")
+
+
+def _runs_only_build_tools(block: str) -> bool:
+    """True when every non-blank line is a shell prompt or a build-tool call, whatever the fence tag."""
+    lines = [line for line in block.splitlines() if line.strip()]
+    return bool(lines) and all(_SHELL_LINE.match(line) for line in lines)
+
+
 def extract_code(text: str) -> str:
     """The source blocks of *text*, joined: fences that are not shell commands or program output."""
     blocks = [
         match.group(2).rstrip("\n")
         for match in _FENCE.finditer(text)
-        if match.group(1).strip().lower() not in _SHELL_TAGS
+        if match.group(1).strip().lower() not in _SHELL_TAGS and not _runs_only_build_tools(match.group(2))
     ]
     return "\n".join(blocks)
 
