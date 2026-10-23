@@ -54,6 +54,19 @@ class FailureKind(StrEnum):
 class ModelCallError(GatewayError):
     """One model failed (connection, timeout, bad response); the router tries the next chain entry."""
 
-    def __init__(self, message: str, kind: FailureKind = FailureKind.TRANSPORT) -> None:
+    def __init__(
+        self,
+        message: str,
+        kind: FailureKind = FailureKind.TRANSPORT,
+        *,
+        status: int | None = None,
+        code: str | None = None,
+        fix: tuple[str, ...] = (),
+        chat_carrier: bool | None = None,
+    ) -> None:
         super().__init__(message)
         self.kind = kind
+        self.status = status  # what the server sent, kept on the error object for callers
+        self.code = code
+        self.fix = fix
+        self.chat_carrier = chat_carrier

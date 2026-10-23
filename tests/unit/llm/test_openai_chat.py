@@ -150,6 +150,64 @@ async def test_a_connection_failure_is_transport_and_a_timeout_is_timeout() -> N
     assert (refused.value.kind, stalled.value.kind) == (FailureKind.TRANSPORT, FailureKind.TIMEOUT)
 
 
+async def _fail_with(status: int, payload: dict[str, object]) -> ModelCallError:
+    transport = httpx.MockTransport(lambda request: httpx.Response(status, json=payload))
+    with pytest.raises(ModelCallError) as caught:
+        await _backend(transport).complete(_target(), _request())
+    return caught.value
+
+
+def _error(message: str, code: str = "x") -> dict[str, object]:
+    return {"message": message, "type": "invalid_request_error", "code": code}
+
+
+async def test_the_server_message_comes_first_and_its_fix_wins_over_our_hint() -> None:
+    payload = {
+        "error": _error("lane is loading", "class_not_ready"),
+        "meterless": {"fix": ["seat the text lane"]},
+    }
+    error = await _fail_with(503, payload)
+    assert str(error).startswith(
+        "APIStatusError: lane is loading | fix: seat the text lane"
+    ) or "lane is loading" in str(error)
+    assert str(error).index("lane is loading") < str(error).index("fix: seat the text lane")
+    assert error.fix == ("seat the text lane",) and error.status == 503 and error.code == "class_not_ready"
+    assert "access token" not in str(error)
+
+
+@pytest.mark.parametrize("status", [401, 403])
+async def test_unauthorized_adds_the_token_hint(status: int) -> None:
+    error = await _fail_with(status, {"error": _error("bad key", "invalid_api_key")})
+    assert "bad key" in str(error) and "METERLESS_RUNTIME_TOKEN" in str(error)
+    assert error.kind is FailureKind.AUTH
+
+
+async def test_repeated_bad_keys_say_do_not_retry() -> None:
+    error = await _fail_with(429, {"error": _error("too many bad keys", "auth_rate_limited")})
+    assert "do not retry" in str(error)
+
+
+async def test_a_carrier_refusal_is_never_blamed_on_the_machine_or_given_our_hint() -> None:
+    payload = {
+        "error": _error("no chat carrier", "class_carrier_unsupported"),
+        "meterless": {"chat_carrier": False},
+    }
+    error = await _fail_with(409, payload)
+    text = str(error).lower()
+    assert "no chat carrier" in text and "says nothing about this machine" in text
+    assert "can't serve" not in text and "hardware" not in text and "start nightshift" not in text
+    assert error.chat_carrier is False and error.code == "class_carrier_unsupported"
+
+
+async def test_a_network_failure_names_the_unreachable_runtime() -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused", request=request)
+
+    with pytest.raises(ModelCallError) as caught:
+        await _backend(httpx.MockTransport(refuse)).complete(_target(), _request())
+    assert "isn't reachable at http://127.0.0.1:1234/v1" in str(caught.value)
+
+
 def test_cloud_targets_are_declined_until_their_parameters_are_mapped() -> None:
     backend = OpenAIChatBackend(env={})
     assert backend.unsupported(_target(local=False)) is not None
