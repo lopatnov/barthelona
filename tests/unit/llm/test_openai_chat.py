@@ -8,7 +8,7 @@ import httpx
 import pytest
 from openai import AsyncOpenAI
 
-from barthelona.llm import ChatMessage, CompletionRequest, ModelCallError, OpenAIChatBackend
+from barthelona.llm import ChatMessage, CompletionRequest, FailureKind, ModelCallError, OpenAIChatBackend
 from barthelona.llm.catalog import ModelConfig, ModelTarget, ProviderConfig
 
 
@@ -116,6 +116,38 @@ async def test_connection_failures_become_model_call_errors() -> None:
 
     with pytest.raises(ModelCallError, match="APIConnectionError"):
         await _backend(httpx.MockTransport(refuse)).complete(_target(), _request())
+
+
+@pytest.mark.parametrize(
+    ("status", "kind"),
+    [
+        (400, FailureKind.REFUSAL),
+        (401, FailureKind.AUTH),
+        (403, FailureKind.AUTH),
+        (422, FailureKind.REFUSAL),
+        (429, FailureKind.RATE_LIMIT),
+        (500, FailureKind.SERVER),
+    ],
+)
+async def test_http_status_decides_the_failure_kind(status: int, kind: FailureKind) -> None:
+    transport = httpx.MockTransport(lambda request: httpx.Response(status, json={"error": {"message": "no"}}))
+    with pytest.raises(ModelCallError) as caught:
+        await _backend(transport).complete(_target(), _request())
+    assert caught.value.kind is kind
+
+
+async def test_a_connection_failure_is_transport_and_a_timeout_is_timeout() -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused", request=request)
+
+    def stall(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("slow", request=request)
+
+    with pytest.raises(ModelCallError) as refused:
+        await _backend(httpx.MockTransport(refuse)).complete(_target(), _request())
+    with pytest.raises(ModelCallError) as stalled:
+        await _backend(httpx.MockTransport(stall)).complete(_target(), _request())
+    assert (refused.value.kind, stalled.value.kind) == (FailureKind.TRANSPORT, FailureKind.TIMEOUT)
 
 
 def test_cloud_targets_are_declined_until_their_parameters_are_mapped() -> None:

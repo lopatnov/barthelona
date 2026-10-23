@@ -7,6 +7,7 @@ import pytest
 from barthelona.llm import (
     ChatMessage,
     CompletionRequest,
+    FailureKind,
     FakeGateway,
     Gateway,
     GatewayError,
@@ -97,6 +98,12 @@ async def test_a_failing_model_falls_through_to_the_next() -> None:
     result = await _gateway(cloud, _Backend([_reply("local")])).complete("worker", _request())
     assert result.served_by == "local_main"
     assert result.fallbacks[0].startswith("big: APIConnectionError: down after ")
+
+
+async def test_the_fall_through_reason_carries_the_failure_kind() -> None:
+    cloud = _Backend([ModelCallError("BadRequestError: policy", FailureKind.REFUSAL)])
+    result = await _gateway(cloud, _Backend([_reply("local")])).complete("worker", _request())
+    assert result.fallbacks[0].endswith("[refusal]")
 
 
 async def test_exhausted_chain_raises_with_every_reason() -> None:

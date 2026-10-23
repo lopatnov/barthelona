@@ -7,7 +7,14 @@ from barthelona.llm.gateway import Gateway, ModelGateway
 from barthelona.llm.markovian import ChunkStat, MarkovianConfig, MarkovianResult, extract_code, run_markovian
 from barthelona.llm.openai_chat import OpenAIChatBackend
 from barthelona.llm.thinking import strip_think
-from barthelona.llm.types import ChatMessage, Completion, CompletionRequest, GatewayError, ModelCallError
+from barthelona.llm.types import (
+    ChatMessage,
+    Completion,
+    CompletionRequest,
+    FailureKind,
+    GatewayError,
+    ModelCallError,
+)
 
 __all__ = [
     "Backend",
@@ -17,6 +24,7 @@ __all__ = [
     "ChunkStat",
     "Completion",
     "CompletionRequest",
+    "FailureKind",
     "FakeGateway",
     "Gateway",
     "GatewayError",
