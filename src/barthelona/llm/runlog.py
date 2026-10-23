@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS runs (
 CREATE TABLE IF NOT EXISTS run_chunks (
     run_id INTEGER NOT NULL REFERENCES runs(id), idx INTEGER NOT NULL, served_by TEXT NOT NULL,
     tokens_in INTEGER NOT NULL, tokens_out INTEGER NOT NULL, latency_ms INTEGER NOT NULL,
-    marker TEXT NOT NULL, fallbacks TEXT NOT NULL
+    marker TEXT NOT NULL, fallbacks TEXT NOT NULL, answered_by TEXT NOT NULL DEFAULT ''
 );
 """
 
@@ -45,6 +45,7 @@ class RunRow:
 @dataclass(frozen=True)
 class ModelRow:
     served_by: str
+    answered_by: str  # the model id the provider reported; empty when it reported none
     chunks: int
     tokens_in: int
     tokens_out: int
@@ -58,7 +59,14 @@ class RunLog:
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._db = sqlite3.connect(str(path))
         self._db.executescript(_SCHEMA)
+        self._add_missing_columns()
         self._clock = clock
+
+    def _add_missing_columns(self) -> None:
+        """Databases written by an earlier version lack the answered_by column."""
+        columns = {row[1] for row in self._db.execute("PRAGMA table_info(run_chunks)")}
+        if "answered_by" not in columns:
+            self._db.execute("ALTER TABLE run_chunks ADD COLUMN answered_by TEXT NOT NULL DEFAULT ''")
 
     def close(self) -> None:
         self._db.close()
@@ -73,10 +81,10 @@ class RunLog:
         )  # fmt: skip
         run_id = int(cursor.lastrowid or 0)
         self._db.executemany(
-            "INSERT INTO run_chunks VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO run_chunks VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 (run_id, chunk.index, chunk.served_by, chunk.tokens_in, chunk.tokens_out, chunk.latency_ms,
-                 chunk.marker, " | ".join(chunk.fallbacks))
+                 chunk.marker, " | ".join(chunk.fallbacks), chunk.answered_by)
                 for chunk in result.chunks
             ],
         )  # fmt: skip
@@ -94,7 +102,8 @@ class RunLog:
 
     def per_model(self) -> list[ModelRow]:
         rows = self._db.execute(
-            "SELECT served_by, COUNT(*), SUM(tokens_in), SUM(tokens_out), CAST(AVG(latency_ms) AS INTEGER),"
-            " SUM(fallbacks <> '') FROM run_chunks GROUP BY served_by ORDER BY COUNT(*) DESC"
+            "SELECT served_by, answered_by, COUNT(*), SUM(tokens_in), SUM(tokens_out),"
+            " CAST(AVG(latency_ms) AS INTEGER), SUM(fallbacks <> '') FROM run_chunks"
+            " GROUP BY served_by, answered_by ORDER BY COUNT(*) DESC"
         )
         return [ModelRow(*row) for row in rows]

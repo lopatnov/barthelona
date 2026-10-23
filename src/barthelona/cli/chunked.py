@@ -39,12 +39,21 @@ _err = Console(stderr=True, soft_wrap=True, highlight=False)
 
 def _table(result: MarkovianResult) -> Table:
     table = Table(
-        "chunk", "served by", "tokens in", "tokens out", "chunk tokens", "ms", "marker", "carryover"
+        "chunk",
+        "served by",
+        "answered by",
+        "tokens in",
+        "tokens out",
+        "chunk tokens",
+        "ms",
+        "marker",
+        "carryover",
     )
     for chunk in result.chunks:
         table.add_row(
             str(chunk.index + 1),
             chunk.served_by,
+            chunk.answered_by or "-",
             str(chunk.tokens_in),
             str(chunk.tokens_out),
             f"{chunk.tokens} ({chunk.token_source})",
@@ -273,12 +282,17 @@ def stats_command(
             str(row.id), row.label, row.status, str(row.chunks), str(row.tokens_in), str(row.tokens_out),
             f"{row.elapsed_ms / 1000:.1f}", str(row.recalled),
         )  # fmt: skip
-    models = Table("served by", "chunks", "tokens in", "tokens out", "avg ms", "fell through")
+    models = Table("served by", "answered by", "chunks", "tokens in", "tokens out", "avg ms", "fell through")
     for model in log.per_model():
         models.add_row(
-            model.served_by, str(model.chunks), str(model.tokens_in), str(model.tokens_out),
-            str(model.avg_latency_ms), str(model.fell_through),
-        )  # fmt: skip
+            model.served_by,
+            model.answered_by or "-",
+            str(model.chunks),
+            str(model.tokens_in),
+            str(model.tokens_out),
+            str(model.avg_latency_ms),
+            str(model.fell_through),
+        )
     log.close()
     _out.print(runs)
     _out.print(models)

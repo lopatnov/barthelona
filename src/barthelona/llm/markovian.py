@@ -113,6 +113,7 @@ class ChunkStat:
     marker: Literal["checkpoint", "complete", "none"]
     carryover: CarryoverSource
     fallbacks: tuple[str, ...] = ()  # why earlier chain entries were skipped or failed before this one served
+    answered_by: str = ""  # the model id the provider reported for this chunk
     state: str = ""  # the state block the model wrote at the end of this chunk (what memory may keep)
 
 
@@ -219,6 +220,7 @@ def _stat(
         carryover=source,
         fallbacks=completion.fallbacks,
         state=state,
+        answered_by=completion.answered_by,
     )
 
 

@@ -163,10 +163,12 @@ class OpenAIChatBackend:
         parts: list[str] = []
         stop_reason = "unknown"
         usage = None
+        answered_by = ""
         try:
             stream = await self._client(target).chat.completions.create(**arguments)
             async for chunk in stream:
                 usage = chunk.usage or usage
+                answered_by = chunk.model or answered_by
                 for choice in chunk.choices:
                     parts.append(choice.delta.content or "")
                     stop_reason = choice.finish_reason or stop_reason
@@ -180,4 +182,5 @@ class OpenAIChatBackend:
             tokens_cached=(getattr(details, "cached_tokens", 0) or 0) if details else 0,
             stop_reason=stop_reason,
             latency_ms=round((time.monotonic() - started) * 1000),
+            answered_by=answered_by,
         )

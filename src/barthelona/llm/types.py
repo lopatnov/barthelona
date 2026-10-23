@@ -33,6 +33,7 @@ class Completion(DomainModel):
     record: LLMCallRecord
     served_by: str  # catalog key of the model that answered
     fallbacks: tuple[str, ...] = ()  # one reason per chain entry that was skipped or failed first
+    answered_by: str = ""  # the model id the provider reported, e.g. the lane a router picked
 
 
 class GatewayError(RuntimeError):
