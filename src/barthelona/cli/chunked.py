@@ -95,10 +95,10 @@ def _side_call(gateway: Gateway, role: str | None, label: str, instruction: str,
     return done.text.strip()
 
 
-def _remember(store: HMem, result: MarkovianResult, recalled: int, domain: str, accepted: bool) -> None:
-    """Keep what the run learned, unless the oracle rejected its output (then nothing is worth keeping)."""
-    if not accepted:
-        _err.print(f"memory: recalled={recalled} written=0 (the assemble oracle rejected the output)")
+def _remember(store: HMem, result: MarkovianResult, recalled: int, domain: str, verdict: str) -> None:
+    """Keep what the run learned, unless the oracle did not accept its output ("pass" or "" for no oracle)."""
+    if verdict not in ("pass", ""):
+        _err.print(f"memory: recalled={recalled} written=0 (assemble oracle: {verdict})")
         store.close()
         return
     facts = [fact for chunk in result.chunks for fact in facts_from_state(chunk.state)]
@@ -148,7 +148,10 @@ def run(
     repair: Annotated[
         int, typer.Option(min=0, max=3, help="With --assemble: extra attempts that get NASM's errors back.")
     ] = 0,
-    nasm: Annotated[str | None, typer.Option(help="Path to the nasm binary (default: nasm on PATH).")] = None,
+    nasm: Annotated[
+        str | None,
+        typer.Option(envvar="BARTHELONA_NASM", help="Path to the nasm binary (default: nasm on PATH)."),
+    ] = None,
     stats: Annotated[
         Path | None, typer.Option(help="Run statistics database (SQLite), e.g. var/runs.sqlite.")
     ] = None,
@@ -191,7 +194,7 @@ def run(
     result, text, gate = _until_it_assembles(attempt, chunk_task, nasm if assemble else NO_ORACLE, repair)
     accepted = gate is None or gate.status == "pass"
     if store:
-        _remember(store, result, recalled, domain, accepted)
+        _remember(store, result, recalled, domain, gate.status if gate else "")
     review = _side_call(gateway, review_role, "review", _REVIEW, f"Task:\n{task}\n\nOutput:\n{text}")
     if review:
         _err.print(f"review (advisory, the oracle decides):\n{review}", markup=False)
