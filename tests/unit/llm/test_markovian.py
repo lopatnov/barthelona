@@ -93,3 +93,20 @@ async def test_cost_model_follows_the_spec_formulas() -> None:
     assert result.markovian_cost == 3 * 128 + sum(sizes)
     assert result.status == "completed"
     assert 0 <= result.efficiency_percent <= 100
+
+
+async def test_chunk_stats_keep_the_reasons_earlier_chain_entries_were_skipped() -> None:
+    from barthelona.llm.types import Completion
+
+    class _Fallback(FakeGateway):
+        async def complete(self, role, request):  # type: ignore[no-untyped-def]
+            done = await super().complete(role, request)
+            return Completion(
+                text=done.text,
+                record=done.record,
+                served_by="local_main",
+                fallbacks=("meterless_auto: boom",),
+            )
+
+    result = await run_markovian(_Fallback([f"x\n{COMPLETE}"]), "worker", "task", _SMALL)
+    assert result.chunks[0].fallbacks == ("meterless_auto: boom",)

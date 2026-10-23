@@ -75,6 +75,9 @@ def run(
     else:
         _out.print(result.text, markup=False)
     _err.print(_table(result))
+    for chunk in result.chunks:
+        for reason in chunk.fallbacks:
+            _err.print(f"chunk {chunk.index + 1} fell through: {reason}", markup=False)
     _err.print(
         f"stop_reason={result.stop_reason.value} chunks={len(result.chunks)} tokens_in={result.tokens_in} "
         f"tokens_out={result.tokens_out} peak_prompt={result.peak_tokens_in} status={result.status} "

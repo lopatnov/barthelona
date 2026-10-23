@@ -71,6 +71,7 @@ class ChunkStat:
     served_by: str
     marker: Literal["checkpoint", "complete", "none"]
     carryover: CarryoverSource
+    fallbacks: tuple[str, ...] = ()  # why earlier chain entries were skipped or failed before this one served
 
 
 @dataclass(frozen=True)
@@ -168,6 +169,7 @@ def _stat(index: int, completion: Completion, marker: str, source: CarryoverSour
         served_by=completion.served_by,
         marker=marker,  # type: ignore[arg-type]  # _split returns only the three literals
         carryover=source,
+        fallbacks=completion.fallbacks,
     )
 
 
