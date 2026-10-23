@@ -149,6 +149,17 @@ async def test_sampling_parameters_never_reach_a_non_local_gateway() -> None:
     assert "seed" not in seen[0]
 
 
+async def test_stream_error_events_keep_the_servers_code_and_body() -> None:
+    event = {"error": {"message": "failed after 10.7s", "type": "upstream_error", "code": "empty_response"}}
+
+    def handle(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=_sse(event), headers={"content-type": "text/event-stream"})
+
+    with pytest.raises(ModelCallError, match="empty_response") as caught:
+        await _backend(httpx.MockTransport(handle)).complete(_gateway_target(), _request())
+    assert "failed after 10.7s" in str(caught.value)
+
+
 async def test_model_extra_body_reaches_the_request() -> None:
     target = _gateway_target()
     thinking_off = {"chat_template_kwargs": {"enable_thinking": False}}
