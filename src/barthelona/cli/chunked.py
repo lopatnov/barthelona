@@ -82,6 +82,26 @@ def _side_call(gateway: Gateway, role: str | None, label: str, instruction: str,
     return done.text.strip()
 
 
+def _remember(store: HMem, result: MarkovianResult, recalled: int, domain: str) -> None:
+    facts = [fact for chunk in result.chunks for fact in facts_from_state(chunk.state)]
+    written = store.ingest(facts, source=f"markovian:run-{int(time.time())}", domain=domain)
+    _err.print(f"memory: recalled={recalled} written={written} stored={store.count()}")
+    store.close()
+
+
+def _answer_text(result: MarkovianResult, code: bool, out: Path | None) -> str:
+    """The text to deliver; with --code only source blocks, and an answer without any is an error."""
+    if not code:
+        return result.text
+    text = extract_code(result.text)
+    if out is not None:  # the unfiltered answer, so a bad extraction can be inspected
+        out.with_name(out.name + ".raw.txt").write_text(result.text + "\n", encoding="utf-8", newline="\n")
+    if not text.strip():
+        _err.print("no code blocks in the answer: nothing written (see the .raw.txt next to --out)")
+        raise typer.Exit(1)
+    return text
+
+
 @chunked_app.command("run")
 def run(
     task: Annotated[str, typer.Argument(help="The task text, or @file to read it from a file.")],
@@ -128,11 +148,8 @@ def run(
     chunk_task = f"{task}\n\nPlan from the planner (follow it):\n{plan}" if plan else task
     result = asyncio.run(run_markovian(gateway, role, chunk_task, config, recall.context if recall else ""))
     if store and recall:
-        facts = [fact for chunk in result.chunks for fact in facts_from_state(chunk.state)]
-        written = store.ingest(facts, source=f"markovian:run-{int(time.time())}", domain=domain)
-        _err.print(f"memory: recalled={len(recall.memories)} written={written} stored={store.count()}")
-        store.close()
-    text = extract_code(result.text) if code else result.text
+        _remember(store, result, len(recall.memories), domain)
+    text = _answer_text(result, code, out)
     review = _side_call(gateway, review_role, "review", _REVIEW, f"Task:\n{task}\n\nOutput:\n{text}")
     if review:
         _err.print(f"review (advisory, the oracle decides):\n{review}", markup=False)
