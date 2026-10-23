@@ -124,6 +124,36 @@ def test_cloud_targets_are_declined_until_their_parameters_are_mapped() -> None:
     assert backend.unsupported(_target()) is None
 
 
+def _gateway_target() -> ModelTarget:
+    return ModelTarget(
+        key="meterless_auto",
+        provider_id="meterless",
+        provider=ProviderConfig(
+            kind="openai_chat",
+            base_url="http://127.0.0.1:8088/v1",
+            plain_chat=True,
+            headers={"meterless-app": "barthelona"},
+        ),
+        model=ModelConfig(provider="meterless", model="meterless/auto", price_class="mid", context=32768),
+    )
+
+
+def test_plain_chat_cloud_gateways_are_accepted() -> None:
+    assert OpenAIChatBackend(env={}).unsupported(_gateway_target()) is None
+
+
+async def test_sampling_parameters_never_reach_a_non_local_gateway() -> None:
+    seen: list[dict[str, object]] = []
+    await _backend(_ok(seen)).complete(_gateway_target(), _request(temperature=0.2, seed=7))
+    assert "temperature" not in seen[0]
+    assert "seed" not in seen[0]
+
+
+def test_provider_headers_are_sent_with_every_request() -> None:
+    client = OpenAIChatBackend(env={"METERLESS_RUNTIME_TOKEN": "t"})._default_client(_gateway_target())
+    assert client.default_headers["meterless-app"] == "barthelona"
+
+
 def test_default_client_never_retries_inside_the_sdk() -> None:
     backend = OpenAIChatBackend(env={})
     assert backend._default_client(_target()).max_retries == 0

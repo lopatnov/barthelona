@@ -81,6 +81,25 @@ providers:
       Billed per hour, not per token; how the budget counts it is open (roadmap F-13). Open models only
       (e.g. Qwen3-Coder-30B-A3B or larger at full precision), so prompts stay off third-party model APIs.
 
+  # --- Meterless Nightshift: a local OpenAI-compatible hotspot that routes to local and cloud lanes ------
+  meterless:
+    kind: openai_chat
+    base_url: ${METERLESS_BASE_URL:-http://127.0.0.1:8088/v1}   # the Console of Nightshift shows the URL
+    api_key_env: METERLESS_RUNTIME_TOKEN   # Runtime token from the Nightshift Console, not a provider key
+    local: false                   # it can route to cloud models, so sampling parameters are not sent
+    plain_chat: true               # no reasoning parameters needed: Nightshift maps them per lane
+    network: lan
+    enabled: true                  # without the token the router skips it
+    max_concurrency: 2
+    structured_output: none
+    timeout_s: 900
+    headers: {meterless-app: barthelona, meterless-scope: user}
+    notes: >-
+      Provider keys (NVIDIA and others) live in Nightshift's Providers tab, never here. Contract: Bearer
+      token, GET /v1/models for discovery, POST /v1/chat/completions. A healthy /healthz does not prove a
+      model is connected. Model ids are meterless/<class> routes; meterless/auto may pick a non-NVIDIA
+      model, so pin a Nemotron-backed lane in Nightshift when the run must use Nemotron.
+
   # --- Cloud (paid, opt-in per run) --------------------------------------------------------------------
   anthropic:
     kind: anthropic_messages       # official `anthropic` SDK (1.x); SDK retries off (max_retries=0)
@@ -195,6 +214,12 @@ models:
     price_class: local
     context: 16384
     strip_think: true
+  meterless_auto:
+    provider: meterless
+    model: meterless/auto          # routing mode; the concrete model comes from Nightshift's lanes
+    price_class: mid
+    context: 32768                 # conservative; the routed model decides the real window
+    strip_think: true              # Nemotron reasoning models may emit <think> blocks
   embed_local:
     provider: lmstudio
     model: text-embedding-nomic-embed-text-v1.5   # needs search_document:/search_query: prefixes
@@ -435,6 +460,12 @@ profiles:
     worker: [local_main]
     cheap: [local_main]
     escalation: [local_main]
+  meterless:                       # Nightshift first (Nemotron lanes), the local model as the fallback
+    main: [meterless_auto, local_main]
+    planner: [meterless_auto, local_main]
+    worker: [meterless_auto, local_main]
+    cheap: [meterless_auto, local_main]
+    escalation: [meterless_auto, local_main]
   hybrid:                          # default: local worker, cloud for planning and escalation
     main: [local_main]
     planner:

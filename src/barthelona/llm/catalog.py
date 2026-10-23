@@ -42,6 +42,8 @@ class ProviderConfig(_Entry):
     max_concurrency: int = Field(default=1, ge=1)
     structured_output: Literal["json_schema", "json_object", "output_config", "none"] = "none"
     timeout_s: float = Field(default=900, gt=0)
+    headers: dict[str, str] = Field(default_factory=dict)  # fixed request headers, never secrets
+    plain_chat: bool = False  # a cloud gateway that needs no reasoning parameters
 
 
 class ModelConfig(_Entry):
