@@ -87,12 +87,13 @@ providers:
     base_url: ${METERLESS_BASE_URL:-http://127.0.0.1:8088/v1}   # the Console of Nightshift shows the URL
     api_key_env: METERLESS_RUNTIME_TOKEN   # Runtime token from the Nightshift Console, not a provider key
     local: false                   # it can route to cloud models, so sampling parameters are not sent
+    rejected_keys: [rt-local]      # the runtime rejects this placeholder token
     plain_chat: true               # no reasoning parameters needed: Nightshift maps them per lane
     network: lan
     enabled: true                  # without the token the router skips it
     max_concurrency: 2
     structured_output: none
-    timeout_s: 900
+    timeout_s: 180                 # contract v4: a model load can take minutes, but not longer than this
     headers: {meterless-app: barthelona, meterless-scope: user}
     notes: >-
       Provider keys (NVIDIA and others) live in Nightshift's Providers tab, never here. Contract: Bearer

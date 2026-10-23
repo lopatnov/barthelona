@@ -43,6 +43,7 @@ class ProviderConfig(_Entry):
     structured_output: Literal["json_schema", "json_object", "output_config", "none"] = "none"
     timeout_s: float = Field(default=900, gt=0)
     headers: dict[str, str] = Field(default_factory=dict)  # fixed request headers, never secrets
+    rejected_keys: tuple[str, ...] = ()  # placeholder keys the server refuses (Meterless: rt-local)
     plain_chat: bool = False  # a cloud gateway that needs no reasoning parameters
 
 

@@ -28,13 +28,16 @@ _err = Console(stderr=True, soft_wrap=True, highlight=False)
 
 
 def _table(result: MarkovianResult) -> Table:
-    table = Table("chunk", "served by", "tokens in", "tokens out", "ms", "marker", "carryover")
+    table = Table(
+        "chunk", "served by", "tokens in", "tokens out", "chunk tokens", "ms", "marker", "carryover"
+    )
     for chunk in result.chunks:
         table.add_row(
             str(chunk.index + 1),
             chunk.served_by,
             str(chunk.tokens_in),
             str(chunk.tokens_out),
+            f"{chunk.tokens} ({chunk.token_source})",
             str(chunk.latency_ms),
             chunk.marker,
             chunk.carryover,
@@ -74,7 +77,9 @@ def run(
     _err.print(_table(result))
     _err.print(
         f"stop_reason={result.stop_reason.value} chunks={len(result.chunks)} tokens_in={result.tokens_in} "
-        f"tokens_out={result.tokens_out} peak_prompt={result.peak_tokens_in}",
+        f"tokens_out={result.tokens_out} peak_prompt={result.peak_tokens_in} status={result.status} "
+        f"standard_cost={result.standard_cost} markovian_cost={result.markovian_cost} "
+        f"efficiency={result.efficiency_percent:.1f}%",
         markup=False,
     )
     if result.stop_reason.value != "green":

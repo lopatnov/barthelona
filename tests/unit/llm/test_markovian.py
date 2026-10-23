@@ -17,7 +17,7 @@ def _user_text(gateway: FakeGateway, call: int) -> str:
 
 async def test_chunks_run_until_the_model_completes() -> None:
     gateway = FakeGateway(
-        [f"part one\n{CHECKPOINT}\ndone: one; next: two", f"part two\n{COMPLETE}"],
+        [f"part one\n{CHECKPOINT}\nCOMPLETED: one. REMAINING: two. DECISIONS: none", f"part two\n{COMPLETE}"],
     )
     result = await run_markovian(gateway, "worker", "write two parts", _SMALL)
     assert result.stop_reason is StopReason.GREEN
@@ -27,9 +27,11 @@ async def test_chunks_run_until_the_model_completes() -> None:
 
 
 async def test_second_chunk_sees_only_the_state_block_not_the_previous_output() -> None:
-    gateway = FakeGateway([f"long body\n{CHECKPOINT}\nnext: two", f"x\n{COMPLETE}"])
+    gateway = FakeGateway(
+        [f"long body\n{CHECKPOINT}\nREMAINING: two, with all the names it needs", f"x\n{COMPLETE}"]
+    )
     await run_markovian(gateway, "worker", "task", _SMALL)
-    assert "next: two" in _user_text(gateway, 1)
+    assert "REMAINING: two, with all the names it needs" in _user_text(gateway, 1)
     assert "long body" not in _user_text(gateway, 1)
     assert "first step" in _user_text(gateway, 0)
 
@@ -43,7 +45,7 @@ async def test_missing_marker_carries_the_tail_of_the_chunk() -> None:
 
 
 async def test_the_loop_is_bounded_by_max_chunks() -> None:
-    gateway = FakeGateway([f"p\n{CHECKPOINT}\ns"] * 10)
+    gateway = FakeGateway([f"p\n{CHECKPOINT}\nCOMPLETED: a. REMAINING: b. DECISIONS: c."] * 10)
     result = await run_markovian(gateway, "worker", "task", _SMALL)
     assert result.stop_reason is StopReason.MAX_ATTEMPTS
     assert len(result.chunks) == _SMALL.max_chunks
@@ -51,7 +53,9 @@ async def test_the_loop_is_bounded_by_max_chunks() -> None:
 
 
 async def test_a_gateway_failure_keeps_the_finished_chunks_and_says_why() -> None:
-    gateway = FakeGateway([f"p1\n{CHECKPOINT}\ns", GatewayError("down")])
+    gateway = FakeGateway(
+        [f"p1\n{CHECKPOINT}\nCOMPLETED: a. REMAINING: b. DECISIONS: c.", GatewayError("down")]
+    )
     result = await run_markovian(gateway, "worker", "task", _SMALL)
     assert result.stop_reason is StopReason.NO_MODEL_AVAILABLE
     assert result.text == "p1"
@@ -70,3 +74,22 @@ async def test_each_call_asks_for_a_bounded_answer() -> None:
 def test_config_rejects_values_outside_the_engine_ranges(chunk: int, carry: int, chunks: int) -> None:
     with pytest.raises(ValueError, match="must be"):
         MarkovianConfig(chunk_tokens=chunk, carryover_tokens=carry, max_chunks=chunks)
+
+
+async def test_a_state_block_shorter_than_24_chars_falls_back_to_the_tail() -> None:
+    gateway = FakeGateway([f"real work here\n{CHECKPOINT}\ntoo short", f"x\n{COMPLETE}"])
+    result = await run_markovian(gateway, "worker", "task", _SMALL)
+    assert result.chunks[0].carryover == "tail"
+
+
+async def test_cost_model_follows_the_spec_formulas() -> None:
+    state = "COMPLETED: a. REMAINING: b. DECISIONS: c."
+    gateway = FakeGateway(
+        [f"w1 w2 w3\n{CHECKPOINT}\n{state}", f"w4 w5\n{CHECKPOINT}\n{state}", f"w6\n{COMPLETE}"]
+    )
+    result = await run_markovian(gateway, "worker", "task", MarkovianConfig(2400, 128, 8))
+    sizes = [chunk.tokens for chunk in result.chunks]
+    assert result.standard_cost == sizes[0] + (sizes[0] + sizes[1]) + sum(sizes)
+    assert result.markovian_cost == 3 * 128 + sum(sizes)
+    assert result.status == "completed"
+    assert 0 <= result.efficiency_percent <= 100

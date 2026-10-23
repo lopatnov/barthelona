@@ -11,6 +11,7 @@ of the chunk. Model-based compression, the RESEARCH mode and the reflection pass
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -23,14 +24,15 @@ COMPLETE = "[TASK_COMPLETE]"
 _CHARS_PER_TOKEN = 4  # rough; only sizes the carryover, real usage comes from the provider
 _FRAMING_TOKENS = 400  # the spec's reserve for the system prompt and framing
 _MIN_OUTPUT_TOKENS = 1200  # the spec's minimum room for the model's answer
+_MIN_STATE_CHARS = 24  # a shorter state block after the marker is not trusted (spec cascade step 1)
 
 CarryoverSource = Literal["state_block", "tail", "none"]
 
 _SYSTEM = (
     "You solve a long task in several bounded steps. You never see earlier steps, only a short state "
     "summary. Do the next part of the work and write only that part.\n"
-    f"- If more work remains, end with a line `{CHECKPOINT}` and under it a compact state summary "
-    "(what is done, what is next, names and decisions the next step needs).\n"
+    f"- If more work remains, end with a line `{CHECKPOINT}` and under it a compact state block with the "
+    "labels COMPLETED, REMAINING, DECISIONS and CONTEXT (names and decisions the next step needs).\n"
     f"- When the whole task is finished, end with a line `{COMPLETE}`.\n"
     "Never repeat work that the state summary says is done."
 )
@@ -47,6 +49,8 @@ class MarkovianConfig:
     def __post_init__(self) -> None:
         if not 1 <= self.max_chunks <= 32:
             raise ValueError("max_chunks must be between 1 and 32")
+        if not 1000 <= self.chunk_tokens <= 128000:
+            raise ValueError("chunk_tokens must be between 1000 and 128000")
         if not 128 <= self.carryover_tokens <= 32768:
             raise ValueError("carryover_tokens must be between 128 and 32768")
         floor = _FRAMING_TOKENS + self.carryover_tokens + _MIN_OUTPUT_TOKENS
@@ -61,6 +65,8 @@ class ChunkStat:
     index: int
     tokens_in: int
     tokens_out: int
+    tokens: int  # this chunk's size in the cost model: provider-measured output tokens, else ceil(chars/4)
+    token_source: Literal["measured", "estimated"]
     latency_ms: int
     served_by: str
     marker: Literal["checkpoint", "complete", "none"]
@@ -72,6 +78,7 @@ class MarkovianResult:
     text: str
     stop_reason: StopReason
     chunks: tuple[ChunkStat, ...] = field(default_factory=tuple)
+    carryover_tokens: int = 800
 
     @property
     def tokens_in(self) -> int:
@@ -80,6 +87,34 @@ class MarkovianResult:
     @property
     def tokens_out(self) -> int:
         return sum(chunk.tokens_out for chunk in self.chunks)
+
+    @property
+    def status(self) -> str:
+        """The engine's run status vocabulary."""
+        return {
+            StopReason.GREEN: "completed",
+            StopReason.MAX_ATTEMPTS: "max-chunks",
+        }.get(self.stop_reason, "errored")
+
+    @property
+    def standard_cost(self) -> int:
+        """Tokens a loop that re-sends its whole history would have spent (spec formula)."""
+        total = 0
+        history = 0
+        for chunk in self.chunks:
+            history += chunk.tokens
+            total += history
+        return total
+
+    @property
+    def markovian_cost(self) -> int:
+        """Spec formula: n x carryover budget plus the tokens actually used."""
+        return len(self.chunks) * self.carryover_tokens + sum(chunk.tokens for chunk in self.chunks)
+
+    @property
+    def efficiency_percent(self) -> float:
+        saved = max(0, self.standard_cost - self.markovian_cost)
+        return saved / self.standard_cost * 100 if self.standard_cost else 0.0
 
     @property
     def peak_tokens_in(self) -> int:
@@ -97,11 +132,17 @@ def _split(text: str) -> tuple[str, str, Literal["checkpoint", "complete", "none
     return text.rstrip(), "", "none"
 
 
+def _tail_words(body: str, limit_chars: int) -> str:
+    """The end of the chunk cut at a word boundary (cascade step 4)."""
+    tail = body[-limit_chars:]
+    return tail.split(maxsplit=1)[1] if len(body) > limit_chars and " " in tail else tail
+
+
 def _carryover(body: str, state: str, limit_chars: int) -> tuple[str, CarryoverSource]:
-    if state:
+    if len(state) >= _MIN_STATE_CHARS:
         return state[:limit_chars], "state_block"
     if body:
-        return body[-limit_chars:], "tail"
+        return _tail_words(body, limit_chars), "tail"
     return "", "none"
 
 
@@ -116,10 +157,13 @@ def _request(task: str, carryover: str, index: int, config: MarkovianConfig) -> 
 
 def _stat(index: int, completion: Completion, marker: str, source: CarryoverSource) -> ChunkStat:
     record = completion.record
+    measured = record.tokens_out > 0
     return ChunkStat(
         index=index,
         tokens_in=record.tokens_in,
         tokens_out=record.tokens_out,
+        tokens=record.tokens_out if measured else math.ceil(len(completion.text) / _CHARS_PER_TOKEN),
+        token_source="measured" if measured else "estimated",
         latency_ms=record.latency_ms,
         served_by=completion.served_by,
         marker=marker,  # type: ignore[arg-type]  # _split returns only the three literals
@@ -140,11 +184,13 @@ async def run_markovian(
         try:
             completion = await gateway.complete(role, _request(task, carryover, index, config))
         except GatewayError:
-            return MarkovianResult("\n".join(bodies), StopReason.NO_MODEL_AVAILABLE, tuple(stats))
+            return MarkovianResult(
+                "\n".join(bodies), StopReason.NO_MODEL_AVAILABLE, tuple(stats), config.carryover_tokens
+            )
         body, state, marker = _split(completion.text)
         carryover, source = _carryover(body, state, limit_chars) if marker != "complete" else ("", "none")
         bodies.append(body)
         stats.append(_stat(index, completion, marker, source))
         if marker == "complete":
-            return MarkovianResult("\n".join(bodies), StopReason.GREEN, tuple(stats))
-    return MarkovianResult("\n".join(bodies), StopReason.MAX_ATTEMPTS, tuple(stats))
+            return MarkovianResult("\n".join(bodies), StopReason.GREEN, tuple(stats), config.carryover_tokens)
+    return MarkovianResult("\n".join(bodies), StopReason.MAX_ATTEMPTS, tuple(stats), config.carryover_tokens)
