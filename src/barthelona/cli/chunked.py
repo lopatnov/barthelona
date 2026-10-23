@@ -150,7 +150,7 @@ def run(
     ] = 0,
     nasm: Annotated[
         str | None,
-        typer.Option(envvar="BARTHELONA_NASM", help="Path to the nasm binary (default: nasm on PATH)."),
+        typer.Option(help="nasm binary (default: BARTHELONA_NASM, NASM_PATH, PATH, usual Windows folders)."),
     ] = None,
     stats: Annotated[
         Path | None, typer.Option(help="Run statistics database (SQLite), e.g. var/runs.sqlite.")

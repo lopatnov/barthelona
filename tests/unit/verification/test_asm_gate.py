@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from pathlib import Path
 from typing import Any
 
 import pytest
 
-from barthelona.verification.asm_gate import assemble_source
+from barthelona.verification.asm_gate import assemble_source, find_nasm
 
 _HELLO = """\
 section .data
@@ -70,7 +71,46 @@ def test_an_empty_source_fails() -> None:
 
 def test_a_missing_binary_is_unavailable_not_a_pass(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(shutil, "which", lambda name: None)
-    assert assemble_source(_HELLO).status == "unavailable"
+    result = assemble_source(_HELLO, env={})
+    assert result.status == "unavailable"
+    assert "NASM_PATH" in result.errors[0]
+
+
+def _fake_nasm(folder: Path) -> Path:
+    folder.mkdir(parents=True)
+    binary = folder / "nasm.exe"
+    binary.write_bytes(b"")
+    return binary
+
+
+def test_nasm_path_may_name_the_folder_that_holds_nasm(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    binary = _fake_nasm(tmp_path / "NASM")
+    assert find_nasm(env={"NASM_PATH": str(tmp_path / "NASM")}) == str(binary)
+
+
+def test_an_explicit_path_wins_over_the_environment_and_must_exist(tmp_path: Path) -> None:
+    binary = _fake_nasm(tmp_path / "A")
+    other = _fake_nasm(tmp_path / "B")
+    assert find_nasm(str(binary), {"NASM_PATH": str(other.parent)}) == str(binary)
+    assert find_nasm(str(tmp_path / "missing" / "nasm.exe"), {"NASM_PATH": str(other.parent)}) is None
+
+
+def test_the_usual_windows_install_folder_is_found_without_any_setting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    binary = _fake_nasm(tmp_path / "bin" / "NASM")
+    assert find_nasm(env={"LOCALAPPDATA": str(tmp_path)}) == str(binary)
+
+
+def test_a_wrong_environment_hint_falls_through_to_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/nasm" if name == "nasm" else None)
+    assert find_nasm(env={"NASM_PATH": str(tmp_path / "nowhere")}) == "/usr/bin/nasm"
 
 
 def test_a_timeout_is_unavailable() -> None:

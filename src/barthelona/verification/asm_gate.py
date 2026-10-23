@@ -7,11 +7,12 @@ runs outside the ladder; the real path is the sandboxed V0-V2 levels (roadmap fo
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess  # argv list only, never a shell (invariant 9)
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -37,11 +38,48 @@ def _fail(message: str) -> AssembleResult:
     return AssembleResult("fail", (message,))
 
 
-def assemble_source(source: str, nasm: str | None = None, runner: Runner = subprocess.run) -> AssembleResult:
+def _resolve(hint: str) -> str | None:
+    """A nasm binary from a file path or from a folder that holds one (NASM_PATH is usually the folder)."""
+    path = Path(hint)
+    if path.is_file():
+        return str(path)
+    for name in ("nasm.exe", "nasm"):
+        if (path / name).is_file():
+            return str(path / name)
+    return shutil.which(hint) if os.sep not in hint and "/" not in hint else None
+
+
+def _usual_windows_folders(env: Mapping[str, str]) -> list[str]:
+    local = env.get("LOCALAPPDATA", "")
+    folders = [f"{local}/bin/NASM", f"{local}/Programs/NASM"] if local else []
+    for name in ("ProgramFiles", "ProgramFiles(x86)"):
+        if base := env.get(name, ""):
+            folders.append(f"{base}/NASM")
+    return folders
+
+
+def find_nasm(explicit: str | None = None, env: Mapping[str, str] | None = None) -> str | None:
+    """--nasm wins and must exist; then BARTHELONA_NASM, NASM_PATH, PATH and the usual Windows folders."""
+    env = os.environ if env is None else env
+    if explicit:
+        return _resolve(explicit)
+    hints = [env.get("BARTHELONA_NASM", ""), env.get("NASM_PATH", ""), "nasm", *_usual_windows_folders(env)]
+    return next((found for hint in hints if hint and (found := _resolve(hint))), None)
+
+
+def assemble_source(
+    source: str,
+    nasm: str | None = None,
+    runner: Runner = subprocess.run,
+    env: Mapping[str, str] | None = None,
+) -> AssembleResult:
     """``pass`` when NASM accepts *source*, ``fail`` with its errors, ``unavailable`` when it cannot run."""
-    binary = nasm or shutil.which("nasm")
+    binary = find_nasm(nasm, env)
     if binary is None:
-        return AssembleResult("unavailable", ("nasm was not found on PATH; pass --nasm <path>",))
+        return AssembleResult(
+            "unavailable",
+            ("nasm was not found (tried --nasm, BARTHELONA_NASM, NASM_PATH, PATH, usual Windows folders)",),
+        )
     if not source.strip():
         return _fail("the source is empty")
     if _HOST_FILE_DIRECTIVE.search(source):
