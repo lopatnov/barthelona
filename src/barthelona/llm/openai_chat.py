@@ -20,6 +20,21 @@ from barthelona.llm.types import CompletionRequest, ModelCallError
 
 ClientFactory = Callable[[ModelTarget], AsyncOpenAI]
 _NO_KEY = "not-needed"  # LM Studio and Ollama ignore the key but the SDK insists on one
+_MAX_DETAIL_CHARS = 300
+
+
+def _describe(exc: openai.OpenAIError) -> str:
+    """The error with whatever the server said: status, code, type and a bounded body (never request data)."""
+    text = f"{type(exc).__name__}: {exc}"
+    extras = [
+        f"{name}={value}"
+        for name in ("status_code", "code", "type")
+        if (value := getattr(exc, name, None)) is not None
+    ]
+    body = getattr(exc, "body", None)
+    if body:
+        extras.append(f"body={str(body)[:_MAX_DETAIL_CHARS]}")
+    return f"{text} ({', '.join(extras)})" if extras else text
 
 
 class OpenAIChatBackend:
@@ -34,7 +49,13 @@ class OpenAIChatBackend:
         provider = target.provider
         key = self._env.get(provider.api_key_env or "") or _NO_KEY
         # SDK retries off: attempts are counted by the gateway, not multiplied by the SDK.
-        return AsyncOpenAI(base_url=provider.base_url, api_key=key, max_retries=0, timeout=provider.timeout_s)
+        return AsyncOpenAI(
+            base_url=provider.base_url,
+            api_key=key,
+            max_retries=0,
+            timeout=provider.timeout_s,
+            default_headers=provider.headers or None,
+        )
 
     def _client(self, target: ModelTarget) -> AsyncOpenAI:
         if target.provider_id not in self._clients:
@@ -42,7 +63,7 @@ class OpenAIChatBackend:
         return self._clients[target.provider_id]
 
     def unsupported(self, target: ModelTarget) -> str | None:
-        if not target.provider.local:
+        if not target.provider.local and not target.provider.plain_chat:
             return "cloud reasoning parameters are not mapped yet"
         if not target.provider.base_url:
             return "no base_url"
@@ -56,9 +77,11 @@ class OpenAIChatBackend:
             "stream": True,
             "stream_options": {"include_usage": True},
         }
-        if request.temperature is not None:
-            arguments["temperature"] = request.temperature  # local models only (checked in unsupported)
-        if request.seed is not None:
+        if target.model.extra_body:
+            arguments["extra_body"] = target.model.extra_body
+        if request.temperature is not None and target.provider.local:
+            arguments["temperature"] = request.temperature  # sampling parameters reach local models only
+        if request.seed is not None and target.provider.local:
             arguments["seed"] = request.seed
         if request.response_schema is not None:
             if target.provider.structured_output != "json_schema":
@@ -83,7 +106,7 @@ class OpenAIChatBackend:
                     parts.append(choice.delta.content or "")
                     stop_reason = choice.finish_reason or stop_reason
         except openai.OpenAIError as exc:
-            raise ModelCallError(f"{type(exc).__name__}: {exc}") from exc
+            raise ModelCallError(_describe(exc)) from exc
         details = getattr(usage, "prompt_tokens_details", None)
         return RawReply(
             text="".join(parts),

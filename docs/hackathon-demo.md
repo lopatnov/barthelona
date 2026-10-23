@@ -1,0 +1,53 @@
+# Open Agent Hackathon 2026: Meterless + Nemotron demo
+
+What Barthelona uses from the hackathon stack, and how to reproduce the demo.
+
+| Layer | Used for | Where |
+| --- | --- | --- |
+| Meterless Nightshift (Power) | Primary provider for the `meterless` profile | `config/models.yaml` (`meterless` provider), `src/barthelona/llm/meterless.py` |
+| NVIDIA Nemotron (Power) | Model behind a Nightshift lane, key lives in Nightshift only | Nightshift Providers tab |
+| Markovian Engine (Build) | Long generation as bounded chunks with flat context | `src/barthelona/llm/markovian.py`, `barthelona chunked run` |
+| Zetaris (Data) | Planned: structured knowledge store next to Qdrant | not built yet |
+
+The Markovian code is a Python port of the Apache-2.0 spec at github.com/Meterless/Meterless/tree/main/engines/markovian
+(ARCHITECT mode). Not ported: model-based carryover compression, RESEARCH mode, the reflection pass. The TypeScript
+conformance suite cannot run against a Python port; `tests/unit/llm/test_markovian.py` covers the spec formulas
+(standard vs Markovian cost, efficiency), the marker protocol, the 24-character state minimum and the chunk bounds.
+
+## Memory plus long tasks (H-MEM into Markovian)
+
+`src/barthelona/llm/hmem.py` is a small Python port of the H-MEM spec (github.com/Meterless/Meterless, `engines/hmem`).
+`chunked run --memory var/hmem.sqlite` recalls what earlier runs learned and puts it in front of chunk 1 only (the
+spec's rule: later chunks get the carryover, so the prompt stays flat), then writes the DECISIONS and CONTEXT lines of
+every chunk's state block back with source `markovian:<run>` and an append-only ledger. Not ported: embeddings (the
+semantic weight 0.35 is dropped and the other six renormalised), dreaming, sleep cycle, conflict resolution. The
+conformance suites are TypeScript and cannot run against the port; `tests/unit/llm/test_hmem.py` covers the
+recall-into-chunk-0, write-back and reinforcement behaviours.
+
+Several models in one run: `--plan-role planner` asks the planner chain (`meterless/deep`) for a short plan that is
+added to the task, the chunks run on the `worker` chain (`meterless/auto`), and `--review-role cheap` asks the cheap
+chain (`meterless/fast`) for an advisory review (the assembler stays the oracle). Which concrete model answers each
+routing class is decided by the lanes in Nightshift; the run prints `served_by` for the plan, every chunk and the
+review. Use at least two different model families in the lanes to show it.
+
+Compounding check: run the same task twice with the same `--memory` file and compare `chunks=` in the two summaries.
+
+## Reproduce
+
+1. In Nightshift: Setup, Providers, add the NVIDIA key; NIGHT, LANES, add a Nemotron lane (for example
+   `nvidia/nemotron-3.5-lightning-30b-a3b`) and pin it.
+2. Put the Console values in `.env` (gitignored): `METERLESS_RUNTIME_TOKEN`, and `METERLESS_BASE_URL` if it is not
+   `http://127.0.0.1:8088/v1`. The NVIDIA key never goes into `.env`.
+3. Check the runtime: `python -m barthelona meterless status` prints `online` and the `meterless/*` ids, or
+   `unauthorized` for a wrong token, or `offline`.
+4. Run a long task through the chunk loop:
+   `python -m barthelona chunked run @task.txt --profile meterless --out result.txt`
+   It prints one row per chunk (tokens in and out, latency, serving model, marker, carryover source) and a summary
+   with `peak_prompt` (stays flat), `standard_cost`, `markovian_cost` and `efficiency`.
+5. In Nightshift's run details, confirm the Nemotron lane served the chunks.
+
+## Honest limits
+
+- Without a Nightshift token the router skips `meterless` and falls to the local model; the run still works.
+- `meterless/auto` may route to a non-NVIDIA model; pin the Nemotron lane to make the evidence unambiguous.
+- Token counts are `measured` when the provider reports usage, otherwise `estimated` as ceil(chars/4).

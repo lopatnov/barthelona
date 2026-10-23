@@ -43,6 +43,8 @@ class Gateway:
             return "disabled"
         if provider.api_key_env and not self._env.get(provider.api_key_env):
             return f"{provider.api_key_env} is not set"
+        if provider.api_key_env and self._env.get(provider.api_key_env) in provider.rejected_keys:
+            return f"{provider.api_key_env} holds a placeholder the server rejects"
         backend = self._backends.get(provider.kind)
         if backend is None:
             return f"no backend for {provider.kind}"

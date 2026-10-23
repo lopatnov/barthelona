@@ -124,6 +124,56 @@ def test_cloud_targets_are_declined_until_their_parameters_are_mapped() -> None:
     assert backend.unsupported(_target()) is None
 
 
+def _gateway_target() -> ModelTarget:
+    return ModelTarget(
+        key="meterless_auto",
+        provider_id="meterless",
+        provider=ProviderConfig(
+            kind="openai_chat",
+            base_url="http://127.0.0.1:8088/v1",
+            plain_chat=True,
+            headers={"meterless-app": "barthelona"},
+        ),
+        model=ModelConfig(provider="meterless", model="meterless/auto", price_class="mid", context=32768),
+    )
+
+
+def test_plain_chat_cloud_gateways_are_accepted() -> None:
+    assert OpenAIChatBackend(env={}).unsupported(_gateway_target()) is None
+
+
+async def test_sampling_parameters_never_reach_a_non_local_gateway() -> None:
+    seen: list[dict[str, object]] = []
+    await _backend(_ok(seen)).complete(_gateway_target(), _request(temperature=0.2, seed=7))
+    assert "temperature" not in seen[0]
+    assert "seed" not in seen[0]
+
+
+async def test_stream_error_events_keep_the_servers_code_and_body() -> None:
+    event = {"error": {"message": "failed after 10.7s", "type": "upstream_error", "code": "empty_response"}}
+
+    def handle(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=_sse(event), headers={"content-type": "text/event-stream"})
+
+    with pytest.raises(ModelCallError, match="empty_response") as caught:
+        await _backend(httpx.MockTransport(handle)).complete(_gateway_target(), _request())
+    assert "failed after 10.7s" in str(caught.value)
+
+
+async def test_model_extra_body_reaches_the_request() -> None:
+    target = _gateway_target()
+    thinking_off = {"chat_template_kwargs": {"enable_thinking": False}}
+    target = target.model_copy(update={"model": target.model.model_copy(update={"extra_body": thinking_off})})
+    seen: list[dict[str, object]] = []
+    await _backend(_ok(seen)).complete(target, _request())
+    assert seen[0]["chat_template_kwargs"] == {"enable_thinking": False}  # SDK merges extra_body in
+
+
+def test_provider_headers_are_sent_with_every_request() -> None:
+    client = OpenAIChatBackend(env={"METERLESS_RUNTIME_TOKEN": "t"})._default_client(_gateway_target())
+    assert client.default_headers["meterless-app"] == "barthelona"
+
+
 def test_default_client_never_retries_inside_the_sdk() -> None:
     backend = OpenAIChatBackend(env={})
     assert backend._default_client(_target()).max_retries == 0
