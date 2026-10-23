@@ -51,13 +51,31 @@ def _runs_only_build_tools(block: str) -> bool:
     return bool(lines) and all(_SHELL_LINE.match(line) for line in lines)
 
 
+_MIN_REPEAT_LINES = 3  # a shorter block that only repeats earlier lines may be a legitimate continuation
+
+
+def _normalized_lines(block: str) -> list[str]:
+    """Code lines without comments, blank lines or spacing differences, for spotting a repeated program."""
+    stripped = (" ".join(line.split(";", 1)[0].split()) for line in block.splitlines())
+    return [line for line in stripped if line]
+
+
 def extract_code(text: str) -> str:
-    """The source blocks of *text*, joined: fences that are not shell commands or program output."""
-    blocks = [
-        match.group(2).rstrip("\n")
-        for match in _FENCE.finditer(text)
-        if match.group(1).strip().lower() not in _SHELL_TAGS and not _runs_only_build_tools(match.group(2))
-    ]
+    """The source blocks of *text*, joined: fences that are not shell commands or program output.
+
+    A block whose every code line already appeared in an earlier block is the model repeating the program
+    (seen live: the whole file emitted twice, the second copy without comments); it is dropped.
+    """
+    blocks: list[str] = []
+    seen: set[str] = set()
+    for match in _FENCE.finditer(text):
+        if match.group(1).strip().lower() in _SHELL_TAGS or _runs_only_build_tools(match.group(2)):
+            continue
+        lines = _normalized_lines(match.group(2))
+        if len(lines) >= _MIN_REPEAT_LINES and seen.issuperset(lines):
+            continue
+        seen.update(lines)
+        blocks.append(match.group(2).rstrip("\n"))
     return "\n".join(blocks)
 
 

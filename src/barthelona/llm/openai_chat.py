@@ -16,7 +16,7 @@ from openai import AsyncOpenAI
 
 from barthelona.llm.backend import RawReply
 from barthelona.llm.catalog import ModelTarget
-from barthelona.llm.types import CompletionRequest, ModelCallError
+from barthelona.llm.types import CompletionRequest, FailureKind, ModelCallError
 
 ClientFactory = Callable[[ModelTarget], AsyncOpenAI]
 _NO_KEY = "not-needed"  # LM Studio and Ollama ignore the key but the SDK insists on one
@@ -35,6 +35,20 @@ def _describe(exc: openai.OpenAIError) -> str:
     if body:
         extras.append(f"body={str(body)[:_MAX_DETAIL_CHARS]}")
     return f"{text} ({', '.join(extras)})" if extras else text
+
+
+def _kind(exc: openai.OpenAIError) -> FailureKind:
+    if isinstance(exc, openai.APITimeoutError):
+        return FailureKind.TIMEOUT
+    if isinstance(exc, openai.APIConnectionError):
+        return FailureKind.TRANSPORT
+    if isinstance(exc, openai.RateLimitError):
+        return FailureKind.RATE_LIMIT
+    if isinstance(exc, openai.AuthenticationError | openai.PermissionDeniedError):
+        return FailureKind.AUTH
+    if isinstance(exc, openai.BadRequestError | openai.UnprocessableEntityError):
+        return FailureKind.REFUSAL
+    return FailureKind.SERVER  # 5xx, other statuses and error events inside the stream
 
 
 class OpenAIChatBackend:
@@ -85,7 +99,9 @@ class OpenAIChatBackend:
             arguments["seed"] = request.seed
         if request.response_schema is not None:
             if target.provider.structured_output != "json_schema":
-                raise ModelCallError(f"{target.provider_id} has no json_schema structured output")
+                raise ModelCallError(
+                    f"{target.provider_id} has no json_schema structured output", FailureKind.REFUSAL
+                )
             arguments["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {"name": "response", "strict": True, "schema": request.response_schema},
@@ -106,7 +122,7 @@ class OpenAIChatBackend:
                     parts.append(choice.delta.content or "")
                     stop_reason = choice.finish_reason or stop_reason
         except openai.OpenAIError as exc:
-            raise ModelCallError(_describe(exc)) from exc
+            raise ModelCallError(_describe(exc), _kind(exc)) from exc
         details = getattr(usage, "prompt_tokens_details", None)
         return RawReply(
             text="".join(parts),

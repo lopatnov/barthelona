@@ -62,7 +62,7 @@ class Gateway:
             async with self._slot(target):
                 return await self._backends[target.provider.kind].complete(target, request)
         except ModelCallError as exc:
-            return f"{exc} after {time.monotonic() - started:.1f}s"
+            return f"{exc} after {time.monotonic() - started:.1f}s [{exc.kind}]"
 
     async def complete(self, role: str, request: CompletionRequest) -> Completion:
         fallbacks: list[str] = []

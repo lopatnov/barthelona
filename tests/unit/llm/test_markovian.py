@@ -82,6 +82,19 @@ def test_extract_code_keeps_only_the_fenced_blocks() -> None:
     assert extract_code("no code here") == ""
 
 
+def test_extract_code_drops_a_block_that_repeats_the_program_without_its_comments() -> None:
+    program = "section .text\nglobal _start\n_start:\n    mov rax, 60  ; exit\n    syscall"
+    again = "section .text\nglobal _start\n_start:\n    mov rax, 60\n    syscall"
+    text = f"```asm\n{program}\n```\nand once more\n```asm\n{again}\n```"
+    assert extract_code(text) == program
+
+
+def test_extract_code_keeps_a_second_block_that_adds_new_lines() -> None:
+    first = "section .data\nmsg db 'a'\nlen equ 1"
+    second = "section .text\nglobal _start\n_start:\n    syscall"
+    assert extract_code(f"```asm\n{first}\n```\n```asm\n{second}\n```") == f"{first}\n{second}"
+
+
 def test_extract_code_drops_shell_commands_and_output_blocks() -> None:
     text = (
         "```asm\n_start:\n```\n```bash\nnasm -f elf64 hello.asm\n```\n"

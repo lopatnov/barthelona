@@ -11,6 +11,7 @@ from barthelona.cli import app
 from barthelona.llm import FakeGateway
 from barthelona.llm.markovian import CHECKPOINT, COMPLETE
 from barthelona.llm.runlog import RunLog
+from barthelona.verification.asm_gate import AssembleResult
 
 runner = CliRunner()
 
@@ -75,6 +76,59 @@ def test_stats_are_saved_and_printed_by_the_stats_command(
     log = RunLog(db)
     assert [row.label for row in log.last_runs()] == ["write hello"]
     log.close()
+
+
+def _stub_assemble(monkeypatch: pytest.MonkeyPatch, *results: AssembleResult) -> list[str]:
+    queue, seen = list(results), []
+
+    def fake(source: str, nasm: str | None = None) -> AssembleResult:
+        seen.append(source)
+        return queue.pop(0)
+
+    monkeypatch.setattr("barthelona.cli.chunked.assemble_source", fake)
+    return seen
+
+
+_STATE = "COMPLETED: all. REMAINING: nothing. DECISIONS: use sys_write then sys_exit on Linux x86-64."
+
+
+def test_assemble_failure_exits_non_zero_and_keeps_the_memory_clean(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake = FakeGateway([f"```asm\nbad\n```\n{CHECKPOINT}\n{_STATE}", f"x\n{COMPLETE}"])
+    monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
+    _stub_assemble(monkeypatch, AssembleResult("fail", ("line 1: bad",)))
+    memory = tmp_path / "mem.sqlite"
+    result = runner.invoke(app, ["chunked", "run", "t", "--assemble", "--memory", str(memory)])
+    assert result.exit_code == 1
+    assert "written=0 (the assemble oracle rejected" in result.output
+    assert "assemble: fail" in result.output
+
+
+def test_repair_feeds_nasm_errors_back_and_green_needs_the_second_attempt_to_assemble(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake = FakeGateway([f"```asm\nbad\n```\n{COMPLETE}", f"```asm\ngood\n```\n{COMPLETE}"])
+    monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
+    seen = _stub_assemble(monkeypatch, AssembleResult("fail", ("line 1: bad",)), AssembleResult("pass"))
+    db, out = tmp_path / "runs.sqlite", tmp_path / "hello.asm"
+    result = runner.invoke(
+        app, ["chunked", "run", "t", "--assemble", "--repair", "1", "--stats", str(db), "--out", str(out)]
+    )
+    assert result.exit_code == 0, result.output
+    assert seen == ["bad", "good"]
+    assert "line 1: bad" in fake.calls[1][1].messages[1].content
+    assert out.read_text(encoding="utf-8") == "good\n"
+    log = RunLog(db)
+    assert [row.label for row in log.last_runs()] == ["t [repair 1]", "t"]
+    log.close()
+
+
+def test_an_unavailable_assembler_is_not_a_pass(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeGateway([f"```asm\nx\n```\n{COMPLETE}"])
+    monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
+    _stub_assemble(monkeypatch, AssembleResult("unavailable", ("nasm was not found",)))
+    assert runner.invoke(app, ["chunked", "run", "t", "--assemble"]).exit_code == 1
 
 
 def test_a_blank_task_is_still_recorded_with_a_placeholder_label(
