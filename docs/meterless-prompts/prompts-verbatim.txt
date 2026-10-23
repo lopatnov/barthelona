@@ -1,0 +1,426 @@
+ START HERE Works in any AI 
+ The one prompt.
+ Not sure where to begin? Paste this. Your AI reads the repo, asks what you’re building, and hands you the fastest path to a working result.
+ Read the Meterless open-source repo at https://github.com/Meterless/Meterless. Start with llms.txt and README.md, then AGENTS.md.
+1. In five plain-language bullets, tell me what Meterless is and what each engine does (H-MEM, World Model, Markovian, Scout Intent).
+2. Ask me three short questions about what I’m building.
+3. From my answers, recommend the one engine or template I should try first, and give me the exact steps to get it running.
+ All 57 Ideate 8 Implement 10 Combine 10 Harden 12 Power 17 
+ Works with ChatGPT Claude Cursor Copilot Gemini Claude Code 
+ IDEATE Any chat AI Find my best use case
+ A short interview, then five ideas ranked by effort and payoff.
+ Read https://github.com/Meterless/Meterless (start with llms.txt and docs/architecture/why-meterless.md). Then interview me: ask about my job, the tools I use every day, and the AI tasks that frustrate me.
+From my answers, propose five things I could build with the Meterless engines. Rank them in a table by effort, payoff, and which engines each one uses. Tell me which one to start with and why.
+ IMPLEMENT Cursor · Claude Code · Copilot Run the 90-second proof
+ Cold run versus warm run, on your machine, with no API keys.
+ Clone https://github.com/Meterless/Meterless and run the cold-vs-warm memory demo from the repo root:
+npx tsx examples/memory-compounding-research/index.ts
+No API keys are needed. Then explain the output to me: what the warm run remembered, why it finished in fewer chunks, and which engine files made that happen.
+ COMBINE Cursor · Claude Code · Copilot Memory plus long tasks
+ H-MEM recall carried into every Markovian chunk.
+ Wire H-MEM into the Markovian loop in this codebase. Start by running the cross-engine demo in https://github.com/Meterless/Meterless:
+npx tsx examples/memory-compounding-research/index.ts
+Then read engines/markovian/examples/markovian-with-hmem and engines/hmem/examples/markovian-handoff. Each chunk recalls what memory knows before it starts, and writes back what it learned when it ends. You are done when both conformance suites pass and a second run of the same task needs fewer chunks than the first.
+ HARDEN Cursor · Claude Code · Copilot Block prompt injection
+ Scout’s injection guard, measured against its own targets.
+ Harden this codebase against prompt injection with Scout Intent. Read engines/scout-intent/docs/risk-and-policy.md and workshops/02-block-an-injection.md at https://github.com/Meterless/Meterless, and run examples/prompt-injection-block.
+Route every untrusted input (web pages, files, tool results) through the guard before it reaches the model. Then run npm run evals:injection and report precision and recall against the targets in evals/config/thresholds.yaml (0.95 and 0.90). List every miss and fix the ones you can.
+ POWER Cursor · Claude Code · Copilot Add Meterless as a provider
+ Text modes in any app, with the real token and an honest offline state.
+ Add Meterless Runtime to this codebase as an OpenAI-compatible provider, next to the providers it already has.
+The contract (Meterless Runtime 1.4, provider contract v4):
+- Provider id meterless, name Meterless Runtime, default base URL http://127.0.0.1:8088/v1. Accept a pasted URL with or without a scheme, /v1, /v1/chat/completions, /v1/models or /healthz, and normalise it to <host>/v1. Never produce /v1/v1.
+- Auth is real. Send Authorization: Bearer <token> on every call. The runtime writes the token to <stateDir>/proxy-token. Store it under the key meterless_runtime_token. The placeholder rt-local is rejected.
+- Send meterless-app: <a stable lowercase id for this app> on every request, and meterless-scope: user on chat.
+- Model ids are routing modes, not models: meterless/<disposition> (auto, fast, deep, cheap, local, fusion), meterless/<class> and meterless/<class>.<disposition>. Read them from GET /v1/models and keep any meterless/* id you don't recognise.
+- GET /healthz only proves the process is up. GET /v1/models decides: 401 or 403 is "unauthorized" (show a field to paste the token), 200 with meterless ids is "online", anything else is "offline".
+- Auto Detect tries ports 8088, 8090, 8787 and 11434 on 127.0.0.1, localhost and [::1], and saves the first online or unauthorized hit.
+- Plain text requests stay a string, exactly like OpenAI. Use a 180 s timeout, because a model load can take minutes.
+- If the user pastes a connect link (http://<host>:<port>/connect#k=<key>), take the base URL from its origin + /v1 and the key from k. Never log it.
+You are done when a wrong token shows unauthorized (not offline), Auto Detect finds the runtime, and a plain text request on meterless/auto returns a string.
+ IDEATE Any chat AI Weekend hackathon ideas
+ Ten agents one person can ship, with a demo script for the best three.
+ I want to build something for the Open Agent Hackathon (Oct 15 to 20, 2026). Read https://github.com/Meterless/Meterless, especially docs/community/hackathon-guide.md and templates/agentathon-starter/README.md.
+Give me ten agent ideas one person can ship in a weekend on the agentathon starter. For the top three, include: the problem, which engines it uses, a simple architecture, and a two-minute demo script that would impress judges.
+ IMPLEMENT Cursor · Claude Code · Copilot Scaffold a working agent
+ The hackathon starter, running in about two minutes, then made yours.
+ Scaffold a Meterless agent for me. Run:
+npx degit meterless/meterless/templates/agentathon-starter my-agent
+Read its README.md first, install dependencies and get it running. Once it works, adapt it into this idea: [describe your agent]. Keep the H-MEM memory wiring intact, and show me how to run it.
+ COMBINE Cursor · Claude Code · Copilot Check memory before acting
+ Scout asks H-MEM what it already knows before any risky step.
+ Make Scout Intent consult H-MEM before it acts. Read engines/scout-intent/examples/query-hmem-before-action and engines/hmem/examples/scout-grounded-recall at https://github.com/Meterless/Meterless.
+For each classified intent, Scout queries memory for relevant facts and preferences, then includes them in the execution contract. Show a case where memory changes the plan, for example a remembered preference that picks a different tool. Run npm run evals in engines/scout-intent and the H-MEM conformance suite.
+ HARDEN Cursor · Claude Code · Copilot Grow the eval set from real traffic
+ Turn your own requests into regression tests.
+ The Scout Intent eval set in https://github.com/Meterless/Meterless (engines/scout-intent/evals) starts with 32 examples. Grow it from our real traffic.
+Read evals/README.md and docs/eval-harness.md. Use npm run evals:add to capture 50 real requests from our logs, labeled with the intent we expected. Add ten adversarial ones. Then run npm run evals:report and show me which intent families are below target.
+ POWER Cursor · Claude Code · Copilot Route each task to the right mode
+ The task picks the class, the user picks the disposition, and Settings shows the result.
+ Add a task router for Meterless Runtime to this codebase. Make it one pure module with no fetch and no storage, so it can be tested alone.
+Meterless model ids are meterless/<class>.<disposition>. Classes: text, code, vision, judge, perception, image, video, speech, transcribe, music, embed, mesh (shown as Meterless 3D; meterless/3d is its alias) and texture (aliases meterless/paint and meterless/pbr). Dispositions: auto, fast, deep, cheap, local, fusion, cluster.
+Rules:
+- Every call site declares a task, and the task picks the class (for example commentary → text, grade → judge, screenshot → vision, still → image, voice → speech, theme → music, model → mesh, repaint → texture). Map our real call sites: [list them, or find them yourself].
+- The disposition comes from the user's single pick in Settings. A per-task pin (for example meterless/image.local for stills only) beats both.
+- A task never inherits its class from whichever model happens to be selected.
+- Attachments change the class only when the task's output is text: audio or video → transcribe, image → vision, PDF or document → perception. "Make a still from this screenshot" stays image.
+- Send the meterless-accept header only for the media the route produces (image → image, speech or music → audio, video → video, mesh or texture → mesh), per request. Never set it globally.
+- mesh and texture are served on POST /v1/meterless/3d, never on chat, and never leave the machine: planRoute marks them route: "3d".
+- fusion on a single-core class (video, music, speech, embed, mesh, texture) and cluster on vision, perception, transcribe or embed are downgraded to auto before sending, and the downgrade is recorded. Read which classes allow fusion from GET /v1/meterless/modes when it answers; this list is the fallback. cluster on a runtime that marks it unavailable is refused, never swapped for auto.
+Expose planRoute(task, attachments) → {id, class, disposition, route, source, downgrade} and render it as a routing table in Settings. Write a unit test for each rule and show them passing.
+ IDEATE Any chat AI Map it onto my product
+ Where each engine plugs into what you already run, and what to skip.
+ Read https://github.com/Meterless/Meterless/blob/main/docs/architecture/stack-overview.md and the engine overviews in docs/engines/.
+I’ll describe my product and stack below. Show me exactly where memory (H-MEM), shared state (World Model), long-task compression (Markovian) and intent routing (Scout Intent) would plug in, what each would improve for my users, and what I should NOT adopt yet.
+My product: [describe it here]
+ IMPLEMENT Cursor · Claude Code · Copilot Give my agent memory
+ H-MEM in your codebase, finished when the conformance suite passes.
+ Add persistent memory to the agent in this codebase using the Meterless H-MEM spec. Read https://github.com/Meterless/Meterless/tree/main/engines/hmem, starting with its AGENTS.md, and follow it step by step. Use the runnable reference in engines/hmem/reference as your guide.
+You are done when the conformance suite passes:
+HMEM_IMPL=/abs/path/to/your/index.ts npx tsx conformance/runner.ts
+Show me the passing output.
+ COMBINE Cursor · Claude Code · Copilot Route long jobs to Markovian
+ Scout spots long work and hands it to the chunked loop.
+ Teach Scout Intent to send long, multi-step work to the Markovian engine. Read engines/scout-intent/examples/route-to-markovian and engines/scout-intent/docs/model-routing.md at https://github.com/Meterless/Meterless, then engines/markovian/AGENTS.md.
+Short requests stay on the fast path. Long ones become a Markovian run with a chunk budget. Show both paths on real requests from our app, then run npm run evals and the Markovian conformance suite.
+ HARDEN Cursor · Claude Code · Copilot Settle conflicting memories
+ When two memories disagree, the right one wins, with a reason.
+ Add conflict resolution to the H-MEM memory in this codebase. Read engines/hmem/docs/conflict-resolution.md at https://github.com/Meterless/Meterless and run examples/07-conflict-resolution.
+Write tests for the cases that break memory: a newer fact contradicts an older one, two sources disagree, and a user correction overrides a mined fact. Each resolution records why it won. Run the tests and the conformance suite, and show both passing.
+ POWER Cursor · Claude Code · Copilot Show what this machine can serve
+ Live availability for every class, with the reason when one is off.
+ Make this codebase's Meterless Runtime provider read its capabilities from the runtime instead of hard-coding them.
+- GET /v1/models lists the meterless/* rows, each with a meterless block. Keep unknown meterless/* ids. Show a constant list only until the first probe answers. The endpoints field on a row describes the grammar. It does not prove a route exists.
+- GET /v1/meterless/classes is the live state per class. Accept both shapes, {classes: {<id>: {...}}} and {data: [{class, ...}]}, and a bare string state. Map ready → ready; starting, parked, declared or admittable → "may take a moment"; cloud → "leaves the machine"; unavailable → greyed out, showing its why. This overrides the availability from /v1/models. A runtime without this route still gets a working picker.
+- chat_carrier on each class says whether POST /v1/chat/completions can return it. On 1.4 it is true for text, code, vision and judge, and false for the rest. false means "use another route", not "this machine can't". The routes field names it: mesh and texture list POST /v1/meterless/3d.
+- 3D is resident-only: for mesh and texture, admittable means "seat a 3D lane in the runtime first", never "may take a moment". texture ready means a Hunyuan3D-Paint lane is seated, and that lane also serves mesh. GET /v1/meterless/modes carries their recipes (fast, auto, deep), so label the 3D options from it.
+- Emit one health event (meterless:health with state, checkedAt, reason and baseUrl) that every screen listens to instead of polling. Any failed request sets offline right away. Going online invalidates discovery.
+Build the model picker from this. You are done when the picker shows every class with its live state and reason, and stopping the runtime flips every screen to offline without a reload.
+ IDEATE Any chat AI Explain it like I’m new
+ One everyday analogy per engine. No jargon without a definition.
+ Read https://github.com/Meterless/Meterless and explain it to me like I’ve never built an AI agent.
+Use one everyday analogy per engine (H-MEM, World Model, Markovian, Scout Intent) and say what problem each one solves in a single sentence. Finish with one short paragraph on why “local-first” matters. Define any jargon you use.
+ IMPLEMENT Cursor · Claude Code · Copilot Long tasks, flat context
+ Markovian chunking so long runs stop growing their context.
+ Refactor the long-running agent loop in this codebase to use the Meterless Markovian engine. Read engines/markovian/AGENTS.md at https://github.com/Meterless/Meterless and follow it: break the work into bounded chunks with safe carryover, so context stays flat per step.
+Measure before and after (see engines/markovian/reference/scripts/measured-run.ts). You’re done when this passes:
+MARKOVIAN_IMPL=/abs/path/to/your/index.ts npx tsx conformance/runner.ts
+ COMBINE Cursor · Claude Code · Copilot World state into memory
+ World Model changes become durable H-MEM records.
+ Sync World Model state into H-MEM in this codebase. Read engines/world-model/examples/world-to-hmem-sync and engines/hmem/examples/world-model-sync at https://github.com/Meterless/Meterless.
+When an entity changes in the World Model, the lasting facts land in memory with a link back to the entity's stable ID. Re-running the sync must not create duplicates. Show the records for one entity before and after a change, then run both conformance suites.
+ HARDEN Cursor · Claude Code · Copilot Add a trust ledger
+ Every memory write and read, logged with its source.
+ Add the H-MEM trust ledger to this codebase. Read engines/hmem/docs/trust-ledger.md at https://github.com/Meterless/Meterless and run examples/08-trust-ledger.
+Every write records its source and confidence. Every read records what was used. Add a test proving that a low-trust source cannot overwrite a high-trust fact. Show me the ledger for one memory from creation to its latest read.
+ POWER Cursor · Claude Code · Copilot Read every answer it sends
+ Streams that arrive as JSON, media parts, progress frames and rate limits.
+ Harden this codebase's Meterless Runtime chat client (POST /v1/chat/completions) against every answer shape the runtime sends.
+Requests: plain text stays a string. Attachments turn the user turn into parts: image → image_url with a data URL, audio → input_audio with base64 and a format, anything else → file with filename and file_data.
+Answers: choices[0].message can carry content as a string; content as an array of parts (text, image_url, audio or output_audio with url or data, input_audio, audio_url, video_url); message.audio beside a string content; or top-level meterless.artifacts[]. Read all of them. Turn bare base64 into a data: URL and the format wav into audio/wav.
+- Choose the reader from the response Content-Type, not from the request. A stream: true request can come back as application/json, so parse it as one body. Without res.body.getReader, fall back to res.json().
+- SSE: join delta.content strings, read an array delta.content as parts, and send frames carrying meterless.progress to onProgress. Send meterless-trace: on only when something shows progress.
+- Code that only reads strings gets a flattened answer: the text, then one "Image: <url>" or "Audio: <url>" line per artifact, with the original parts kept on message.meterless_parts.
+- A text answer to a media request is an error (text_instead_of_media). It is never accepted as media.
+- A 429 or quota error retries after 2 s, 4 s and 8 s, then surfaces.
+Build a small mock server that returns each shape, including stream: true answered as JSON. Write a test per shape and show them passing.
+ IDEATE Any chat AI Estimate my token savings
+ Your workload through the Markovian cost model, with the math shown.
+ Read https://github.com/Meterless/Meterless/blob/main/engines/markovian/docs/efficiency-model.md.
+Using that cost model, estimate how many input tokens my agent would save with Markovian chunking versus keeping the full history. Ask me for my average steps per task, tokens per step, and tasks per day. Then show the math in a table, plus the monthly cost difference at my model’s price.
+ IMPLEMENT Cursor · Claude Code · Copilot Keep parallel agents in sync
+ One shared World Model every agent reads from and writes to.
+ My agents run in parallel and drift out of sync. Implement the Meterless World Model in this codebase: read engines/world-model/AGENTS.md at https://github.com/Meterless/Meterless and follow it to add an event-sourced shared state that every agent reads and writes.
+You’re done when this passes:
+WORLD_MODEL_IMPL=/abs/path/to/your/index.ts npx tsx conformance/runner.ts
+ COMBINE Cursor · Claude Code · Copilot Plan from the world model
+ Scout turns a request into a World Model query before it plans.
+ Connect Scout Intent planning to the World Model. Read engines/world-model/examples/scout-context-plan-to-world-query and engines/world-model/docs/read-surface.md at https://github.com/Meterless/Meterless.
+Scout classifies the request, builds a context plan, and queries the World Model for exactly the entities it needs, nothing more. Show the query for three different requests and what each one read. Run the World Model conformance suite and npm run evals.
+ HARDEN Cursor · Claude Code · Copilot Audit memory for privacy
+ Find anything that leaves the machine or can’t be deleted.
+ Audit the memory in this codebase against engines/hmem/docs/privacy-and-local-first.md at https://github.com/Meterless/Meterless, and the repo's SECURITY.md.
+Check for: any network call that carries memory, personal data stored without need, and records that cannot be exported or fully deleted. Give me a table of findings by severity, fix the top three, and add a test that fails if memory ever leaves the machine.
+ POWER Cursor · Claude Code · Copilot Make images, speech and music
+ Media through the jobs plane, the route that produces it on runtime 1.4.
+ Add image, speech and music generation to this codebase's Meterless Runtime provider. On runtime 1.4, chat refuses these classes; they are made on a job. Read every id from discovery and never guess one.
+1. Plan. Read GET /v1/meterless/classes and GET /v1/meterless/transforms, cached for 60 s. If chat_carrier is true, use chat. Otherwise pick a transform. Image: kind image with capability media.image_still or pipeline still (prefer attempt.image.still). Speech: kind audio with media.voice_narrate or narrate (prefer attempt.voice.narrate). Music: kind audio with media.music_score or score (prefer attempt.music.score). Skip internal ones and any with available: false. A text transform never satisfies speech. With no match, show "Images unavailable: <reason>".
+2. Source job, one per item: POST /v1/jobs {kind: "best_of_n", app, mode: "meterless/text", n: 1, window: "now", privacy: "local-only", media_autopilot: {mode: "off"}, messages}. privacy is the user's floor (local-only, edge-only or cloud-ok). Never widen it.
+3. Attempt: poll GET /v1/jobs/{id} until generated > 0. Try GET /v1/jobs/{id}/attempts. On a 404, read winner_seq, then each seq with GET /v1/jobs/{id}/attempts/{seq}. A usable attempt has text and no error. Never assume seq 1.
+4. Make: POST /v1/jobs/{id}/materialize {seq, transform, n: 1, window: "now", media_controls: {text: <the exact prompt or words to speak>}} returns make_ids. Send n: 1 explicitly; the still default is 2. An already_made error with a make_id counts as success.
+5. Wait on GET /v1/jobs/{id}/makes until that make's own status is done. The parent job completing does not mean the make is done.
+6. Bytes: GET /v1/jobs/{id}/attempts/{seq}/artifacts. Pick the file named in the make's outputs[] with an image/ or audio/ mime, skipping .json, .txt, .srt and other sidecars. Fetch it with the bearer header, check its type and size, store the Blob and show it with URL.createObjectURL. A plain <img src> gets a 401.
+Video (attempt.video.clip) takes the same path. 3D has its own route, POST /v1/meterless/3d.
+You are done when one "illustrate" action produces a real image that is stored locally.
+ IDEATE Any chat AI Pitch it to my team
+ A one-page brief for a two-week pilot, ready to send.
+ Read https://github.com/Meterless/Meterless (README.md, docs/architecture/why-meterless.md and ROADMAP.md).
+Write a one-page brief I can send my team proposing a two-week Meterless pilot: the problem we’d solve, which engine we’d start with, what “done” looks like (use the engine’s conformance suite as the bar), the risks, and three metrics we’d track. Keep it under 400 words.
+ IMPLEMENT Cursor · Claude Code · Copilot Route tools by intent
+ Scout Intent in front of your model calls, checked by the eval harness.
+ Add intent detection in front of my agent’s model calls using the Meterless Scout Intent spec. Read engines/scout-intent/AGENTS.md at https://github.com/Meterless/Meterless and follow it: classify what the user is trying to do, flag risky actions, and route to the right tools.
+Validate with the eval harness in engines/scout-intent/evals (npm run evals) and show me the report.
+ COMBINE Cursor · Claude Code · Copilot Many drafts, one shared state
+ Parallel drafts that plan from one World Model and one chunked loop.
+ Run parallel drafting agents on shared state. Read engines/world-model/examples/swarm-planning-with-world-context, engines/markovian/examples/markovian-inside-swarm and engines/markovian/docs/compose-with-swarm.md at https://github.com/Meterless/Meterless.
+Each draft runs its own Markovian loop but reads and writes the same World Model, so no two drafts plan against stale facts. Show three drafts that saw one another's changes, then run both conformance suites.
+ HARDEN Cursor · Claude Code · Copilot Survive concurrent writers
+ Many agents writing at once, with no lost updates.
+ Stress the World Model in this codebase with concurrent writers. Read engines/world-model/docs/concurrency-and-queues.md at https://github.com/Meterless/Meterless.
+Write a test where ten agents update the same entities at once. No update may be lost, and the final state must match a serial run. Then run the idempotency check (see engines/world-model/reference/scripts/idempotency-check.ts) with and without --mutate, and the conformance suite.
+ POWER Cursor · Claude Code · Copilot Never render the same thing twice
+ Save the make before polling, so a reload reconnects instead of rendering again.
+ Make this codebase's Meterless Runtime media generation idempotent. GPU work must never be submitted twice by accident.
+- Keep one association per client item, keyed by a stable id (for example figure:<id>) and the base URL: {base, jobId, seq, privacy, makes: {image: {makeId, transform, status}}, touched}.
+- Write makeId to storage before the first poll. A reload, a navigation or a timed-out poll then reconnects through GET /v1/jobs/{id}/makes instead of rendering again.
+- A previous make that hasn't failed is waited on and collected. Only an explicit "again" from the user makes a new one. Retry buttons reconnect.
+- A make timeout means "still running in the runtime; the next request reconnects". Never resubmit on a timeout. A make missing from the ledger for 4 polls is make_gone, and it is replaced.
+- On source_not_found or job_not_found, clear the stored seq (and the job), rebuild the source once and resubmit once.
+- Keep one in-flight promise per item and output, so two clicks share one make.
+- Cap associations at about 400, dropping the oldest touched. Ignore any whose base differs from the current base URL.
+- 3D jobs on POST /v1/meterless/3d get the same treatment: store the 3D job id before the first poll of GET /v1/meterless/3d/{id}. The runtime holds 3D jobs in memory, so a job_not_found after a runtime restart means resubmit once (the files it wrote stay on disk).
+Write tests against a mock runtime: a reload mid-render, a parent job that completed while its make still runs, already_made, and two concurrent clicks. You are done when each test leaves exactly one make in the mock's ledger.
+ IDEATE Any chat AI Compare it to what I use
+ An honest side-by-side with the tools you run now, weak spots included.
+ Read the comparison pages in https://github.com/Meterless/Meterless: engines/hmem/content/comparison.md, engines/markovian/content/comparison.md, engines/world-model/content/comparison.md and engines/scout-intent/content/comparison.md.
+I use these tools today: [list your memory, agent and orchestration tools]. Compare each Meterless engine with the closest thing I already have. Use a table: what it replaces, what it adds, what it does worse, and the switching cost. Be honest where Meterless is weaker.
+ IMPLEMENT Cursor · Claude Code · Copilot Let memory sleep on it
+ H-MEM consolidation that proposes changes before it makes them.
+ Add the H-MEM sleep cycle to the memory in this codebase. Read engines/hmem/AGENTS.md at https://github.com/Meterless/Meterless, then docs/sleep-cycle.md, docs/dreaming.md and docs/preview-first-sleep-cycle.md in that folder. Run engines/hmem/examples/06-sleep-preview first to see the expected output.
+Consolidation must run in preview-first mode: it proposes merges and prunes, and nothing changes until a person approves. You are done when a preview run prints proposals without touching the store and the conformance suite still passes:
+HMEM_IMPL=/abs/path/to/your/index.ts npx tsx conformance/runner.ts
+ COMBINE Cursor · Claude Code · Copilot The full stack in one agent
+ Scout routes, World Model holds state, Markovian runs, H-MEM remembers.
+ Build one small agent that uses all four engines. Read docs/architecture/stack-overview.md at https://github.com/Meterless/Meterless, then each engine's AGENTS.md, one at a time.
+Scout Intent classifies and routes. The World Model holds shared state. Markovian runs long work in chunks. H-MEM remembers across sessions. Keep each engine behind its own interface. You are done when the three conformance suites and npm run evals all pass. Draw me the data flow in one diagram.
+ HARDEN Cursor · Claude Code · Copilot Prove each test can fail
+ Break the code on purpose and make sure the suite notices.
+ For each Meterless engine this codebase implements (see engines/ in https://github.com/Meterless/Meterless), prove its tests can fail.
+Make one small deliberate break per engine: skip a memory write, drop a chunk carryover, reorder an event, weaken an injection rule. Run that engine's conformance suite (or npm run evals for Scout Intent) and confirm it fails. Then revert. Report any break the tests missed, and add a test that catches it.
+ POWER Cursor · Claude Code · Copilot Tell users the real reason
+ The server’s message first, its fix wins, and a route refusal is never blamed on hardware.
+ Rewrite how this codebase reports Meterless Runtime errors.
+Errors arrive as {error: {message, type, code}}, sometimes with a meterless block carrying fix[], class, chat_carrier and routes. Build the message in this order:
+1. The server's message, always.
+2. The server's fix[] if present. It wins, so add no hint of your own.
+3. Our own hint for the code, only when the server sent no fix and the error isn't a carrier refusal.
+4. A 401 or 403 adds "Paste the runtime's access token in Settings." A network failure says the runtime isn't reachable at <base> and offers Start the runtime and Run Auto Detect.
+A carrier refusal (code class_carrier_unsupported, or meterless.chat_carrier === false) means this route can't carry the class. It says nothing about the machine, so never say "this machine can't serve images". Invalidate discovery and replan once: use the jobs route if it exists, otherwise show the server's message. class_no_route can mean either, so replan once there too. Never loop.
+3D is resident-only, so class_not_ready on mesh or texture means "seat the 3D lane fix[] names", not "wait and retry". mesh_level_unavailable (503 on the 3D route, 409 on the jobs path) means a painted model was asked for and no Paint lane is seated. 429 auth_rate_limited means repeated bad keys from the network: ask for the key, don't retry. A completed 3D job with level finished and a paint.error is a partial result: say "finished, not painted" and why, never "painted".
+If we fall back to a cloud provider, only a transport failure may fall back. A typed refusal goes back to the caller as an OpenAI-shaped error with the real reason.
+Keep code, status, fix[] and chatCarrier on the error object.
+Write a test for each case and show them passing. Then list every message a user can now see.
+ IDEATE Any chat AI Plan a 30-day rollout
+ One engine a week, each week gated by its own test suite.
+ Read https://github.com/Meterless/Meterless (ROADMAP.md, docs/architecture/stack-overview.md and the four pages in docs/engines/).
+My team: [size and skills]. My product: [one paragraph]. Plan a 30-day rollout, one engine per week. For each week give the goal, the files to read, the work, and the gate that proves it is done (the engine's conformance runner, or npm run evals for Scout Intent). End with what to cut if we fall behind.
+ IMPLEMENT Cursor · Claude Code · Copilot Mine memory from chats
+ Turn transcripts and docs into memory records, each with its source.
+ Add memory mining to this codebase with the H-MEM spec. Read engines/hmem/AGENTS.md and docs/mining-pipeline.md at https://github.com/Meterless/Meterless, then work through examples/02-mine-from-chat and examples/03-mine-from-document.
+Mine from our real inputs: [chat transcripts, support tickets, docs]. Every record must keep its source and a confidence. Show me ten mined records from our data, then run the conformance suite and show the passing output.
+ COMBINE Cursor · Claude Code · Copilot Upgrade the hackathon starter
+ The agentathon starter, plus an intent guard and chunked long tasks.
+ Start from the hackathon starter:
+npx degit meterless/meterless/templates/agentathon-starter my-agent
+Read its README.md and get it running. Then add Scout Intent in front of its actions (engines/scout-intent/AGENTS.md at https://github.com/Meterless/Meterless) and move its long tasks onto the Markovian loop (engines/markovian/AGENTS.md). Keep the H-MEM wiring intact. Show a run that blocks a risky request and completes a long one.
+ HARDEN Cursor · Claude Code · Copilot See every run in numbers
+ Per-chunk tokens, latency and outcome, with alerts.
+ Add telemetry to the Markovian loop in this codebase. Read engines/markovian/docs/telemetry.md and docs/run-history.md at https://github.com/Meterless/Meterless, and run examples/run-history-and-stats.
+Record tokens, latency and outcome per chunk, and keep a run history. Show a table of the last ten runs. Suggest alert thresholds from the data, for example a chunk that uses twice the median tokens.
+ POWER Cursor · Claude Code · Copilot Adopt it without a rewrite
+ Hard-coded OpenAI calls routed through Meterless, with no call-site changes.
+ This codebase calls OpenAI chat completions directly from many places. Route those calls through Meterless Runtime (default http://127.0.0.1:8088/v1) without changing the call sites.
+- Write one classic script, loaded before the app code, that wraps window.fetch. Don't make it an ES module, because those are blocked under file://.
+- Intercept only POST https://api.openai.com/v1/chat/completions with a body, and only when the runtime is online and the user has turned it on. Everything else passes through untouched.
+- Task hints without a header: a call site may call Meterless.markTask("grade") right before its fetch. The interceptor takes the mark and clears it. A mark older than 5 s is ignored.
+- Rewrite model to the resolved meterless/<class>.<disposition> mode, and send Authorization: Bearer <runtime token> and meterless-app. Force stream: false if the call sites don't read SSE.
+- Flatten array answers to a string (the text, then "Image: <url>" lines) and return a synthetic OpenAI-shaped Response.
+- A 429 retries after 2 s, 4 s and 8 s in place. A typed refusal comes back as an OpenAI error carrying the real message and fix. Only a connection failure marks the runtime offline and falls through to the original cloud request.
+- Log each routed call as task → meterless/<id> → winning model, and keep the last route for a diagnostics panel.
+List every call site you found and the task each one should mark. Then show one routed call and one pass-through.
+ IMPLEMENT Cursor · Claude Code · Copilot Sign every tool call
+ Scout Intent execution contracts, so no tool runs without one.
+ Put Scout Intent execution contracts in front of every tool call in this codebase. Read engines/scout-intent/AGENTS.md and docs/execution-contract.md at https://github.com/Meterless/Meterless, and run examples/generate-execution-contract to see the shape.
+Before a tool runs, Scout issues a contract naming the intent, the tool, the arguments and the risk level. A call without a valid contract is refused. Show me one accepted call and one refused call, then run npm run evals and show the report.
+ COMBINE Cursor · Claude Code · Copilot A research agent that remembers
+ Long research chains that start smarter on the second run.
+ Build a research agent from engines/markovian/examples/long-research-chain at https://github.com/Meterless/Meterless, with H-MEM memory added between runs.
+Run the same research question twice. The second run starts from what the first one learned. Measure both with engines/markovian/reference/scripts/measured-run.ts and show a table: chunks, tokens and time for each run.
+ HARDEN Cursor · Claude Code · Copilot Tune chunk sizes on your work
+ Sweep chunk settings on your own tasks and pick with numbers.
+ Tune the Markovian chunk configuration for our workload. Read engines/markovian/docs/chunk-config.md and workshops/02-size-your-chunks.md at https://github.com/Meterless/Meterless.
+Run our three most common long tasks at four chunk sizes, measured with engines/markovian/reference/scripts/measured-run.ts. Show a table of tokens, time and output quality for each. Recommend one configuration and explain the trade-off.
+ POWER Cursor · Claude Code · Copilot Grade my provider integration
+ Score an existing Meterless provider against the contract, level by level.
+ Audit how this codebase uses Meterless Runtime as a provider, and tell me which level it reaches.
+L0 Text: meterless/* modes on POST /v1/chat/completions, the real bearer token (rt-local is rejected), and 401 or 403 shown as unauthorized, not offline.
+L1 Discovery: modes and availability read from GET /v1/models and GET /v1/meterless/classes (both shapes), unknown meterless/* ids kept, one health event.
+L2 Chat: attachments sent as parts, every answer shape read, the reader chosen by the response Content-Type, progress frames, a task → class resolver, meterless-accept sent per request only.
+L2M Media: a carrier plan from GET /v1/meterless/transforms, a source job with the user's privacy floor, materialize with n: 1, waiting on the make row and not the parent job, an authenticated artifact fetch into a Blob, makeId saved before polling. Transcription through POST /v1/meterless/transcribe with {audio_base64, filename}.
+L3 3D: mesh and texture gated on discovery, POST /v1/meterless/3d → poll GET /v1/meterless/3d/{id} → model.glb fetched with the bearer header, level and level_reason shown, a paint.error never shown as painted, the 3D job id saved before polling.
+Q1/Q2 Quick Connect: a pasted or scanned http://<host>:<port>/connect#k=… link fills base URL, key and model; a bare base URL is not mistaken for a link; the link is never logged.
+Also check that no route is used unless discovery shows it (runtime 1.4 serves no /v1/images, /v1/audio/speech, /v1/embeddings or /v1/videos), the token never appears in a URL except ?token= on the job events stream, local-only work never reaches a cloud provider, and a carrier refusal is never described as a hardware limit.
+Give me a table: requirement, pass or fail, file and line, fix. Then fix the failures that block the next level.
+ IMPLEMENT Cursor · Claude Code · Copilot Ingest once, never twice
+ World Model ingest with stable IDs, so a re-run changes nothing.
+ Implement the World Model ingest pipeline in this codebase. Read engines/world-model/AGENTS.md, docs/ingest-pipeline.md and docs/stable-ids.md at https://github.com/Meterless/Meterless.
+Ingesting the same data twice must produce an empty diff. Use engines/world-model/reference/scripts/idempotency-check.ts as the model and write the same check for our store. You are done when that check passes, --mutate makes it fail, and this passes:
+WORLD_MODEL_IMPL=/abs/path/to/your/index.ts npx tsx conformance/runner.ts
+ COMBINE Cursor · Claude Code · Copilot Accounts that remember people
+ A CRM world model with learned preferences per contact.
+ Build an account model from engines/world-model/examples/crm-account-world at https://github.com/Meterless/Meterless, and add per-contact preferences from engines/hmem/examples/preference-learning.
+Accounts, contacts and deals live in the World Model. What each contact prefers lives in H-MEM, linked by stable ID. Load our data: [describe or attach it]. Show one account with its contacts and their learned preferences, then run both conformance suites.
+ HARDEN Cursor · Claude Code · Copilot Resume after a crash
+ Kill a long run mid-way and pick up exactly where it stopped.
+ Make long runs in this codebase survive a crash. Read engines/markovian/docs/marker-protocol.md, docs/reflection.md and workshops/04-reflect-and-resume.md at https://github.com/Meterless/Meterless.
+Write a test that kills a run in the middle of a chunk, restarts it, and checks that it resumes from the last marker with no duplicated work and no lost carryover. Then run the Markovian conformance suite.
+ POWER Cursor · Claude Code · Copilot Connect with one paste or one scan
+ A connect link fills the base URL, key and model, and the key never lands in a log.
+ Add Meterless Quick Connect to this codebase's Meterless Runtime provider settings, so one paste or one QR scan configures it.
+The link is http://<host>:<port>/connect#k=<key>[&m=<model>][&n=<app>]. The key rides in the fragment, which a browser never sends, so no server or proxy log sees it. The runtime's cockpit shows it as a QR code.
+- Write parseConnectLink(text) as a pure function. A string is a connect link only when it parses as an http: or https: URL, its path is /connect (a trailing slash is allowed) and its fragment carries k. Then base_url = origin + "/v1", api_key = k (URL-decoded), model = m or meterless/auto, app = n or our own meterless-app id, health_url = origin + "/healthz". Anything else keeps its current meaning: a pasted http://127.0.0.1:8088/v1 is a base URL, not a failed link. Never guess.
+- Paste: run the parser on whatever lands in the base URL field. On a match, fill base URL, key and model, then run the normal health check (GET /v1/models with the key).
+- Scan: add a "Scan QR" or "Open link" action that feeds the same parser.
+- Never log the link, never send the fragment anywhere, and store the key like a key the user typed: masked, with Reveal.
+- A loopback link (127.0.0.1, localhost, [::1]) only opens on the computer running the runtime. Say so when one arrives on another device.
+- Once connected, GET /v1/meterless/connect (authenticated, no-store) lists the addresses this runtime serves: loopback first, then one row per live LAN listener while hotspot mode is on. Show them, so the user can pick the one other devices can reach.
+- A 401 on a key that used to work means it was rotated (POST /v1/meterless/token/rotate, allowed only from the runtime's own computer). Ask for a fresh link; don't call the runtime offline.
+Write unit tests for parseConnectLink: a full link, one with m and n, a trailing slash, https, a URL-encoded key, a bare base URL, /connect without k, and another path with k. You are done when one pasted link configures the provider and the first request on meterless/auto succeeds.
+ HARDEN Cursor · Claude Code · Copilot Security review my integration
+ A threat model of your agent, with the top three fixed.
+ Security review how this codebase uses Meterless. Read SECURITY.md at https://github.com/Meterless/Meterless, then engines/scout-intent/docs/risk-and-policy.md and docs/execution-contract.md.
+Build a threat model table: entry point, what an attacker controls, what they could make the agent do, and the current defense. Cover tool calls, memory writes and untrusted content. Fix the three highest risks and add a test for each.
+ POWER Cursor · Claude Code · Copilot Turn a photo into a 3D model
+ One picture in, a finished .glb out, offered only when this machine has a 3D lane.
+ Add photo-to-3D to this codebase with Meterless Runtime's 3D route, POST /v1/meterless/3d. It needs a runtime with a seated 3D lane (today, a DGX Spark with the media studio installed), so the feature appears only when discovery says so.
+1. Gate. Read class mesh (shown as Meterless 3D) from GET /v1/meterless/classes, or from the meterless block on GET /v1/models. ready → enable the action. admittable or declared → "Seat a 3D lane in the runtime first": 3D never loads a lane on demand. unavailable → hide it and show its why. 3D never leaves the machine under any mode.
+2. Modes. Offer three, labelled from the mesh recipes in GET /v1/meterless/modes: meterless/3d.fast (seconds, draft, compact), meterless/3d (finished, about 1 to 3 minutes) and meterless/3d.deep (Hunyuan3D 2.1 on its finest grid, painted from eight views, film finish, about 5 minutes). meterless/3d is an alias of meterless/mesh.
+3. Submit POST /v1/meterless/3d with the bearer header and {image: <PNG, JPEG or WebP as base64 or a data URL, up to 12 MB>, mode, name: <the object, it becomes the glTF node name>, seed?}. It answers 202 {id, status: "running", mode, lane, controls}.
+4. Poll GET /v1/meterless/3d/{id} every 3 to 5 s until status is completed or failed. Show level (shape, finished, painted or print) and, when level_defaulted is true, level_reason. With no mesh_level sent, the runtime delivers its best: painted when a Paint lane is seated, otherwise finished. A job that was meant to paint and couldn't completes as finished with paint.error: say "finished, not painted" and why.
+5. Fetch model.glb and preview.png from GET /v1/meterless/3d/{id}/… with the bearer header into Blobs (a plain URL in a loader or <img> gets a 401). Show the model with three.js GLTFLoader or <model-viewer> through URL.createObjectURL.
+6. Heat. The runtime paces the GPU on a hot box: a painted make can take 1.5 to 2 times longer, never fail for it. Allow at least 15 minutes before giving up, and show any pauses the job's metadata reports.
+7. Errors show the server's message and fix[]: class_not_ready names the lane to seat, body_too_large is the 12 MB cap, input_unreadable is a bad image, and job_not_found means the job was held in memory and is gone (a runtime restart, or one of the oldest of the 64 jobs it keeps), so offer one resubmit.
+You are done when a photo becomes a model you can orbit in the app, and a runtime with no 3D lane shows "seat a 3D lane" instead of an error.
+ HARDEN Cursor · Claude Code · Copilot Gate every change in CI
+ The repo checks, conformance suites and evals on every pull request.
+ Set up CI for this codebase's Meterless integration. Read scripts/README.md at https://github.com/Meterless/Meterless.
+On every pull request, run the conformance suite for each engine we implement and npm run evals for Scout Intent. Fail the build on any regression. If we fork the Meterless repo, also run:
+node scripts/check-links.mjs && node scripts/check-conventions.mjs && node scripts/run-examples.mjs
+Write the workflow file and show a passing run.
+ POWER Cursor · Claude Code · Copilot Paint any 3D model with PBR
+ A .glb plus a reference picture comes back with real materials on every side, or a refusal, never a bare mesh.
+ Add "paint this model" to this codebase with Meterless Texture (meterless/texture; aliases meterless/paint and meterless/pbr). The runtime renders the object's albedo and metal-roughness from six to nine cameras with Hunyuan3D-Paint 2.1 and bakes them into a UV texture, so the sides the picture never showed are painted by the model, not smeared.
+- Gate on class texture in GET /v1/meterless/classes. texture is ready only when a lane is seated on Hunyuan3D-Paint; without one, hide the action and show the reason.
+- Submit POST /v1/meterless/3d {image: <the reference picture>, mesh: <the .glb as base64 or a data URL, up to 48 MB>, mode, name}. mode is meterless/texture.fast (six views, 1K maps, web delivery), meterless/texture (six views, 2K maps, one LOD) or meterless/texture.deep (nine views, 4K maps, film finish). mesh_controls.views (6 to 9) and texture_size override the recipe.
+- Poll GET /v1/meterless/3d/{id}, then fetch model.glb, or finished.glb when the status carries finished_model_url, with the bearer header.
+- Check what came back before you show it: load the GLB and confirm its material has a baseColorTexture and a metallicRoughnessTexture. A painting mode never returns an unpainted model by design, so a model without them is a bug to surface, not something to display.
+- Errors show the server's message and fix[]: paint_unavailable (the lane isn't on Hunyuan3D-Paint), reference_required (no picture, and the model has no source still), mesh_unreadable (not a .glb), class_not_ready (seat the lane fix[] names).
+- Licence: Hunyuan3D 2.1 and Hunyuan3D-Paint 2.1 are under the Tencent Hunyuan 3D 2.1 Community License, which does not apply in the EU, the UK or South Korea. Add a setting that hides texture and meterless/3d.deep for users there.
+Show one model before and after, side by side, with the material's texture slots listed. You are done when a grey .glb comes back painted on every side.
+ POWER Cursor · Claude Code · Copilot From a sentence to a 3D model
+ Make a still on a job, then lift it, because every Meterless 3D model starts from one picture.
+ Add "describe it, get a 3D model" to this codebase with Meterless Runtime. Every Meterless 3D model is lifted from one picture, so this is two makes: a still, then a lift.
+1. Gate on two classes from GET /v1/meterless/classes: image (made on the jobs plane) and mesh (made on POST /v1/meterless/3d). If either is off, say which one and show its reason.
+One make, if the runtime has it: when GET /v1/meterless/transforms lists attempt.mesh.model (runtime 1.4.1 and later), materialize that on the source job's attempt instead of steps 2 and 3. It chains still → lift → paint in one make, takes media_controls.mesh_level and media_controls.print, and its files land in the attempt's artifacts. Otherwise:
+2. Still. Pick the image transform from GET /v1/meterless/transforms (prefer attempt.image.still). POST /v1/jobs {kind: "best_of_n", app, mode: "meterless/text", n: 1, window: "now", privacy: <the user's floor, never widened>, media_autopilot: {mode: "off"}, messages}. Poll GET /v1/jobs/{id} until generated > 0, read winner_seq and GET /v1/jobs/{id}/attempts/{seq} (there is no attempts list route; never assume seq 1), then POST /v1/jobs/{id}/materialize {seq, transform, n: 1, window: "now", media_controls: {text: "<the object>, a single object, centred and whole in frame, plain light background, soft even studio light, three-quarter view, no text"}}. Wait on GET /v1/jobs/{id}/makes until that make is done, then fetch the image from GET /v1/jobs/{id}/attempts/{seq}/artifacts with the bearer header.
+3. Lift. POST /v1/meterless/3d {image: <that still>, mode: <the user's pick, default meterless/3d>, name: <the object>}. Poll GET /v1/meterless/3d/{id} and fetch model.glb and preview.png.
+4. Show the still and the model side by side, with "New still" and "Lift again" as separate actions: a weak still is cheaper to redo than a lift, and it is usually why a model looks wrong.
+5. Save the job id, make id and 3D job id per item before polling, so a reload reconnects instead of making either again.
+Don't ask chat for the model: the chat route refuses mesh with class_carrier_unsupported and a fix[] naming /v1/meterless/3d, and a "make me a 3D chair" message on meterless/auto is answered in text unless the request declares it can render one (meterless-accept: mesh).
+You are done when "a green glass desk lamp" becomes a model you can orbit, with the still it came from beside it.
+ POWER Cursor · Claude Code · Copilot Ship game, web or film-ready 3D
+ One finish profile, and the runtime hands back an asset your engine or browser loads as-is.
+ Add export presets to this codebase's Meterless 3D integration. The runtime finishes every 3D make itself, so choose the finish instead of post-processing the GLB.
+Send mesh_controls.finish on POST /v1/meterless/3d (media_controls.mesh.finish on the jobs materialize route). It is true (the auto profile), a profile name, or an object:
+- game: protected smoothing, 20k faces, 1K maps, 2 LODs, web delivery (game props)
+- web: 30k faces, 2K maps, 1 LOD, web delivery (browsers, AR, shop pages)
+- film: faces as made, 4K maps, no LODs (hero assets, archviz)
+- auto: faces as made, 2K baked colour and normal maps
+- print: dense geometry, no flattening, no maps (see the print prompt)
+Object keys override a profile: name, flat (auto, on, off), smooth, faces (500 to 2,000,000, or false), bake, normal_map, texture_size (512 to 4096), materials ("auto", or up to six names such as ["green glass", "brass"]), lod (0 to 3), delivery (none or web) and budget_s (5 to 1800). An unknown key or a bad value is refused by name (finish_unsupported): show it, don't strip it silently.
+Then make sure our side reads what comes back:
+- LODs are chained with MSFT_lod outside the default scene, named <name>, <name>_LOD1, and so on. A viewer without MSFT_lod draws only the full model. Wire them into our LOD system if we have one.
+- delivery web uses KHR_mesh_quantization and JPEG colour maps, which three.js and Babylon read natively. Check that our loader accepts both.
+- materials splits colour regions into glTF PBR materials; metals take a metal preset, glass uses KHR_materials_transmission. A split that isn't distinct keeps one material (regions_not_distinct is recorded, not an error).
+- A flat thing (a map, a poster, a sign, a rug) comes back as a 12-triangle card carrying the picture itself. That is the correct result, not a failed lift.
+Add a preset picker (Game, Web, Film, Custom). After each make, read the GLB and show triangle count, file size, texture sizes, LOD count and material names. You are done when one photo exported as Game and as Film shows each profile's face and texture budget.
+ POWER Cursor · Claude Code · Copilot Print what you made
+ Ask for a print finish and get 3MF, STL and a printability report, with a watertight check.
+ Add "send to printer" to this codebase's Meterless 3D integration.
+- Ask for a print on the lift: POST /v1/meterless/3d with mesh_level: "print" and print: {size_mm: <the longest side in millimetres, 5 to 2000>, printer: "fdm" or "resin"}. Validate both before sending. The print finish keeps the geometry dense, does no flattening and bakes no maps.
+- When the job completes, its status lists exports: [{format, url}] for the 3MF, the STL and print.json, served at GET /v1/meterless/3d/{id}/model.3mf, model.stl and print.json. Fetch each with the bearer header.
+- Every finished GLB carries a geometry check at asset.extras.meterless.geometry_check: verdict, watertight and issues. Read it from the GLB's JSON chunk and show it before the user prints. A model that isn't watertight gets a clear warning with its issues listed. The check also reports physical.size_for_walls_mm: if the size asked for is below it, warn that thin walls may not print.
+- Show print.json as a short printability report next to the downloads.
+- Name the downloads after the object, and remember the user's size and printer.
+You are done when a photo of a small object downloads as a 3MF sized to the millimetres asked for, with its watertight verdict on screen.
+ POWER Cursor · Claude Code · Copilot Always get this machine’s best 3D
+ Read what is seated, default to the most finished model the box can make, and say what it delivered.
+ Make this codebase's Meterless 3D feature adapt to whatever 3D the runtime can do right now, instead of hard-coding one path.
+- Read GET /v1/meterless/modes (mesh and texture: recipes, dispositions, aliases) and GET /v1/meterless/classes (live lane state). Cache them for 60 s, and refresh after any 3D refusal.
+- Build the menu from what is there. texture ready means a Hunyuan3D-Paint lane is seated, and that lane serves mesh too: offer painted models, meterless/3d.deep and Paint. mesh ready without texture: offer meterless/3d.fast and meterless/3d (finished), and hide meterless/3d.deep and Paint. Neither: hide 3D and show the reason. Label each option from its recipe, not from a constant.
+- Default to the runtime's best: send meterless/3d with no mesh_level. The runtime returns painted when it can, otherwise finished, and says so in level, level_defaulted and level_reason. Show them. Send mesh_level only when the user asks for something specific: shape (the raw lift), finished, painted or print. An explicit painted with no Paint lane is refused with mesh_level_unavailable (503 on the 3D route, 409 on the jobs path) and a fix[] under error.meterless.fix: show it, don't quietly retry as finished.
+- No silent downgrade on our side either: if the user picked painted and got finished with a paint.error, the UI says so.
+- Licence: Hunyuan3D 2.1 and Hunyuan3D-Paint 2.1 (Tencent Hunyuan 3D 2.1 Community License) don't apply in the EU, the UK or South Korea; TripoSR and TripoSG are MIT. Add a region setting that hides meterless/3d.deep and texture there.
+- Never offer fusion for 3D (it is refused as fusion_single_core) and never offer a cloud route: 3D never leaves the machine.
+Write unit tests for the menu builder against three mocked states: a Paint lane seated, a shape lane only, and no 3D lane. You are done when each state shows the right menu and default, and the UI reports the level the runtime actually delivered.
+ POWER Cursor · Claude Code · Copilot Build the whole provider from one spec
+ Paste the v5 provider spec under this prompt, and your agent builds every level with tests.
+ Implement Meterless Runtime (Nightshift) as a complete provider in this codebase, from the specification pasted below this prompt (METERLESS_RUNTIME_AS_PROVIDER_PRD_V5.md). The spec is the contract. Where this codebase disagrees with it, the spec wins.
+- Follow the spec's build plan in order: text, discovery, attachments and answer shapes, media jobs, transcription, 3D, then Quick Connect. Finish each stage with its tests passing before you start the next.
+- Build the mock runtime the spec describes first, so every test runs without a real runtime. Then run the live checks against a real runtime if one answers at http://127.0.0.1:8088.
+- Read modes from discovery and keep unknown meterless/* ids. Send the real bearer token and meterless-app on every call. Never call a route discovery doesn't show, never widen the user's privacy floor, and never present a refusal as a hardware limit or an unpainted model as painted.
+When you finish, give me the spec's acceptance checklist with pass or fail on every line and the file that satisfies each one.
+[Paste METERLESS_RUNTIME_AS_PROVIDER_PRD_V5.md here]
+ JOIN THE REVOLUTION
+ Build apps on Meterless. 
+ The engines are open source and Nightshift runs the work. Ship an app on top, and build it live with us at the hackathons we host through GenAI.Works.
+ UPCOMING Starts in — 
+ Build an agent that does real work.
+ Dates Oct 15 to 20, 2026 
+ Format Fully online · 144 hours 
+ Teams 1 to 5 builders 
+ Prize pool Up to $20,000 
+ Registration closes Oct 13, 00:00 UTC. More info to come.
+ Register on GenAI.Works ↗ 
+ PREVIOUS 5,000+ participants 
+ World Wide Vibes Hackathon 2026
+ Apps for the City of Montgomery, built on official city datasets with BrightData tooling. Teams around the world, one week of shipping.
+ See the track record ↗ 9 global hackathons
+ 30,000+ builders
+ 46 partner organisations
+ SHOW INTEREST Count me in.
+ Tell us what you would build. We will send hackathon news, early access to Nightshift app tooling, and team invites.
+ Email What would you build on Meterless? I am interested in Open Agent Hackathon, Oct 15 to 20 Future hackathons Building apps on Meterless Count me in → Goes straight to the Meterless team. No marketing sequences. 
+ Thanks, you’re in. We will be in touch before Oct 15.
+ THE TECHNOLOGY UNDERNEATH
+ Models come and go. Your work stays yours. 
+ Memory, context, workflow state, and artifacts are lasting assets. Meterless engines help keep them portable as the models change.
+ 01 · COGNITION Markovian ↗ 
+ Long-running tasks without runaway context growth. Conversations that don’t reset between sessions.
+ Explore the source 02 · MEMORY H-MEM ↗ 
+ Memory that survives between sessions: working, episodic, and semantic tiers as grep-able files on disk.
+ Explore the source 03 · CONTINUITY World models ↗ 
+ Agents that share the same state, so parallel work stays consistent instead of drifting apart.
+ Explore the source 04 · INTUITION Scout ↗ 
+ Less prompting, better tool selection. Classifies what you’re doing and routes tools accordingly.
+ Explore the source 
+ Meterless LOCAL-FIRST AI. WORK THAT STAYS YOURS. © 2026 METERLESS.
+ DGX Spark Mac Windows Benchmarks Models GitHub ↗ 
+ ATTEMPT / 001 ONE POSSIBLE ANSWER 
+ ← 
+ → ▶ PLAY STORY Ⅱ 
+ × NIGHTSHIFT · LOCAL EDITIONS
+ Nightshift for DGX.
+ The download link isn’t live yet. Come back here when the release is available. In the meantime, see how a night unfolds.
+ COPY RUN IN A TERMINAL ON YOUR DGX SPARK curl -fsSL https://meterless.ai/Nightshift/DGX/install.sh | sh 
+ Works the same over SSH. Prefer a file? Download the setup AppImage (arm64) and check it against the SHA-256 sums .
+ Try the free web edition ↗ Ask about availability ↗ Explore the field Interactive demonstration Look closer at the night.
+ ALL A night in motion 
+ Full screen × 
+ Perspective Overhead Front 
+ − + Pause 
+ ← ALL STEPS A night in motion 180 attempts · 3 clusters 
+ → Sample events · Same field renderer as Nightshift Drag or ← → to rotate · ↑ ↓ change step · F full screen 
+ Generated work 
+ × 
+ Download original ↓ 
