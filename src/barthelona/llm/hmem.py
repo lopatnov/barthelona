@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from barthelona.llm.guard import inspect, wrap_untrusted
+
 Layer = Literal["short_term", "working", "long_term"]
 
 TOP_N = 5
@@ -127,6 +129,9 @@ class HMem:
         now = self._clock()
         written = 0
         for fact in facts:
+            if inspect(fact).blocked:  # model output may echo injected text; it never becomes a memory
+                self._log("reject", 0, source)
+                continue
             row = self._db.execute("SELECT id FROM memories WHERE content = ?", (fact,)).fetchone()
             if row:
                 self._db.execute(
@@ -204,4 +209,5 @@ def _format(memories: tuple[Memory, ...]) -> str:
     lines = [
         f"- {memory.content} (source: {memory.source}, relevance {memory.score:.2f})" for memory in memories
     ]
-    return "[MEMORY CONTEXT]\nWhat earlier runs learned. Use it, do not re-decide it:\n" + "\n".join(lines)
+    body = "What earlier runs learned. Use it, do not re-decide it:\n" + "\n".join(lines)
+    return "[MEMORY CONTEXT]\n" + wrap_untrusted(body, "h-mem")
