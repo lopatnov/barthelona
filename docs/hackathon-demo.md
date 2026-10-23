@@ -39,7 +39,7 @@ the program twice and NASM rejected it (`label msg inconsistently redefined`); `
 
 ## Tests that can fail (Meterless prompt "Prove each test can fail")
 
-One deliberate break each, run on 2026-10-23, then reverted with `git checkout`. Every break made pytest fail:
+One deliberate break each, run on 2026-10-23, then reverted with `git checkout`. Every break made pytest fail (no break was missed):
 
 | Break | Caught by |
 | --- | --- |
@@ -48,8 +48,9 @@ One deliberate break each, run on 2026-10-23, then reverted with `git checkout`.
 | `extract_code` keeps a repeated program | `test_extract_code_drops_a_block_that_repeats_the_program_without_its_comments` |
 | H-MEM written although the oracle rejected the run | `test_assemble_failure_exits_non_zero_and_keeps_the_memory_clean` |
 | `%include` guard switched off | `test_directives_that_read_host_files_are_refused_without_running_nasm` |
-
-Not yet covered by a deliberate break: Markovian carryover drop, H-MEM skipped write, guard rules (earlier PRs); tracked in the next pass.
+| Markovian carryover dropped (state block ignored) | `test_chunks_run_until_the_model_completes` |
+| H-MEM write skipped (rolled back) | `test_memory_refuses_to_store_a_blocked_fact_and_ledgers_the_rejection` |
+| Injection rule weakened (`ignore/disregard` no longer matches) | `test_known_injections_are_blocked_with_evidence` (the `disregard` case) |
 
 ## Reproduce
 
