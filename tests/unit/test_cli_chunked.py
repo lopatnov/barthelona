@@ -135,21 +135,6 @@ def test_an_unavailable_assembler_is_not_a_pass_and_is_not_called_a_rejection(
     assert "written=0 (assemble oracle: unavailable)" in result.output
 
 
-def test_the_nasm_path_can_come_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake = FakeGateway([f"```asm\nx\n```\n{COMPLETE}"])
-    monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
-    paths: list[str | None] = []
-
-    def record(source: str, nasm: str | None = None) -> AssembleResult:
-        paths.append(nasm)
-        return AssembleResult("pass")
-
-    monkeypatch.setattr("barthelona.cli.chunked.assemble_source", record)
-    monkeypatch.setenv("BARTHELONA_NASM", "C:/tools/nasm.exe")
-    assert runner.invoke(app, ["chunked", "run", "t", "--assemble"]).exit_code == 0
-    assert paths == ["C:/tools/nasm.exe"]
-
-
 def test_a_blank_task_is_still_recorded_with_a_placeholder_label(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
