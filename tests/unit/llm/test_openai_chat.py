@@ -89,6 +89,15 @@ async def test_streamed_reply_is_assembled_with_usage() -> None:
     assert "response_format" not in seen[0]
 
 
+async def test_the_model_the_server_reports_is_kept_as_answered_by() -> None:
+    def routed(request: httpx.Request) -> httpx.Response:
+        events = [{**_chunk("hi", "stop"), "model": "nvidia/nemotron-3-5-lightning-3"}]
+        return httpx.Response(200, content=_sse(*events), headers={"content-type": "text/event-stream"})
+
+    reply = await _backend(httpx.MockTransport(routed)).complete(_target(), _request())
+    assert reply.answered_by == "nvidia/nemotron-3-5-lightning-3"
+
+
 async def test_schema_becomes_a_strict_json_schema_response_format() -> None:
     seen: list[dict[str, object]] = []
     schema = {"type": "object", "properties": {"a": {"type": "integer"}}}

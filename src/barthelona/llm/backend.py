@@ -24,6 +24,7 @@ class RawReply:
     stop_reason: str
     latency_ms: int
     tokens_cached: int = 0
+    answered_by: str = ""  # the model id the server says answered (a router may differ from the requested id)
 
 
 class Backend(Protocol):
@@ -63,4 +64,10 @@ def build_completion(
         stop_reason=reply.stop_reason,
     )
     text = strip_think(reply.text) if target.model.strip_think else reply.text.strip()
-    return Completion(text=text, record=record, served_by=target.key, fallbacks=fallbacks)
+    return Completion(
+        text=text,
+        record=record,
+        served_by=target.key,
+        fallbacks=fallbacks,
+        answered_by=reply.answered_by,
+    )
