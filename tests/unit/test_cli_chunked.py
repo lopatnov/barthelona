@@ -101,7 +101,7 @@ def test_assemble_failure_exits_non_zero_and_keeps_the_memory_clean(
     memory = tmp_path / "mem.sqlite"
     result = runner.invoke(app, ["chunked", "run", "t", "--assemble", "--memory", str(memory)])
     assert result.exit_code == 1
-    assert "written=0 (the assemble oracle rejected" in result.output
+    assert "written=0 (assemble oracle: fail)" in result.output
     assert "assemble: fail" in result.output
 
 
@@ -124,11 +124,30 @@ def test_repair_feeds_nasm_errors_back_and_green_needs_the_second_attempt_to_ass
     log.close()
 
 
-def test_an_unavailable_assembler_is_not_a_pass(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_an_unavailable_assembler_is_not_a_pass_and_is_not_called_a_rejection(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     fake = FakeGateway([f"```asm\nx\n```\n{COMPLETE}"])
     monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
     _stub_assemble(monkeypatch, AssembleResult("unavailable", ("nasm was not found",)))
-    assert runner.invoke(app, ["chunked", "run", "t", "--assemble"]).exit_code == 1
+    result = runner.invoke(app, ["chunked", "run", "t", "--assemble", "--memory", str(tmp_path / "m.sqlite")])
+    assert result.exit_code == 1
+    assert "written=0 (assemble oracle: unavailable)" in result.output
+
+
+def test_the_nasm_path_can_come_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeGateway([f"```asm\nx\n```\n{COMPLETE}"])
+    monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
+    paths: list[str | None] = []
+
+    def record(source: str, nasm: str | None = None) -> AssembleResult:
+        paths.append(nasm)
+        return AssembleResult("pass")
+
+    monkeypatch.setattr("barthelona.cli.chunked.assemble_source", record)
+    monkeypatch.setenv("BARTHELONA_NASM", "C:/tools/nasm.exe")
+    assert runner.invoke(app, ["chunked", "run", "t", "--assemble"]).exit_code == 0
+    assert paths == ["C:/tools/nasm.exe"]
 
 
 def test_a_blank_task_is_still_recorded_with_a_placeholder_label(
