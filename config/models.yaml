@@ -221,6 +221,8 @@ models:
     price_class: mid
     context: 32768                 # conservative; the routed model decides the real window
     strip_think: true              # Nemotron reasoning models may emit <think> blocks
+    extra_body:                    # Nemotron 3.5: thinking off (measured 5 s vs 12 s, content never starved)
+      chat_template_kwargs: {enable_thinking: false}
   embed_local:
     provider: lmstudio
     model: text-embedding-nomic-embed-text-v1.5   # needs search_document:/search_query: prefixes

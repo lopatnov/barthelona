@@ -62,6 +62,8 @@ class OpenAIChatBackend:
             "stream": True,
             "stream_options": {"include_usage": True},
         }
+        if target.model.extra_body:
+            arguments["extra_body"] = target.model.extra_body
         if request.temperature is not None and target.provider.local:
             arguments["temperature"] = request.temperature  # sampling parameters reach local models only
         if request.seed is not None and target.provider.local:

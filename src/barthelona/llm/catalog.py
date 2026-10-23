@@ -54,6 +54,7 @@ class ModelConfig(_Entry):
     context: int | None = Field(default=None, ge=1)  # embedding models have none
     enabled: bool = True
     strip_think: bool = False
+    extra_body: dict[str, Any] = Field(default_factory=dict)  # fixed request fields, never secrets
 
 
 class ChainEntry(_Entry):

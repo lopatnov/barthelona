@@ -149,6 +149,15 @@ async def test_sampling_parameters_never_reach_a_non_local_gateway() -> None:
     assert "seed" not in seen[0]
 
 
+async def test_model_extra_body_reaches_the_request() -> None:
+    target = _gateway_target()
+    thinking_off = {"chat_template_kwargs": {"enable_thinking": False}}
+    target = target.model_copy(update={"model": target.model.model_copy(update={"extra_body": thinking_off})})
+    seen: list[dict[str, object]] = []
+    await _backend(_ok(seen)).complete(target, _request())
+    assert seen[0]["chat_template_kwargs"] == {"enable_thinking": False}  # SDK merges extra_body in
+
+
 def test_provider_headers_are_sent_with_every_request() -> None:
     client = OpenAIChatBackend(env={"METERLESS_RUNTIME_TOKEN": "t"})._default_client(_gateway_target())
     assert client.default_headers["meterless-app"] == "barthelona"
