@@ -31,6 +31,11 @@ routing class is decided by the lanes in Nightshift; the run prints `served_by` 
 review. Use at least two different model families in the lanes to show it.
 
 Compounding check: run the same task twice with the same `--memory` file and compare `chunks=` in the two summaries.
+A shorter second run only counts if the output is valid, so add `--assemble`: the code is assembled with NASM
+(`nasm -f elf64`, never linked or run) and the run is green only if it assembles. `--repair N` gives the model NASM's
+errors back for up to N more attempts. Memory is written only for runs that assemble; a rejected output teaches
+nothing. First live data (2026-10-23, hello world): run 1 took 9 chunks, run 2 took 1 chunk, but run 2's file contained
+the program twice and NASM rejected it (`label msg inconsistently redefined`); `extract_code` now drops a repeated block.
 
 ## Reproduce
 
@@ -44,6 +49,8 @@ Compounding check: run the same task twice with the same `--memory` file and com
    `python -m barthelona chunked run @task.txt --profile meterless --out result.txt`
    It prints one row per chunk (tokens in and out, latency, serving model, marker, carryover source) and a summary
    with `peak_prompt` (stays flat), `standard_cost`, `markovian_cost` and `efficiency`.
+   For the memory proof use `--assemble --repair 2 --memory var/hmem.sqlite --stats var/runs.sqlite`, run it twice,
+   then `python -m barthelona chunked stats`.
 5. In Nightshift's run details, confirm the Nemotron lane served the chunks.
 
 ## Honest limits

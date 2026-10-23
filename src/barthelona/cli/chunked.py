@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated
 
@@ -24,8 +25,10 @@ from barthelona.llm import (
     load_catalog,
     run_markovian,
 )
+from barthelona.llm.guard import wrap_untrusted
 from barthelona.llm.hmem import HMem, facts_from_state
 from barthelona.llm.runlog import RunLog
+from barthelona.verification.asm_gate import AssembleResult, assemble_source
 
 chunked_app = typer.Typer(
     help="Long tasks as bounded chunks with flat context (Markovian).", no_args_is_help=True
@@ -83,7 +86,12 @@ def _side_call(gateway: Gateway, role: str | None, label: str, instruction: str,
     return done.text.strip()
 
 
-def _remember(store: HMem, result: MarkovianResult, recalled: int, domain: str) -> None:
+def _remember(store: HMem, result: MarkovianResult, recalled: int, domain: str, accepted: bool) -> None:
+    """Keep what the run learned, unless the oracle rejected its output (then nothing is worth keeping)."""
+    if not accepted:
+        _err.print(f"memory: recalled={recalled} written=0 (the assemble oracle rejected the output)")
+        store.close()
+        return
     facts = [fact for chunk in result.chunks for fact in facts_from_state(chunk.state)]
     written = store.ingest(facts, source=f"markovian:run-{int(time.time())}", domain=domain)
     _err.print(f"memory: recalled={recalled} written={written} stored={store.count()}")
@@ -121,6 +129,17 @@ def run(
         ),
     ] = None,
     domain: Annotated[str, typer.Option(help="H-MEM domain used to rank and tag memories.")] = "assembly",
+    assemble: Annotated[
+        bool,
+        typer.Option(
+            "--assemble",
+            help="Assemble the code with NASM; the run is green only if it assembles (implies --code).",
+        ),
+    ] = False,
+    repair: Annotated[
+        int, typer.Option(min=0, max=3, help="With --assemble: extra attempts that get NASM's errors back.")
+    ] = 0,
+    nasm: Annotated[str | None, typer.Option(help="Path to the nasm binary (default: nasm on PATH).")] = None,
     stats: Annotated[
         Path | None, typer.Option(help="Run statistics database (SQLite), e.g. var/runs.sqlite.")
     ] = None,
@@ -145,17 +164,25 @@ def run(
         raise typer.BadParameter(str(exc)) from exc
     if task.startswith("@"):
         task = Path(task[1:]).read_text(encoding="utf-8")
+    code = code or assemble
     gateway = Gateway(catalog, {"openai_chat": OpenAIChatBackend()}, profile=profile)
     store = HMem(memory) if memory is not None else None
     recall = store.query(task, domain=domain) if store else None
+    recalled = len(recall.memories) if recall else 0
+    memory_context = recall.context if recall else ""
     plan = _side_call(gateway, plan_role, "plan", _PLAN, task)
     chunk_task = f"{task}\n\nPlan from the planner (follow it):\n{plan}" if plan else task
-    result = asyncio.run(run_markovian(gateway, role, chunk_task, config, recall.context if recall else ""))
-    recalled = len(recall.memories) if recall else 0
-    _record_stats(stats, result, task, profile, recalled)
+
+    def attempt(task_text: str, number: int) -> tuple[MarkovianResult, str]:
+        result = asyncio.run(run_markovian(gateway, role, task_text, config, memory_context))
+        _record_stats(stats, result, task, profile, recalled, number)
+        _report(result)
+        return result, _answer_text(result, code, out)
+
+    result, text, gate = _until_it_assembles(attempt, chunk_task, nasm if assemble else NO_ORACLE, repair)
+    accepted = gate is None or gate.status == "pass"
     if store:
-        _remember(store, result, recalled, domain)
-    text = _answer_text(result, code, out)
+        _remember(store, result, recalled, domain, accepted)
     review = _side_call(gateway, review_role, "review", _REVIEW, f"Task:\n{task}\n\nOutput:\n{text}")
     if review:
         _err.print(f"review (advisory, the oracle decides):\n{review}", markup=False)
@@ -163,9 +190,45 @@ def run(
         out.write_text(text + "\n", encoding="utf-8", newline="\n")
     else:
         _out.print(text, markup=False)
-    _report(result)
-    if result.stop_reason.value != "green":
+    if gate is not None:
+        _err.print(
+            f"assemble: {gate.status}" + ("" if accepted else f" ({'; '.join(gate.errors)})"), markup=False
+        )
+    if result.stop_reason.value != "green" or not accepted:
         raise typer.Exit(1)
+
+
+NO_ORACLE = ""  # the sentinel for "do not assemble"; a real binary name is never empty
+
+Attempt = Callable[[str, int], tuple[MarkovianResult, str]]
+
+
+def _until_it_assembles(
+    attempt: Attempt, task: str, nasm: str | None, repair: int
+) -> tuple[MarkovianResult, str, AssembleResult | None]:
+    """The first attempt plus up to *repair* retries that get NASM's errors; no gate when NASM is off."""
+    result, text = attempt(task, 0)
+    if nasm == NO_ORACLE:
+        return result, text, None
+    gate = assemble_source(text, nasm)
+    for number in range(1, repair + 1):
+        if gate.status != "fail":
+            break
+        _err.print(
+            f"assemble: failed, repair attempt {number}/{repair}: {'; '.join(gate.errors)}", markup=False
+        )
+        result, text = attempt(_repair_task(task, text, gate), number)
+        gate = assemble_source(text, nasm)
+    return result, text, gate
+
+
+def _repair_task(task: str, source: str, gate: AssembleResult) -> str:
+    errors = wrap_untrusted("\n".join(gate.errors), "nasm")
+    return (
+        f"{task}\n\nYour previous attempt did not assemble. NASM reported:\n{errors}\n\n"
+        f"Previous source:\n```asm\n{source}\n```\n"
+        "Write the complete corrected program exactly once, in a single fenced block."
+    )
 
 
 def _report(result: MarkovianResult) -> None:
@@ -183,13 +246,14 @@ def _report(result: MarkovianResult) -> None:
 
 
 def _record_stats(
-    stats: Path | None, result: MarkovianResult, task: str, profile: str, recalled: int
+    stats: Path | None, result: MarkovianResult, task: str, profile: str, recalled: int, attempt: int = 0
 ) -> None:
     if stats is None:
         return
     log = RunLog(stats)
     label = next((line for line in task.splitlines() if line.strip()), "(empty task)")
-    run_id = log.record(result, label=label.strip(), profile=profile, recalled=recalled)
+    suffix = f" [repair {attempt}]" if attempt else ""
+    run_id = log.record(result, label=label.strip() + suffix, profile=profile, recalled=recalled)
     log.close()
     _err.print(f"stats: run {run_id} saved to {stats}")
 
