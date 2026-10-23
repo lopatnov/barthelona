@@ -23,18 +23,67 @@ _NO_KEY = "not-needed"  # LM Studio and Ollama ignore the key but the SDK insist
 _MAX_DETAIL_CHARS = 300
 
 
-def _describe(exc: openai.OpenAIError) -> str:
-    """The error with whatever the server said: status, code, type and a bounded body (never request data)."""
-    text = f"{type(exc).__name__}: {exc}"
+def _meterless_block(exc: openai.OpenAIError) -> dict[str, Any]:
+    """The runtime's ``meterless`` block (fix[], class, chat_carrier, routes) beside ``error`` in the body."""
+    response = getattr(exc, "response", None)
+    try:
+        block = response.json().get("meterless") if response is not None else None
+    except (ValueError, AttributeError):
+        return {}
+    return block if isinstance(block, dict) else {}
+
+
+def _own_hint(exc: openai.OpenAIError, base_url: str | None) -> str:
+    """Our hint, used only when the server sent no fix and the route did not refuse the class."""
+    if isinstance(exc, openai.APIConnectionError):
+        return (
+            f"the runtime isn't reachable at {base_url or 'its base URL'}: start Nightshift and check the URL"
+        )
+    status = getattr(exc, "status_code", None)
+    if status == 429 and getattr(exc, "code", None) == "auth_rate_limited":
+        return "repeated bad keys: fix METERLESS_RUNTIME_TOKEN, do not retry"
+    if status in (401, 403):
+        return "paste the runtime's access token from the Nightshift Console into METERLESS_RUNTIME_TOKEN"
+    return ""
+
+
+def _is_carrier_refusal(exc: openai.OpenAIError, block: dict[str, Any]) -> bool:
+    return getattr(exc, "code", None) == "class_carrier_unsupported" or block.get("chat_carrier") is False
+
+
+def _describe(exc: openai.OpenAIError, base_url: str | None = None) -> str:
+    """The server's message first, its fix[] next; our hint only without a fix or a carrier refusal."""
+    block = _meterless_block(exc)
+    body = getattr(exc, "body", None)
+    message = body.get("message") if isinstance(body, dict) else None
+    parts = [f"{type(exc).__name__}: {message or exc}"]
+    fixes = [str(item) for item in block.get("fix") or []]
+    if fixes:
+        parts.append("fix: " + "; ".join(fixes))
+    elif _is_carrier_refusal(exc, block):
+        parts.append("this route cannot carry the class; that says nothing about this machine")
+    elif hint := _own_hint(exc, base_url):
+        parts.append(hint)
     extras = [
         f"{name}={value}"
         for name in ("status_code", "code", "type")
         if (value := getattr(exc, name, None)) is not None
     ]
-    body = getattr(exc, "body", None)
-    if body:
+    if body and not message:
         extras.append(f"body={str(body)[:_MAX_DETAIL_CHARS]}")
-    return f"{text} ({', '.join(extras)})" if extras else text
+    return " | ".join(parts) + (f" ({', '.join(extras)})" if extras else "")
+
+
+def _call_error(exc: openai.OpenAIError, base_url: str | None) -> ModelCallError:
+    block = _meterless_block(exc)
+    return ModelCallError(
+        _describe(exc, base_url),
+        _kind(exc),
+        status=getattr(exc, "status_code", None),
+        code=getattr(exc, "code", None),
+        fix=tuple(str(item) for item in block.get("fix") or []),
+        chat_carrier=block.get("chat_carrier"),
+    )
 
 
 def _kind(exc: openai.OpenAIError) -> FailureKind:
@@ -122,7 +171,7 @@ class OpenAIChatBackend:
                     parts.append(choice.delta.content or "")
                     stop_reason = choice.finish_reason or stop_reason
         except openai.OpenAIError as exc:
-            raise ModelCallError(_describe(exc), _kind(exc)) from exc
+            raise _call_error(exc, target.provider.base_url) from exc
         details = getattr(usage, "prompt_tokens_details", None)
         return RawReply(
             text="".join(parts),
