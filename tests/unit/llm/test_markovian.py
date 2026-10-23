@@ -95,6 +95,17 @@ def test_extract_code_keeps_a_second_block_that_adds_new_lines() -> None:
     assert extract_code(f"```asm\n{first}\n```\n```asm\n{second}\n```") == f"{first}\n{second}"
 
 
+def test_extract_code_keeps_one_program_when_unclosed_fences_restart_it_in_every_chunk() -> None:
+    head = 'section .data\n    msg db "Hello", 10\nsection .text\n    global _start\n_start:\n    mov rax, 1'
+    middle = f"{head}\n    mov rdi, 1\n    syscall\n    mov rax, 60\n    xor rdi, rdi  ; exit"
+    full = f"{middle}\n    syscall"
+    text = f"```asm\n{head}\n```asm\n{middle}\n```asm\n{full}\n```\n```asm\n{full}\n```"
+    code = extract_code(text)
+    assert code.count("```") == 0
+    assert code.count("global _start") == 1
+    assert code.endswith("xor rdi, rdi  ; exit\n    syscall")
+
+
 def test_extract_code_drops_shell_commands_and_output_blocks() -> None:
     text = (
         "```asm\n_start:\n```\n```bash\nnasm -f elf64 hello.asm\n```\n"

@@ -60,23 +60,47 @@ def _normalized_lines(block: str) -> list[str]:
     return [line for line in stripped if line]
 
 
+def _split_at_fences(body: str) -> list[str]:
+    """Cut a fenced body at every line that opens another fence: the model never closed the earlier one."""
+    parts: list[list[str]] = [[]]
+    for line in body.splitlines():
+        if line.startswith("```"):
+            parts.append([])
+        else:
+            parts[-1].append(line)
+    return ["\n".join(part) for part in parts if any(line.strip() for line in part)]
+
+
+def _add_segment(kept: list[tuple[list[str], str]], segment: str) -> None:
+    """Keep *segment* unless it only repeats the program; a longer restart of a kept block replaces it."""
+    lines = _normalized_lines(segment)
+    if not lines:
+        return
+    code = segment.rstrip("\n")
+    for index, (earlier, _) in enumerate(kept):
+        if len(earlier) < len(lines) and lines[: len(earlier)] == earlier:
+            kept[index] = (lines, code)
+            return
+    seen = {line for earlier, _ in kept for line in earlier}
+    if len(lines) < _MIN_REPEAT_LINES or not seen.issuperset(lines):
+        kept.append((lines, code))
+
+
 def extract_code(text: str) -> str:
     """The source blocks of *text*, joined: fences that are not shell commands or program output.
 
     A block whose every code line already appeared in an earlier block is the model repeating the program
-    (seen live: the whole file emitted twice, the second copy without comments); it is dropped.
+    (seen live: the whole file emitted twice, the second copy without comments); it is dropped. A block that
+    restarts an earlier one and goes on replaces it, and a fence the model never closed is cut where the next
+    one opens (seen live: four growing copies of one program, each chunk restarting it).
     """
-    blocks: list[str] = []
-    seen: set[str] = set()
+    kept: list[tuple[list[str], str]] = []
     for match in _FENCE.finditer(text):
         if match.group(1).strip().lower() in _SHELL_TAGS or _runs_only_build_tools(match.group(2)):
             continue
-        lines = _normalized_lines(match.group(2))
-        if len(lines) >= _MIN_REPEAT_LINES and seen.issuperset(lines):
-            continue
-        seen.update(lines)
-        blocks.append(match.group(2).rstrip("\n"))
-    return "\n".join(blocks)
+        for segment in _split_at_fences(match.group(2)):
+            _add_segment(kept, segment)
+    return "\n".join(code for _, code in kept)
 
 
 @dataclass(frozen=True)
