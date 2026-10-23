@@ -238,3 +238,5 @@ CLAUDE.local.md
 /hello.asm.raw.txt
 /hello.o
 /body.json
+# chunked run raw model output
+demos/**/*.raw.txt

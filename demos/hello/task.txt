@@ -1,1 +1,1 @@
-Write a NASM x86-64 Linux program that prints 'Hello, Barthelona' and exits with code 0. Use sys_write and sys_exit syscalls only.
+Write a NASM program for Linux x86-64 (elf64, syscalls only, no libc) that prints "Hello, Barthelona!" followed by a newline and exits with code 0. Return one complete source file in a single code block.

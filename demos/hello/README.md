@@ -1,27 +1,20 @@
-# demos/hello
+# demos/hello: the memory proof for the hackathon
 
-Scratch folder for the smallest Barthelona demo: one NASM x86-64 Linux file that prints a greeting and exits with code 0.
-Everything Barthelona writes here (`hello.asm`, its `.raw.txt`, objects) is generated and git-ignored; only this README,
-`task.txt` and the `.gitignore` are tracked. Nothing in this folder is hand-written code.
+Generated files from `chunked run` go here, never into the repository root. `task.txt` is the only human input: a
+prompt a person could write. `hello.asm` is written by Barthelona and is committed only after a run in which NASM
+accepted it (`assemble: pass`). Run databases live in `var/` (gitignored); `*.raw.txt` files are gitignored.
 
-This is a placeholder until the engine can build a full demo repo (AGENTS.md, "Demos are Barthelona's output"). The
-other demos under `demos/` are separate repositories.
-
-## Inputs
-
-- Prompt: `task.txt` in this folder, the only human-written input (`Write a NASM x86-64 Linux program that prints 'Hello, Barthelona' and exits with code 0. Use sys_write and sys_exit syscalls only.`)
-- Profile `meterless` (Meterless Nightshift lanes, see `docs/hackathon-demo.md`); models are whatever the lanes hold.
-- Oracle: NASM assembles the output (`nasm -f elf64`, never linked or run).
-
-## Run
-
-From the repository root, in the activated terminal. `--assemble` and `--repair 2` are flags of the same command:
-put them on the same line after the task text, in any order.
+Run from the repository root in the activated terminal (PowerShell, one command, flags included):
 
 ```powershell
-python -m barthelona chunked run @demos/hello/task.txt --profile meterless --assemble --repair 2 --memory var/hmem.sqlite --stats var/runs.sqlite --plan-role planner --review-role cheap --out demos/hello/hello.asm
+python -m barthelona chunked run @demos/hello/task.txt --profile meterless --assemble --repair 2 --memory var/hmem.sqlite --stats var/runs.sqlite --out demos/hello/hello.asm
 ```
 
-NASM is found through `--nasm`, the `BARTHELONA_NASM` variable, PATH or the usual install folders. `--code` is implied by
-`--assemble`. Run it twice with the same `--memory` file to see the second run recall what the first one learned, then
-`python -m barthelona chunked stats` for the per-run and per-model tables.
+Run the same command twice, then show the statistics:
+
+```powershell
+python -m barthelona chunked stats
+```
+
+The second run counts only if it also says `assemble: pass` and uses fewer chunks than the first. NASM is found by
+itself (see `docs/hackathon-demo.md`); set `NASM_PATH` to its folder if it is not.
