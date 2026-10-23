@@ -174,8 +174,7 @@ def run(
         config = MarkovianConfig(chunk_tokens, carryover_tokens, max_chunks)
     except (CatalogError, ValueError) as exc:
         raise typer.BadParameter(str(exc)) from exc
-    if task.startswith("@"):
-        task = Path(task[1:]).read_text(encoding="utf-8")
+    task = _task_text(task)
     code = code or assemble
     gateway = Gateway(catalog, {"openai_chat": OpenAIChatBackend()}, profile=profile)
     store = HMem(memory) if memory is not None else None
@@ -241,6 +240,16 @@ def _repair_task(task: str, source: str, gate: AssembleResult) -> str:
         f"Previous source:\n```asm\n{source}\n```\n"
         "Write the complete corrected program exactly once, in a single fenced block."
     )
+
+
+def _task_text(task: str) -> str:
+    """The task itself, or the contents of the file after a leading @; a missing file is a usage error."""
+    if not task.startswith("@"):
+        return task
+    try:
+        return Path(task[1:]).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise typer.BadParameter(f"cannot read the task file {task[1:]!r}: {exc.strerror}") from exc
 
 
 def _report(result: MarkovianResult) -> None:

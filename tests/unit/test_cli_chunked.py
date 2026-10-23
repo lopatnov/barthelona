@@ -153,6 +153,13 @@ def test_stats_command_without_a_database_is_a_usage_error(tmp_path: Path) -> No
     assert result.exit_code == 2
 
 
+def test_a_missing_task_file_is_a_usage_error_not_a_traceback(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["chunked", "run", f"@{tmp_path / 'nope.txt'}"])
+    assert result.exit_code == 2
+    assert "cannot read the task file" in result.output
+    assert "Traceback" not in result.output
+
+
 def test_unknown_profile_stops_without_a_model_and_exits_non_zero() -> None:
     result = runner.invoke(app, ["chunked", "run", "task", "--profile", "does-not-exist"])
     assert result.exit_code != 0

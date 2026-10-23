@@ -1,0 +1,1 @@
+Write a NASM x86-64 Linux program that prints 'Hello, Barthelona' and exits with code 0. Use sys_write and sys_exit syscalls only.
