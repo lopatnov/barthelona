@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -29,6 +30,7 @@ from barthelona.llm.guard import wrap_untrusted
 from barthelona.llm.hmem import HMem, facts_from_state
 from barthelona.llm.markovian import source_blocks
 from barthelona.llm.runlog import RunLog
+from barthelona.llm.zetaris import ZetarisConfig, ZetarisError, facts_block, run_sql
 from barthelona.verification.asm_gate import AssembleResult, assemble_best
 
 chunked_app = typer.Typer(
@@ -108,6 +110,19 @@ def _remember(store: HMem, result: MarkovianResult, recalled: int, domain: str, 
     store.close()
 
 
+def _zetaris_facts(sql: str | None) -> str:
+    """The --facts-sql block; a missing or failing Zetaris stops the run instead of being skipped."""
+    if sql is None:
+        return ""
+    config = ZetarisConfig.from_env(os.environ)
+    if config is None:
+        raise typer.BadParameter("--facts-sql needs ZETARIS_API_KEY in the environment")
+    try:
+        return facts_block(run_sql(config, sql), sql)
+    except ZetarisError as exc:
+        raise typer.BadParameter(f"zetaris: {exc}") from exc
+
+
 def _answer_text(result: MarkovianResult, code: bool, out: Path | None) -> str:
     """The text to deliver; with --code only source blocks, and an answer without any is an error."""
     if not code:
@@ -153,6 +168,12 @@ def run(
         str | None,
         typer.Option(help="nasm binary (default: BARTHELONA_NASM, NASM_PATH, PATH, usual Windows folders)."),
     ] = None,
+    facts_sql: Annotated[
+        str | None,
+        typer.Option(
+            help="One read-only Zetaris statement; its rows go in front of chunk 1 as untrusted facts."
+        ),
+    ] = None,
     stats: Annotated[
         Path | None, typer.Option(help="Run statistics database (SQLite), e.g. var/runs.sqlite.")
     ] = None,
@@ -182,7 +203,7 @@ def run(
     store = HMem(memory) if memory is not None else None
     recall = store.query(task, domain=domain) if store else None
     recalled = len(recall.memories) if recall else 0
-    memory_context = recall.context if recall else ""
+    memory_context = "\n\n".join(filter(None, [_zetaris_facts(facts_sql), recall.context if recall else ""]))
     plan = _side_call(gateway, plan_role, "plan", _PLAN, task)
     chunk_task = f"{task}\n\nPlan from the planner (follow it):\n{plan}" if plan else task
 

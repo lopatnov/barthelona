@@ -7,7 +7,7 @@ What Barthelona uses from the hackathon stack, and how to reproduce the demo.
 | Meterless Nightshift (Power) | Primary provider for the `meterless` profile | `config/models.yaml` (`meterless` provider), `src/barthelona/llm/meterless.py` |
 | NVIDIA Nemotron (Power) | Model behind a Nightshift lane, key lives in Nightshift only | Nightshift Providers tab |
 | Markovian Engine (Build) | Long generation as bounded chunks with flat context | `src/barthelona/llm/markovian.py`, `barthelona chunked run` |
-| Zetaris (Data) | Planned: structured knowledge store next to Qdrant | not built yet |
+| Zetaris (Data) | Optional structured knowledge store next to Qdrant: read-only SQL, rows enter chunk 1 as untrusted facts | `src/barthelona/llm/zetaris.py`, `barthelona zetaris`, `chunked run --facts-sql` |
 
 The Markovian code is a Python port of the Apache-2.0 spec at github.com/Meterless/Meterless/tree/main/engines/markovian
 (ARCHITECT mode). Not ported: model-based carryover compression, RESEARCH mode, the reflection pass. The TypeScript
@@ -36,6 +36,23 @@ A shorter second run only counts if the output is valid, so add `--assemble`: th
 errors back for up to N more attempts. NASM is found via `--nasm`, `BARTHELONA_NASM`, `NASM_PATH` (a file or its folder), PATH, then the usual Windows install folders; an unavailable assembler is reported as `unavailable`, never as a pass. Memory is written only for runs that assemble; a rejected output teaches
 nothing. First live data (2026-10-23, hello world): run 1 took 9 chunks, run 2 took 1 chunk, but run 2's file contained
 the program twice and NASM rejected it (`label msg inconsistently redefined`); `extract_code` now drops a repeated block.
+
+## Zetaris facts (optional)
+
+Zetaris must be running (the hackathon guide, Data part 1.9) and its API key created by you in the Zetaris web
+interface. Put `ZETARIS_API_KEY` (and `ZETARIS_REST_URL`, `ZETARIS_ORG_ID` if they differ from
+`http://localhost:8888/api/v1.0` and `1`) in `.env`. Then:
+
+- `python -m barthelona zetaris status` runs `SELECT 1` and prints `online`, `unauthorized`, `offline` or `unconfigured`.
+- `python -m barthelona zetaris sql "SHOW LIGHTNING DATABASES"` prints the rows. Only one SELECT, SHOW, DESCRIBE or
+  WITH statement is ever sent.
+- `chunked run ... --facts-sql "SELECT name, nr FROM <your table>"` puts the rows in front of chunk 1 inside an
+  untrusted-data block (the injection guard can refuse them). A missing key or a failing Zetaris stops the run; it is
+  never skipped silently.
+
+The request follows the guide (`POST /sql-editor/sqls/run`, bearer key, `X-Org-ID`, `X-Request-ID`). It was tested
+against a fake HTTP transport only: it has not run against a real Zetaris yet. Registering a table of assembler
+facts (for example Linux x86-64 syscall numbers) in Zetaris is still manual.
 
 ## Tests that can fail (Meterless prompt "Prove each test can fail")
 

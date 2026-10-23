@@ -11,6 +11,7 @@ from barthelona.cli import app
 from barthelona.llm import FakeGateway
 from barthelona.llm.markovian import CHECKPOINT, COMPLETE
 from barthelona.llm.runlog import RunLog
+from barthelona.llm.zetaris import SqlResult
 from barthelona.verification.asm_gate import AssembleResult
 
 runner = CliRunner()
@@ -174,3 +175,26 @@ def test_stats_command_without_a_database_is_a_usage_error(tmp_path: Path) -> No
 def test_unknown_profile_stops_without_a_model_and_exits_non_zero() -> None:
     result = runner.invoke(app, ["chunked", "run", "task", "--profile", "does-not-exist"])
     assert result.exit_code != 0
+
+
+def test_facts_sql_puts_zetaris_rows_in_front_of_the_first_chunk(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake = FakeGateway([f"```asm\n_start:\n```\n{COMPLETE}"])
+    monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
+    monkeypatch.setenv("ZETARIS_API_KEY", "k")
+    monkeypatch.setattr(
+        "barthelona.cli.chunked.run_sql", lambda config, sql: SqlResult((("write", "1"), ("exit", "60")))
+    )
+    result = runner.invoke(app, ["chunked", "run", "t", "--facts-sql", "SELECT name, nr FROM syscalls"])
+    assert result.exit_code == 0, result.output
+    first = fake.calls[0][1].messages[1].content
+    assert "[ZETARIS FACTS] rows of: SELECT name, nr FROM syscalls" in first
+    assert "write | 1" in first
+
+
+def test_facts_sql_without_a_key_stops_instead_of_being_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("ZETARIS_API_KEY", raising=False)
+    result = runner.invoke(app, ["chunked", "run", "t", "--facts-sql", "SELECT 1"])
+    assert result.exit_code != 0
+    assert "ZETARIS_API_KEY" in result.output

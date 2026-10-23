@@ -17,6 +17,7 @@ from barthelona.cli._toolchain import ensure_toolchain
 from barthelona.cli.bench import bench_app
 from barthelona.cli.chunked import chunked_app
 from barthelona.cli.meterless import meterless_app
+from barthelona.cli.zetaris import zetaris_app
 from barthelona.domain import DOCUMENTS, LevelResult, Verdict
 from barthelona.domain.enums import Dialect, Level, ObjFormat
 from barthelona.toolchains.dialect import DialectAdapter
@@ -39,6 +40,7 @@ app.add_typer(training_app, name="training")
 app.add_typer(bench_app, name="bench")
 app.add_typer(chunked_app, name="chunked")
 app.add_typer(meterless_app, name="meterless")
+app.add_typer(zetaris_app, name="zetaris")
 _out = Console(soft_wrap=True, highlight=False)
 _err = Console(stderr=True, soft_wrap=True, highlight=False)
 
