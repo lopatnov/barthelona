@@ -82,6 +82,14 @@ def test_extract_code_keeps_only_the_fenced_blocks() -> None:
     assert extract_code("no code here") == ""
 
 
+def test_extract_code_drops_shell_commands_and_output_blocks() -> None:
+    text = (
+        "```asm\n_start:\n```\n```bash\nnasm -f elf64 hello.asm\n```\n"
+        "```\nuntagged source\n```\n```text\nHello\n```"
+    )
+    assert extract_code(text) == "_start:\nuntagged source"
+
+
 async def test_a_state_block_shorter_than_24_chars_falls_back_to_the_tail() -> None:
     gateway = FakeGateway([f"real work here\n{CHECKPOINT}\ntoo short", f"x\n{COMPLETE}"])
     result = await run_markovian(gateway, "worker", "task", _SMALL)

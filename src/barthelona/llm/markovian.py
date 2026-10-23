@@ -38,12 +38,18 @@ _SYSTEM = (
     "Never repeat work that the state summary says is done.\n"
     "Put all code in fenced blocks (three backticks). Text outside the fences is commentary and is dropped."
 )
-_FENCE = re.compile(r"^```[^\n]*\n(.*?)^```[ \t]*$", re.DOTALL | re.MULTILINE)
+_FENCE = re.compile(r"^```([^\n]*)\n(.*?)^```[ \t]*$", re.DOTALL | re.MULTILINE)
+_SHELL_TAGS = frozenset({"bash", "sh", "shell", "console", "text", "output", "powershell", "cmd", "make"})
 
 
 def extract_code(text: str) -> str:
-    """The fenced code blocks of *text*, joined: the only part of a chunked answer that is source."""
-    return "\n".join(match.group(1).rstrip("\n") for match in _FENCE.finditer(text))
+    """The source blocks of *text*, joined: fences that are not shell commands or program output."""
+    blocks = [
+        match.group(2).rstrip("\n")
+        for match in _FENCE.finditer(text)
+        if match.group(1).strip().lower() not in _SHELL_TAGS
+    ]
+    return "\n".join(blocks)
 
 
 @dataclass(frozen=True)
