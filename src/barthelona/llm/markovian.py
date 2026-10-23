@@ -60,22 +60,29 @@ def _normalized_lines(block: str) -> list[str]:
     return [line for line in stripped if line]
 
 
+def source_blocks(text: str) -> list[str]:
+    """Every fenced block of *text* that is source: not a shell command or program output, repeats kept."""
+    return [
+        match.group(2).rstrip("\n")
+        for match in _FENCE.finditer(text)
+        if match.group(1).strip().lower() not in _SHELL_TAGS and not _runs_only_build_tools(match.group(2))
+    ]
+
+
 def extract_code(text: str) -> str:
-    """The source blocks of *text*, joined: fences that are not shell commands or program output.
+    """The source blocks of *text*, joined.
 
     A block whose every code line already appeared in an earlier block is the model repeating the program
     (seen live: the whole file emitted twice, the second copy without comments); it is dropped.
     """
     blocks: list[str] = []
     seen: set[str] = set()
-    for match in _FENCE.finditer(text):
-        if match.group(1).strip().lower() in _SHELL_TAGS or _runs_only_build_tools(match.group(2)):
-            continue
-        lines = _normalized_lines(match.group(2))
+    for block in source_blocks(text):
+        lines = _normalized_lines(block)
         if len(lines) >= _MIN_REPEAT_LINES and seen.issuperset(lines):
             continue
         seen.update(lines)
-        blocks.append(match.group(2).rstrip("\n"))
+        blocks.append(block)
     return "\n".join(blocks)
 
 

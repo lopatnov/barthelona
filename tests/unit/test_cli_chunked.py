@@ -85,7 +85,7 @@ def _stub_assemble(monkeypatch: pytest.MonkeyPatch, *results: AssembleResult) ->
         seen.append(source)
         return queue.pop(0)
 
-    monkeypatch.setattr("barthelona.cli.chunked.assemble_source", fake)
+    monkeypatch.setattr("barthelona.verification.asm_gate.assemble_source", fake)
     return seen
 
 
@@ -122,6 +122,24 @@ def test_repair_feeds_nasm_errors_back_and_green_needs_the_second_attempt_to_ass
     log = RunLog(db)
     assert [row.label for row in log.last_runs()] == ["t [repair 1]", "t"]
     log.close()
+
+
+def test_a_later_chunk_that_restates_the_program_with_changes_does_not_sink_the_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    first = "_start:\n    mov eax, 1\n    xor edi, edi"
+    second = "_start:\n    mov eax, 60\n    xor edi, edi"
+    fake = FakeGateway(
+        [f"```asm\n{first}\n```\n{CHECKPOINT}\n{_STATE}", f"```asm\n{second}\n```\n{COMPLETE}"]
+    )
+    monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
+    seen = _stub_assemble(monkeypatch, AssembleResult("fail", ("redefined",)), AssembleResult("pass"))
+    out = tmp_path / "hello.asm"
+    result = runner.invoke(app, ["chunked", "run", "t", "--assemble", "--out", str(out)])
+    assert result.exit_code == 0, result.output
+    assert seen == [f"{first}\n{second}", second]
+    assert out.read_text(encoding="utf-8") == second + "\n"
+    assert "one block alone assembles" in result.output
 
 
 def test_an_unavailable_assembler_is_not_a_pass_and_is_not_called_a_rejection(

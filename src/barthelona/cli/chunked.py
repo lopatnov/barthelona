@@ -27,8 +27,9 @@ from barthelona.llm import (
 )
 from barthelona.llm.guard import wrap_untrusted
 from barthelona.llm.hmem import HMem, facts_from_state
+from barthelona.llm.markovian import source_blocks
 from barthelona.llm.runlog import RunLog
-from barthelona.verification.asm_gate import AssembleResult, assemble_source
+from barthelona.verification.asm_gate import AssembleResult, assemble_best
 
 chunked_app = typer.Typer(
     help="Long tasks as bounded chunks with flat context (Markovian).", no_args_is_help=True
@@ -222,7 +223,7 @@ def _until_it_assembles(
     result, text = attempt(task, 0)
     if nasm == NO_ORACLE:
         return result, text, None
-    gate = assemble_source(text, nasm)
+    text, gate = _assemble(result, text, nasm)
     for number in range(1, repair + 1):
         if gate.status != "fail":
             break
@@ -230,8 +231,16 @@ def _until_it_assembles(
             f"assemble: failed, repair attempt {number}/{repair}: {'; '.join(gate.errors)}", markup=False
         )
         result, text = attempt(_repair_task(task, text, gate), number)
-        gate = assemble_source(text, nasm)
+        text, gate = _assemble(result, text, nasm)
     return result, text, gate
+
+
+def _assemble(result: MarkovianResult, text: str, nasm: str | None) -> tuple[str, AssembleResult]:
+    """Assemble the joined code, or one block of it when the blocks together do not (and say so)."""
+    chosen, gate = assemble_best(text, source_blocks(result.text), nasm)
+    if chosen != text:
+        _err.print("assemble: the joined blocks were rejected; one block alone assembles and is used")
+    return chosen, gate
 
 
 def _repair_task(task: str, source: str, gate: AssembleResult) -> str:
