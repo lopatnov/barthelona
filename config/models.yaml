@@ -186,7 +186,8 @@ models:
     strip_think: true
     enabled: false                 # dense 14B: slower; bake-off candidate only
   # Bake-off candidates (Phase 0): LM Studio ids seen by `bench models` on 2026-10-18. Not in any profile;
-  # run one with `bench run --model <key>`. Delete the losers after the model choice.
+  # run one with `bench run --model <key>`. Delete the losers after the model choice. `bake_qwen25_coder_7b` and
+  # `bake_codestral_22b` are also used by the `local-coder` profile (hackathon demo); neither emits think blocks.
   bake_qwen25_coder_7b:
     provider: lmstudio
     model: qwen2.5-coder-7b-instruct
@@ -477,6 +478,12 @@ profiles:
     worker: [local_main]
     cheap: [local_main]
     escalation: [local_main]
+  local-coder:                     # three local families: Qwen coder writes, Codestral plans and repairs, Liquid reviews
+    main: [bake_qwen25_coder_7b, local_main]
+    planner: [bake_codestral_22b, local_main]
+    worker: [bake_qwen25_coder_7b, local_main]
+    cheap: [local_main]
+    escalation: [bake_codestral_22b, local_main]
   meterless:                       # Nightshift first, one role per routing class, the local model last
     main: [meterless_auto, local_main]
     planner: [meterless_deep, meterless_auto, local_main]
