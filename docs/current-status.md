@@ -152,7 +152,7 @@ token, or `offline`. The token comes from `METERLESS_RUNTIME_TOKEN` (`METERLESS_
 | --- | --- |
 | `main` (intake) and `worker` (code) | `meterless_auto`, then `local_main` |
 | `planner` (spec, tests, repair) | `meterless_deep`, then `meterless_auto`, then `local_main` |
-| `cheap` (review) | `meterless_fast`, then `meterless_auto`, then `local_main` |
+| `cheap` (the optional `--review-role` of `chunked run`) | `meterless_fast`, then `meterless_auto`, then `local_main` |
 | `escalation` | `meterless_deep`, then `local_main` |
 
 `local_main` is the local model in LM Studio; every chain ends with it. For a run that must not touch a local model,
