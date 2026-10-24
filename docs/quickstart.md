@@ -14,7 +14,7 @@ reason goes back to the model (D-056).
 
 | Oracle                                                           | Status                                                                                                                          |
 | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Syntax, assemble, link (V0-V2)                                   | works: `python -m barthelona verify <workspace>` and `chunked run --assemble` (assemble only)                                   |
+| Syntax, assemble, link (V0-V2)                                   | works: `python -m barthelona verify <workspace> --level V2 --dialect nasm` and `chunked run --assemble` (assemble only)                                   |
 | Sandboxed run with golden input/output (V5, V6)                  | works in `verify` for a workspace; not used by `chunked run`                                                                    |
 | Run in the emulator, compare stdout and exit code                | works: `chunked run --expect-stdout ... --expect-exit ...` for single-file `_start` programs (Linux syscalls read, write, exit) |
 | Static ABI lint (V3), dynamic ABI checks (V4)                    | library with 100% detection on the ABI corpus (`barthelona.emulator`); not yet a ladder level                                   |

@@ -178,7 +178,7 @@ Coding agents never run `activate`; they use `.\scripts\dev.ps1 [-LoadEnv] <comm
 python -m barthelona version
 scripts/setup-toolchain.sh        # builds the bart-tc container (WSL on Windows)
 python -m barthelona probe
-python -m barthelona verify tests/projects/nasm-triple --level V6
+python -m barthelona verify tests/projects/nasm-triple --level V6 --dialect nasm --contracts tests/projects/nasm-triple/contracts.yaml --tests tests/projects/nasm-triple/tests.yaml --require "V0,V1,V2,V5,V6"
 ```
 
 The create flow needs only NASM and the Unicorn emulator, not the container. The container is for the verification
@@ -239,7 +239,7 @@ local server on port 1234. On Windows cap WSL memory in `%UserProfile%\.wslconfi
 ```
 python -m barthelona zetaris status          # online
 python -m barthelona meterless status        # online
-python -m barthelona verify tests/projects/nasm-triple --level V6
+python -m barthelona verify tests/projects/nasm-triple --level V6 --dialect nasm --contracts tests/projects/nasm-triple/contracts.yaml --tests tests/projects/nasm-triple/tests.yaml --require "V0,V1,V2,V5,V6"
 python -m barthelona worker --once           # in a second terminal: processes what Demo A queues
 ```
 
