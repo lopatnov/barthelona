@@ -67,6 +67,9 @@ def _table(result: MarkovianResult) -> Table:
     return table
 
 
+# Zetaris-seeded memory is many short facts (one per syscall): recall more than the spec default of 5.
+RECALL_TOP_N = 8
+
 _PLAN = "Write a short numbered plan (at most 8 steps, under 200 words) for the task. No code."
 _REVIEW = (
     "Review this output against the task. List concrete problems (wrong syntax, missing parts, wrong "
@@ -216,7 +219,7 @@ def run(
     code = code or assemble
     gateway = Gateway(catalog, {"openai_chat": OpenAIChatBackend()}, profile=profile)
     store = HMem(memory) if memory is not None else None
-    recall = store.query(task, domain=domain) if store else None
+    recall = store.query(task, domain=domain, top_n=RECALL_TOP_N) if store else None
     recalled = len(recall.memories) if recall else 0
     memory_context = "\n\n".join(filter(None, [_zetaris_facts(facts_sql), recall.context if recall else ""]))
     plan = _side_call(gateway, plan_role, "plan", _PLAN, task)

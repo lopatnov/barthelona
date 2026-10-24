@@ -49,3 +49,25 @@ def test_register_missing_creates_only_what_is_absent(monkeypatch: pytest.Monkey
     assert publish.register_missing(CONFIG, ["runs", "memories"]) == ["memories"]
     assert sum(sql.startswith("CREATE LIGHTNING FILESTORE TABLE memories") for sql in sent) == 1
     assert not any(sql.startswith("CREATE LIGHTNING DATABASE") for sql in sent)
+
+
+def test_docker_is_started_by_its_full_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    calls: list[list[str]] = []
+
+    class Done:
+        returncode = 0
+        stderr = ""
+
+    monkeypatch.setattr(publish.shutil, "which", lambda name: r"C:\Windows\system32\docker.bat")
+    monkeypatch.setattr(publish.subprocess, "run", lambda argv, **kw: calls.append(argv) or Done())
+    file = tmp_path / "runs.csv"
+    file.write_text("id\n", encoding="utf-8")
+    publish.copy_into_container([file], "driver")
+    assert [call[0] for call in calls] == [r"C:\Windows\system32\docker.bat"] * 2
+    assert calls[1][1:] == ["cp", "./runs.csv", f"driver:{publish.REMOTE_DIR}/runs.csv"]
+
+
+def test_missing_docker_is_a_zetaris_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(publish.shutil, "which", lambda name: None)
+    with pytest.raises(ZetarisError, match="docker is not on PATH"):
+        publish.copy_into_container([], "driver")

@@ -8,6 +8,7 @@ container's shared volume and registers each as a filestore table once; later pu
 from __future__ import annotations
 
 import csv
+import shutil
 import sqlite3
 import subprocess
 from collections.abc import Sequence
@@ -64,7 +65,11 @@ def copy_into_container(files: Sequence[Path], container: str) -> None:
 
 
 def _docker(args: Sequence[str], cwd: Path | None = None) -> None:
-    result = subprocess.run(["docker", *args], capture_output=True, text=True, cwd=cwd, check=False)  # noqa: S603, S607
+    # which() gives the full path: on Windows ``docker`` can be a .bat shim that bare argv[0] cannot start
+    docker = shutil.which("docker")
+    if docker is None:
+        raise ZetarisError("docker is not on PATH")
+    result = subprocess.run([docker, *args], capture_output=True, text=True, cwd=cwd, check=False)  # noqa: S603
     if result.returncode != 0:
         raise ZetarisError(f"docker {args[0]} failed: {result.stderr.strip()[:200]}")
 
