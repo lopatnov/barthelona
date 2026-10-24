@@ -82,7 +82,7 @@ packages = ["src/barthelona"]
 line-length = 110
 target-version = "py313"
 src = ["src", "tests"]
-extend-exclude = [".reference", ".agents", "asm_doc", "workspaces", "var"]
+extend-exclude = [".reference", ".agents", "asm_doc", "workspaces", "var", "engines"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "S", "PTH", "ASYNC", "C901", "PLR0912", "PLR0915"]

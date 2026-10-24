@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-import difflib
-
 
 def levenshtein(a: str, b: str) -> int:
     """Calculate Levenshtein distance between two strings."""
@@ -12,7 +9,7 @@ def levenshtein(a: str, b: str) -> int:
         a, b = b, a
     if len(b) == 0:
         return len(a)
-    
+
     previous_row = list(range(len(b) + 1))
     for i, ca in enumerate(a):
         current_row = [i + 1]
@@ -33,14 +30,14 @@ def name_similarity(name1: str, name2: str) -> float:
     """
     norm1 = name1.lower().strip()
     norm2 = name2.lower().strip()
-    
+
     if norm1 == norm2:
         return 1.0
-    
+
     max_len = max(len(norm1), len(norm2))
     if max_len == 0:
         return 1.0
-    
+
     distance = levenshtein(norm1, norm2)
     return 1.0 - (distance / max_len)
 

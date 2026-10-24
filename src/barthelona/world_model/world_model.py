@@ -3,29 +3,35 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import Any
 
-from .store import EventStore, State, world_state_shape as store_world_state_shape
+from .ingest import IngestObservation, IngestProcessor, IngestReport, world_state_shape
+from .resolve import decide, jaccard, levenshtein, name_similarity
+
+# Re-export for conformance suite
 from .stable_ids import (
     canonical_json,
+    context_id_from_attrs,
     entity_id_from_name,
     external_id,
-    context_id_from_attrs,
     fact_id,
-    relationship_id,
     normalize_name,
+    relationship_id,
+    sha256_hex,
 )
-from .resolve import decide, jaccard, name_similarity, levenshtein
-from .ingest import IngestProcessor, IngestObservation, IngestReport
+from .store import EventStore
+from .store import world_state_shape as store_world_state_shape
 from .types import (
     AuditEntry,
+    ConflictPolicy,
     Context,
     Entity,
     EntityState,
     Fact,
     IngestEntity,
+    MergeDecision,
     MergeProposal,
     Provenance,
     ProvenanceKind,
@@ -33,24 +39,7 @@ from .types import (
     StoredProvenance,
     WorldEvent,
     WorldModelOptions,
-    MergeDecision,
-    ConflictPolicy,
 )
-
-
-# Re-export for conformance suite
-from .stable_ids import (
-    canonical_json,
-    entity_id_from_name,
-    external_id,
-    context_id_from_attrs,
-    fact_id,
-    relationship_id,
-    normalize_name,
-    sha256_hex,
-)
-from .resolve import decide, jaccard, name_similarity, levenshtein
-from .ingest import world_state_shape
 
 
 class WorldModel:
@@ -60,29 +49,29 @@ class WorldModel:
     Single-writer discipline: every write goes through a FIFO queue per instance,
     so concurrent ingests serialize automatically.
     """
-    
+
     def __init__(self, opts: WorldModelOptions):
         if not opts.namespace:
             raise ValueError("WorldModel: namespace is required")
-        
+
         self.opts = opts
         self.clock = opts.clock or (lambda: datetime.now())
         self.store = EventStore(opts.namespace, opts.storage, opts.directory)
         self._write_lock: asyncio.Lock = asyncio.Lock()
         self._ingest_processor = IngestProcessor(self.store, lambda: int(self.clock().timestamp()))
-    
+
     # ---------------------------------------------------------------- writes
-    
+
     async def _enqueue(self, fn: Callable[[], Any]) -> Any:
         """Execute a write operation with single-writer serialization."""
         async with self._write_lock:
             return fn()
-    
+
     def _normalize_provenance(self, source: Provenance | None) -> StoredProvenance:
         """Normalize provenance to stored format."""
         if not source or not source.kind or source.at is None:
             raise ValueError("World Model: every write carries provenance (kind + at). No provenance, no write.")
-        
+
         at = source.at.isoformat() if isinstance(source.at, datetime) else source.at
         return StoredProvenance(
             kind=source.kind,
@@ -91,37 +80,37 @@ class WorldModel:
             run_id=source.run_id,
             url=source.url,
         )
-    
+
     async def upsert_entity(
         self,
         type: str,
-        external_key: Optional[dict[str, str]] = None,
-        name: Optional[str] = None,
-        attrs: Optional[dict[str, Any]] = None,
-        source: Optional[Provenance] = None,
+        external_key: dict[str, str] | None = None,
+        name: str | None = None,
+        attrs: dict[str, Any] | None = None,
+        source: Provenance | None = None,
         state: EntityState = EntityState.ACTIVE,
     ) -> Entity:
         """Upsert an entity."""
         return await self._enqueue(lambda: self._upsert_entity_sync(type, external_key, name, attrs, source, state))
-    
+
     def _upsert_entity_sync(
         self,
         type: str,
-        external_key: Optional[dict[str, str]] = None,
-        name: Optional[str] = None,
-        attrs: Optional[dict[str, Any]] = None,
-        source: Optional[Provenance] = None,
+        external_key: dict[str, str] | None = None,
+        name: str | None = None,
+        attrs: dict[str, Any] | None = None,
+        source: Provenance | None = None,
         state: EntityState = EntityState.ACTIVE,
     ) -> Entity:
         source_stored = self._normalize_provenance(source)
-        
+
         if external_key:
             entity_id = external_id(type, external_key["system"], external_key["id"])
         else:
             if not name:
                 raise ValueError("World Model: name-keyed entities need a name (or provide an externalKey)")
             entity_id = entity_id_from_name(type, name)
-        
+
         # Resolution pass for name-keyed entities
         if not external_key and name:
             for other in self.store.state.entities.values():
@@ -141,8 +130,8 @@ class WorldModel:
                         "mergedBy": "resolver",
                         "reason": f"similarity {similarity:.3f}",
                     }, source_stored.at)
-                    self.store.log_audit("auto-merge", "resolver", 
-                                        f"{name} -> {other.name} ({similarity:.3f})", 
+                    self.store.log_audit("auto-merge", "resolver",
+                                        f"{name} -> {other.name} ({similarity:.3f})",
                                         None, None, source_stored.at)
                     return self._fold_entity_upsert(other.id, {
                         "type": type,
@@ -170,18 +159,18 @@ class WorldModel:
                         self.store.log_audit("merge-proposed", "resolver",
                                             f"{name} ~ {other.name} ({similarity:.3f}) queued",
                                             None, None, source_stored.at)
-        
+
         result = self._fold_entity_upsert(entity_id, {
             "type": type,
             "attrs": attrs or {},
         }, source_stored, name)
-        
+
         # Create external key alias for hash-based ID
         if external_key:
             self._create_external_key_alias(type, external_key, entity_id, source_stored)
-        
+
         return result
-    
+
     def _create_external_key_alias(self, type: str, external_key: dict[str, str], entity_id: str, source: StoredProvenance) -> None:
         """Create an alias from external key format (type:system:id) to the hash-based entity ID."""
         external_key_str = f"{type}:{external_key['system']}:{external_key['id']}"
@@ -194,7 +183,7 @@ class WorldModel:
                 "reason": "external key alias",
             }, source.at)
             self.store.log_audit("alias", "system", f"{external_key_str} -> {entity_id}", None, None, source.at)
-    
+
     def _fold_entity_upsert(
         self,
         entity_id: str,
@@ -204,7 +193,7 @@ class WorldModel:
     ) -> Entity:
         """Internal entity upsert that appends event. Updates existing entity if present."""
         resolved = self.store.resolve_alias(entity_id)
-        
+
         # Check if entity already exists
         existing = self.store.state.entities.get(resolved)
         if existing:
@@ -213,14 +202,14 @@ class WorldModel:
             new_aliases = list(existing.aliases)
             if name and name not in new_aliases:
                 new_aliases.append(name)
-            
+
             existing.attrs = new_attrs
             existing.aliases = new_aliases
             existing.updated_at = source.at
             existing.source = source
             if input_data.get("state"):
                 existing.state = input_data["state"]
-            
+
             # Append event for the updated entity
             event = self.store.append("upsertEntity", existing, source.at)
             self.store.log_audit("upsertEntity", source.by or "system",
@@ -246,33 +235,33 @@ class WorldModel:
                                f"{resolved} ({input_data['type']})",
                                event.id, source.run_id, source.at)
             return self.store.state.entities[resolved]
-    
+
     async def upsert_context(
         self,
         type: str,
-        external_key: Optional[dict[str, str]] = None,
-        attrs: Optional[dict[str, Any]] = None,
-        parent: Optional[str] = None,
-        source: Optional[Provenance] = None,
+        external_key: dict[str, str] | None = None,
+        attrs: dict[str, Any] | None = None,
+        parent: str | None = None,
+        source: Provenance | None = None,
     ) -> Context:
         """Upsert a context."""
         return await self._enqueue(lambda: self._upsert_context_sync(type, external_key, attrs, parent, source))
-    
+
     def _upsert_context_sync(
         self,
         type: str,
-        external_key: Optional[dict[str, str]] = None,
-        attrs: Optional[dict[str, Any]] = None,
-        parent: Optional[str] = None,
-        source: Optional[Provenance] = None,
+        external_key: dict[str, str] | None = None,
+        attrs: dict[str, Any] | None = None,
+        parent: str | None = None,
+        source: Provenance | None = None,
     ) -> Context:
         source_stored = self._normalize_provenance(source)
-        
+
         if external_key:
             context_id = external_id(type, external_key["system"], external_key["id"])
         else:
             context_id = context_id_from_attrs(type, attrs or {}, parent)
-        
+
         context = Context(
             type=type,
             id=context_id,
@@ -287,36 +276,36 @@ class WorldModel:
         self.store.log_audit("upsertContext", source_stored.by or "system",
                            f"{context_id} ({type})", event.id, source_stored.run_id, source_stored.at)
         return self.store.state.contexts[context_id]
-    
+
     async def relate(
         self,
         from_: str,
         type: str,
         to: str,
-        context: Optional[str] = None,
-        attrs: Optional[dict[str, Any]] = None,
-        valid_from: Optional[str] = None,
-        valid_to: Optional[str] = None,
-        source: Optional[Provenance] = None,
+        context: str | None = None,
+        attrs: dict[str, Any] | None = None,
+        valid_from: str | None = None,
+        valid_to: str | None = None,
+        source: Provenance | None = None,
     ) -> Relationship:
         """Create a relationship."""
         return await self._enqueue(lambda: self._relate_sync(from_, type, to, context, attrs, valid_from, valid_to, source))
-    
+
     def _relate_sync(
         self,
         from_: str,
         type: str,
         to: str,
-        context: Optional[str] = None,
-        attrs: Optional[dict[str, Any]] = None,
-        valid_from: Optional[str] = None,
-        valid_to: Optional[str] = None,
-        source: Optional[Provenance] = None,
+        context: str | None = None,
+        attrs: dict[str, Any] | None = None,
+        valid_from: str | None = None,
+        valid_to: str | None = None,
+        source: Provenance | None = None,
     ) -> Relationship:
         source_stored = self._normalize_provenance(source)
         from_resolved = self.store.resolve_alias(from_)
         to_resolved = self.store.resolve_alias(to)
-        
+
         # For bitemporal edges: find and close any existing open edge with same from and type
         # A superseding edge is defined by same from_ and type; the to entity can change
         for existing_rel in self.store.state.relationships.values():
@@ -330,11 +319,11 @@ class WorldModel:
                                    f"{from_resolved} -[{type}]-> {existing_rel.to} (closed)",
                                    None, source_stored.run_id, source_stored.at)
                 break
-        
+
         rel_id = relationship_id(from_resolved, type, to_resolved, context, valid_from, attrs)
         if rel_id in self.store.state.relationships:
             return self.store.state.relationships[rel_id]  # content-addressed no-op
-        
+
         rel = Relationship(
             id=rel_id,
             from_=from_resolved,
@@ -353,35 +342,35 @@ class WorldModel:
                            f"{from_resolved} -[{type}]-> {to_resolved}",
                            event.id, source_stored.run_id, source_stored.at)
         return self.store.state.relationships[rel_id]
-    
+
     async def assert_fact(
         self,
         about: str,
         predicate: str,
         value: Any,
         confidence: float = 0.5,
-        context: Optional[str] = None,
-        source: Optional[Provenance] = None,
+        context: str | None = None,
+        source: Provenance | None = None,
     ) -> Fact:
         """Assert a fact."""
         return await self._enqueue(lambda: self._assert_fact_sync(about, predicate, value, confidence, context, source))
-    
+
     def _assert_fact_sync(
         self,
         about: str,
         predicate: str,
         value: Any,
         confidence: float = 0.5,
-        context: Optional[str] = None,
-        source: Optional[Provenance] = None,
+        context: str | None = None,
+        source: Provenance | None = None,
     ) -> Fact:
         source_stored = self._normalize_provenance(source)
         about_resolved = self.store.resolve_alias(about)
-        
+
         fact_id_val = fact_id(about_resolved, predicate, value, source_stored.at, source_stored.kind.value, source_stored.url or "")
         if fact_id_val in self.store.state.facts:
             return self.store.state.facts[fact_id_val]
-        
+
         fact = Fact(
             id=fact_id_val,
             about=about_resolved,
@@ -392,7 +381,7 @@ class WorldModel:
             source=source_stored,
             asserted_at=source_stored.at,
         )
-        
+
         # Conflict resolution
         policy = self.opts.conflict_policy
         rivals = [
@@ -410,16 +399,16 @@ class WorldModel:
                 rival_wins = rival_priority < winner_priority
             else:  # most-recent-wins
                 rival_wins = rival.asserted_at > winner.asserted_at
-            
+
             if rival_wins:
                 winner = rival
-        
+
         event = self.store.append("assertFact", fact, source_stored.at)
-        
+
         for f in [fact, *rivals]:
             if f.id != winner.id:
                 self.store.state.facts[f.id].superseded_by = winner.id
-        
+
         # Ensure subject entity exists
         if about_resolved not in self.store.state.entities:
             inferred_type = about_resolved.split(":")[0] if ":" in about_resolved else "entity"
@@ -434,18 +423,18 @@ class WorldModel:
                 aliases=[],
                 state=EntityState.EMERGING,
             ), source_stored.at)
-        
+
         entity = self.store.state.entities[about_resolved]
         entity.attrs[predicate] = winner.value
         entity.updated_at = source_stored.at
-        
+
         self.store.log_audit("assertFact", source_stored.by or "system",
                            f"{about_resolved}.{predicate} = {winner.value} ({policy})",
                            event.id, source_stored.run_id, source_stored.at)
         self.store.persist()
-        
+
         return self.store.state.facts[fact_id_val]
-    
+
     def _priority_of(self, kind: str) -> int:
         """Get priority of a provenance kind."""
         ranking = self.opts.source_priority or []
@@ -453,15 +442,15 @@ class WorldModel:
             return ranking.index(kind)
         except ValueError:
             return 1000  # low priority for unknown kinds
-    
+
     # ---------------------------------------------------------------- ingest
-    
+
     async def ingest(self, observations: list[IngestObservation]) -> IngestReport:
         """Run the ingest pipeline on observations."""
         return await self._enqueue(lambda: self._ingest_processor.process_batch(observations))
-    
+
     # ---------------------------------------------------------------- reads
-    
+
     def view(self, name: str):
         """Get a view on the world state."""
         if name == "graph":
@@ -474,32 +463,32 @@ class WorldModel:
             return TimelineView(self.store)
         else:
             raise ValueError(f"World Model: unknown view '{name}'")
-    
+
     def register_view(self, name: str, spec: Any) -> None:
         """Register a custom view."""
         # Not implemented yet
         pass
-    
+
     # ------------------------------------------------------------- operator
-    
+
     def merge_queue(self) -> list[MergeProposal]:
         """Get the merge proposal queue."""
         return list(self.store.state.merge_queue)
-    
+
     async def approve_merge(self, proposal_id: str, by: str) -> None:
         """Approve a merge proposal."""
         await self._enqueue(lambda: self._approve_merge_sync(proposal_id, by))
-    
+
     def _approve_merge_sync(self, proposal_id: str, by: str) -> None:
         p = next((m for m in self.store.state.merge_queue if m.id == proposal_id and m.status == "pending"), None)
         if not p:
             raise ValueError(f"World Model: no pending merge proposal {proposal_id}")
-        
+
         at = self.clock().isoformat()
         p.status = "approved"
         p.resolved_at = at
         p.resolved_by = by
-        
+
         self.store.append("alias", {
             "aliasId": p.left_id,
             "primaryId": p.right_id,
@@ -508,38 +497,38 @@ class WorldModel:
             "reason": p.reason,
         }, at)
         self.store.log_audit("merge-approved", by, f"{p.left_name} -> {p.right_name}", None, None, at)
-    
+
     async def reject_merge(self, proposal_id: str, by: str) -> None:
         """Reject a merge proposal."""
         await self._enqueue(lambda: self._reject_merge_sync(proposal_id, by))
-    
+
     def _reject_merge_sync(self, proposal_id: str, by: str) -> None:
         p = next((m for m in self.store.state.merge_queue if m.id == proposal_id and m.status == "pending"), None)
         if not p:
             raise ValueError(f"World Model: no pending merge proposal {proposal_id}")
-        
+
         p.status = "rejected"
         p.resolved_at = self.clock().isoformat()
         p.resolved_by = by
         self.store.log_audit("merge-rejected", by, f"{p.left_name} stays separate from {p.right_name}")
         self.store.persist()
-    
+
     def audit(self) -> list[AuditEntry]:
         """Get audit log."""
         return list(self.store.audit)
-    
+
     def events(self) -> list[WorldEvent]:
         """Get all events."""
         return list(self.store.events)
-    
+
     def state_shape(self) -> dict[str, Any]:
         """Get the full state shape."""
         return store_world_state_shape(self.store)
-    
+
     def state_shape_canonical(self) -> str:
         """Get canonical JSON of state shape for comparison."""
         return canonical_json(self.state_shape())
-    
+
     def subscribe_events(self, fn: Callable[[WorldEvent], None]) -> Callable[[], None]:
         """Subscribe to new events."""
         return self.store.subscribe(fn)
@@ -550,10 +539,10 @@ class WorldModel:
 class GraphView:
     def __init__(self, store: EventStore):
         self.store = store
-    
+
     def entity(self, id: str) -> Entity | None:
         return self.store.state.entities.get(self.store.resolve_alias(id))
-    
+
     def neighbors_of(
         self,
         id: str,
@@ -563,7 +552,7 @@ class GraphView:
     ) -> list[Entity]:
         rid = self.store.resolve_alias(id)
         out: list[Entity] = []
-        
+
         for rel in self.store.state.relationships.values():
             if via and rel.type != via:
                 continue
@@ -573,21 +562,21 @@ class GraphView:
                 continue
             if not at and rel.valid_to:
                 continue
-            
+
             other = rel.to if rel.from_ == rid else rel.from_ if rel.to == rid else None
             if not other:
                 continue
-            
+
             entity = self.store.state.entities.get(other)
             if entity:
                 out.append(entity)
-        
+
         return sorted(out, key=lambda e: e.id)
-    
+
     def incoming(self, id: str, via: str | None = None) -> list[Entity]:
         rid = self.store.resolve_alias(id)
         out: list[Entity] = []
-        
+
         for rel in self.store.state.relationships.values():
             if rel.to != rid:
                 continue
@@ -595,13 +584,13 @@ class GraphView:
                 continue
             if rel.valid_to:
                 continue
-            
+
             entity = self.store.state.entities.get(rel.from_)
             if entity:
                 out.append(entity)
-        
+
         return sorted(out, key=lambda e: e.id)
-    
+
     def entities_in_context(self, context_id: str, type: str | None = None) -> list[Entity]:
         seen: dict[str, Entity] = {}
         for rel in self.store.state.relationships.values():
@@ -612,7 +601,7 @@ class GraphView:
                 if entity and (type is None or entity.type == type):
                     seen[entity.id] = entity
         return sorted(seen.values(), key=lambda e: e.id)
-    
+
     def traverse(
         self,
         start_id: str,
@@ -623,7 +612,7 @@ class GraphView:
         out: list[Entity] = []
         visited: set[str] = set()
         frontier = [self.store.resolve_alias(start_id)]
-        
+
         for depth in range(max_depth):
             if not frontier:
                 break
@@ -637,7 +626,7 @@ class GraphView:
                         target = rel.to
                     elif direction == "descendants" and rel.to == id:
                         target = rel.from_
-                    
+
                     if target and target not in visited:
                         visited.add(target)
                         entity = self.store.state.entities.get(target)
@@ -645,9 +634,9 @@ class GraphView:
                             out.append(entity)
                         next_frontier.append(target)
             frontier = next_frontier
-        
+
         return out
-    
+
     def query(self, type: str | None = None, where: Callable[[Entity], bool] | None = None) -> list[Entity]:
         result = list(self.store.state.entities.values())
         if type:
@@ -655,7 +644,7 @@ class GraphView:
         if where:
             result = [e for e in result if where(e)]
         return sorted(result, key=lambda e: e.id)
-    
+
     def _valid_at(self, rel: Relationship, at: str) -> bool:
         if rel.valid_from and at < rel.valid_from:
             return False
@@ -667,7 +656,7 @@ class GraphView:
 class FactsView:
     def __init__(self, store: EventStore):
         self.store = store
-    
+
     def about(self, id: str) -> list[Fact]:
         rid = self.store.resolve_alias(id)
         return sorted(
@@ -679,7 +668,7 @@ class FactsView:
 class SnapshotView:
     def __init__(self, store: EventStore):
         self.store = store
-    
+
     def entity_at(self, id: str, at: str) -> Entity | None:
         iso = at if len(at) > 10 else f"{at}T23:59:59.999Z"
         state = self.store.fold_until(iso)
@@ -694,10 +683,10 @@ class SnapshotView:
 class TimelineView:
     def __init__(self, store: EventStore):
         self.store = store
-    
+
     def subscribe(self, fn: Callable[[WorldEvent], None]) -> Callable[[], None]:
         return self.store.subscribe(fn)
-    
+
     def get(self) -> list[WorldEvent]:
         return list(self.store.events)
 
@@ -705,35 +694,35 @@ class TimelineView:
 # ---------------------------------------------------------------- conformance exports
 
 __all__ = [
-    "WorldModel",
-    "WorldModelOptions",
-    "Entity",
+    "AuditEntry",
+    "ConflictPolicy",
     "Context",
-    "Relationship",
+    "Entity",
+    "EntityState",
     "Fact",
-    "IngestObservation",
     "IngestEntity",
+    "IngestObservation",
     "IngestReport",
+    "MergeDecision",
+    "MergeProposal",
     "Provenance",
     "ProvenanceKind",
+    "Relationship",
     "StoredProvenance",
-    "EntityState",
-    "MergeProposal",
-    "AuditEntry",
     "WorldEvent",
-    "MergeDecision",
-    "ConflictPolicy",
-    "normalize_name",
+    "WorldModel",
+    "WorldModelOptions",
+    "canonical_json",
+    "context_id_from_attrs",
+    "decide",
     "entity_id_from_name",
     "external_id",
-    "context_id_from_attrs",
     "fact_id",
-    "relationship_id",
-    "sha256_hex",
-    "canonical_json",
+    "jaccard",
     "levenshtein",
     "name_similarity",
-    "jaccard",
-    "decide",
+    "normalize_name",
+    "relationship_id",
+    "sha256_hex",
     "world_state_shape",
 ]

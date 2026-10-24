@@ -19,12 +19,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 import pytest
 
 from barthelona.world_model import (
-    WorldModel,
-    WorldModelOptions,
+    IngestEntity,
+    IngestObservation,
     Provenance,
     ProvenanceKind,
-    IngestObservation,
-    IngestEntity,
+    WorldModel,
+    WorldModelOptions,
 )
 
 
@@ -61,7 +61,7 @@ async def agent_update_entity(
     """Simulate an agent updating an entity."""
     # Small random delay to simulate real-world timing
     await asyncio.sleep(random.uniform(0.001, 0.01))
-    
+
     await world.upsert_entity(
         type=entity_type,
         name=entity_name,
@@ -98,7 +98,7 @@ class TestConcurrentWriters:
         entity_type = "person"
         entity_name = "Jerome Powell"
         num_agents = 10
-        
+
         # Create tasks for 10 agents updating the same entity
         tasks = [
             agent_update_entity(
@@ -112,26 +112,26 @@ class TestConcurrentWriters:
             )
             for i in range(num_agents)
         ]
-        
+
         # Run all agents concurrently
         await asyncio.gather(*tasks)
-        
+
         # Verify the entity exists
         entity_id = f"ent_{entity_type}:{entity_name.lower().replace(' ', '_')}"
         # Actually, let's get the entity by querying
         graph = world_model.view("graph")
         entities = graph.query(type=entity_type, where=lambda e: e.name == entity_name)
-        
+
         assert len(entities) == 1, f"Expected 1 entity, got {len(entities)}"
         entity = entities[0]
-        
+
         # Verify all updates were applied (most-recent-wins policy)
         # The last update should win for each attribute
         # Since they all run concurrently with same timestamp, the order is non-deterministic
         # but all attribute keys should be present
         for i in range(num_agents):
             assert f"update_{i}" in entity.attrs, f"Missing update_{i} in entity attrs"
-        
+
         # Verify no updates were lost - all 10 attributes should be present
         assert len(entity.attrs) == num_agents, f"Expected {num_agents} attrs, got {len(entity.attrs)}"
 
@@ -168,9 +168,9 @@ class TestConcurrentWriters:
                 ],
             ),
         ]
-        
+
         num_agents = 10
-        
+
         # Create tasks for 10 agents ingesting the same observations
         tasks = [
             agent_ingest_observation(world_model, i, observations[0])
@@ -180,28 +180,28 @@ class TestConcurrentWriters:
             agent_ingest_observation(world_model, i, observations[1])
             for i in range(num_agents)
         ])
-        
+
         # Run all agents concurrently
         await asyncio.gather(*tasks)
-        
+
         # Verify final state matches serial ingest
         graph = world_model.view("graph")
-        
+
         # Should have 2 observation entities + 2 mentioned entities = 4 total
         # But deduplication should keep it minimal
         entities = list(graph.query())
-        
+
         # At minimum, we should have the person and org entities
         person_entities = [e for e in entities if e.type == "person"]
         org_entities = [e for e in entities if e.type == "org"]
-        
+
         assert len(person_entities) >= 1, "Should have at least one person entity"
         assert len(org_entities) >= 1, "Should have at least one org entity"
-        
+
         # Jerome Powell should exist
         powell = [e for e in person_entities if e.name == "Jerome Powell"]
         assert len(powell) == 1, f"Expected 1 Jerome Powell, got {len(powell)}"
-        
+
         fed = [e for e in org_entities if e.name == "Federal Reserve"]
         assert len(fed) == 1, f"Expected 1 Federal Reserve, got {len(fed)}"
 
@@ -220,14 +220,14 @@ class TestConcurrentWriters:
         entity_type = "org"
         entity_name = "Federal Reserve"
         num_agents = 10
-        
+
         # --- Concurrent run ---
         concurrent_world = WorldModel(WorldModelOptions(
             namespace="test_concurrent_run",
             storage="memory",
             clock=lambda: datetime(2026, 5, 18, 0, 0, 0),
         ))
-        
+
         tasks = [
             agent_update_entity(
                 concurrent_world,
@@ -240,17 +240,17 @@ class TestConcurrentWriters:
             )
             for i in range(num_agents)
         ]
-        
+
         await asyncio.gather(*tasks)
         concurrent_shape = concurrent_world.state_shape_canonical()
-        
+
         # --- Serial run ---
         serial_world = WorldModel(WorldModelOptions(
             namespace="test_serial_run",
             storage="memory",
             clock=lambda: datetime(2026, 5, 18, 0, 0, 0),
         ))
-        
+
         for i in range(num_agents):
             await agent_update_entity(
                 serial_world,
@@ -261,9 +261,9 @@ class TestConcurrentWriters:
                 attr_value=f"concurrent_value_{i}",
                 provenance=provenance,
             )
-        
+
         serial_shape = serial_world.state_shape_canonical()
-        
+
         # --- Compare ---
         assert concurrent_shape == serial_shape, (
             "Concurrent execution must produce the same state as serial execution"
@@ -286,7 +286,7 @@ class TestConcurrentWriters:
         entity_name = "Test Entity"
         num_agents = 10
         attr_key = "contested_value"
-        
+
         tasks = [
             agent_update_entity(
                 world_model,
@@ -299,19 +299,19 @@ class TestConcurrentWriters:
             )
             for i in range(num_agents)
         ]
-        
+
         await asyncio.gather(*tasks)
-        
+
         graph = world_model.view("graph")
         entities = graph.query(type=entity_type, where=lambda e: e.name == entity_name)
-        
+
         assert len(entities) == 1
         entity = entities[0]
-        
+
         # The attribute should exist with one of the values (most-recent-wins)
         assert attr_key in entity.attrs
         assert entity.attrs[attr_key].startswith("value_")
-        
+
         # Verify audit log has all 10 attempts
         audit = world_model.audit()
         upsert_events = [e for e in audit if e.action == "upsertEntity"]
@@ -341,13 +341,13 @@ class TestConcurrentWriters:
             name="Bob",
             source=provenance,
         )
-    
+
         graph = world_model.view("graph")
         alice = graph.query(type="person", where=lambda e: e.name == "Alice")[0]
         bob = graph.query(type="person", where=lambda e: e.name == "Bob")[0]
-    
+
         num_agents = 10
-    
+
         async def create_relationship(agent_id: int) -> None:
             await asyncio.sleep(random.uniform(0.001, 0.01))
             await world_model.relate(
@@ -357,10 +357,10 @@ class TestConcurrentWriters:
                 attrs={"since": f"202{agent_id}", "agent": agent_id},
                 source=provenance,
             )
-    
+
         tasks = [create_relationship(i) for i in range(num_agents)]
         await asyncio.gather(*tasks)
-    
+
         # Check that all 10 relationship creation attempts happened
         # With bitemporal semantics, each new edge with same from/type/to closes the previous
         # So we expect 10 creation events + 9 closure events = 19 total relate events
@@ -369,7 +369,7 @@ class TestConcurrentWriters:
             if r.kind == "relate"
         ]
         assert len(rels) == num_agents * 2 - 1, f"Expected {num_agents * 2 - 1} relationship events (10 creates + 9 closes), got {len(rels)}"
-        
+
         # Final state should have exactly 1 open relationship (the last one created)
         graph = world_model.view("graph")
         neighbors = graph.neighbors_of(alice.id, via="knows")
