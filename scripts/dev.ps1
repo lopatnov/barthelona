@@ -1,12 +1,15 @@
 <#
 .SYNOPSIS
-    Run one command with the barthelona conda env on PATH, without activating it and without loading .env.
+    Run one command with the barthelona conda env on PATH, without activating it. .env is loaded only with
+    the opt-in -LoadEnv switch (D-057).
 
 .DESCRIPTION
     Agent tool shells (Claude Code, Codex) start fresh for every call, so an activated env does not carry
     over. This wrapper prepends the env's directories to PATH for this one command, sets PYTHONUTF8 and
     WSL_UTF8, runs the command, restores PATH and returns its exit code. API keys from .env are NOT loaded
-    (use activate.ps1 in your own terminal when you need them).
+    unless the first argument is -LoadEnv: then each KEY=VALUE line of the repository's .env that is not
+    already set in the process is placed in the environment of this one command and removed afterwards.
+    The values are never printed, logged or returned; the agent still never reads the file itself.
     Works in Windows PowerShell 5.1 and PowerShell 7. Env lookup: active barthelona env, then
     $env:BARTHELONA_ENV_PREFIX, then the usual miniconda/anaconda locations, then `conda env list --json`.
 
@@ -14,9 +17,16 @@
     .\scripts\dev.ps1 ruff check .
     .\scripts\dev.ps1 python -m pytest -q
     .\scripts\dev.ps1 python scripts/sync_agent_configs.py --check
+    .\scripts\dev.ps1 -LoadEnv python -m barthelona zetaris status
 #>
-if ($args.Count -eq 0) {
-    Write-Output 'usage: .\scripts\dev.ps1 <command> [args...]   e.g. .\scripts\dev.ps1 ruff check .'
+$__argv = @($args)
+$__loadEnv = $false
+if ($__argv.Count -gt 0 -and $__argv[0] -eq '-LoadEnv') {
+    $__loadEnv = $true
+    if ($__argv.Count -gt 1) { $__argv = @($__argv[1..($__argv.Count - 1)]) } else { $__argv = @() }
+}
+if ($__argv.Count -eq 0) {
+    Write-Output 'usage: .\scripts\dev.ps1 [-LoadEnv] <command> [args...]   e.g. .\scripts\dev.ps1 ruff check .'
     exit 2
 }
 
@@ -47,21 +57,44 @@ if (-not $__bartPrefix -or -not (Test-Path (Join-Path $__bartPrefix 'python.exe'
     exit 3
 }
 
+$__envFile = Join-Path (Split-Path -Parent $PSScriptRoot) '.env'
+if ($__loadEnv -and -not (Test-Path -LiteralPath $__envFile)) {
+    [Console]::Error.WriteLine('-LoadEnv: no .env file in the repository root')
+    exit 4
+}
+
 $__oldPath = $env:PATH
 $__oldUtf8 = $env:PYTHONUTF8
 $__oldWsl = $env:WSL_UTF8
 $__code = 1
+$__loaded = @()
 try {
+    if ($__loadEnv) {
+        # Values stay in variables of this script; nothing below prints them.
+        foreach ($__line in [System.IO.File]::ReadAllLines($__envFile)) {
+            if ($__line -notmatch '^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$') { continue }
+            $__name = $Matches[1]
+            $__value = $Matches[2].Trim()
+            if ($__value.Length -ge 2 -and (($__value.StartsWith('"') -and $__value.EndsWith('"')) -or ($__value.StartsWith("'") -and $__value.EndsWith("'")))) {
+                $__value = $__value.Substring(1, $__value.Length - 2)
+            }
+            if ($__value -and -not [Environment]::GetEnvironmentVariable($__name)) {
+                [Environment]::SetEnvironmentVariable($__name, $__value, 'Process')
+                $__loaded += $__name
+            }
+        }
+    }
     $env:PATH = (@($__bartPrefix, (Join-Path $__bartPrefix 'Scripts'), (Join-Path $__bartPrefix 'Library\bin')) -join ';') + ';' + $__oldPath
     $env:PYTHONUTF8 = '1'
     $env:WSL_UTF8 = '1'
-    $__exe = $args[0]
+    $__exe = $__argv[0]
     $__rest = @()
-    if ($args.Count -gt 1) { $__rest = $args[1..($args.Count - 1)] }
+    if ($__argv.Count -gt 1) { $__rest = $__argv[1..($__argv.Count - 1)] }
     & $__exe @__rest
     $__code = $LASTEXITCODE
     if ($null -eq $__code) { if ($?) { $__code = 0 } else { $__code = 1 } }
 } finally {
+    foreach ($__name in $__loaded) { [Environment]::SetEnvironmentVariable($__name, $null, 'Process') }
     $env:PATH = $__oldPath
     $env:PYTHONUTF8 = $__oldUtf8
     $env:WSL_UTF8 = $__oldWsl
