@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import threading
 from collections.abc import Callable
@@ -36,7 +37,7 @@ class State:
 class EventStore:
     """
     Append-only event store with materialized views.
-    
+
     Single-writer discipline: all writes go through a FIFO queue per instance.
     """
 
@@ -67,7 +68,7 @@ class EventStore:
                 line = line.strip()
                 if not line:
                     continue
-                try:
+                with contextlib.suppress(Exception):
                     event_data = json.loads(line)
                     event = WorldEvent(
                         id=event_data["id"],
@@ -80,8 +81,6 @@ class EventStore:
                     self._apply_event(event)
                     if event.seq > self._seq:
                         self._seq = event.seq
-                except Exception:
-                    pass  # Skip malformed lines
 
     def _persist_event(self, event: WorldEvent) -> None:
         """Persist a single event to file."""
@@ -131,45 +130,57 @@ class EventStore:
 
             # Notify subscribers
             for fn in self._subscribers:
-                try:
+                with contextlib.suppress(Exception):
                     fn(event)
-                except Exception:
-                    pass  # Don't let subscriber errors break the store
 
             return event
 
     def _apply_event(self, event: WorldEvent) -> None:
         """Apply an event to the materialized state."""
+        self._dispatch_event(self.state, event)
+
+    def _dispatch_event(self, state: State, event: WorldEvent) -> None:
+        """Dispatch an event to the appropriate handler based on its kind."""
         if event.kind == "upsertEntity":
-            entity = event.payload
-            if isinstance(entity, Entity):
-                # Resolve alias
-                resolved_id = self.resolve_alias(entity.id)
-                entity.id = resolved_id
-                self.state.entities[resolved_id] = entity
-
+            self._apply_upsert_entity(state, event)
         elif event.kind == "upsertContext":
-            context = event.payload
-            if isinstance(context, Context):
-                self.state.contexts[context.id] = context
-
+            self._apply_upsert_context(state, event)
         elif event.kind == "relate":
-            relationship = event.payload
-            if isinstance(relationship, Relationship):
-                self.state.relationships[relationship.id] = relationship
-
+            self._apply_relate(state, event)
         elif event.kind == "assertFact":
-            fact = event.payload
-            if isinstance(fact, Fact):
-                self.state.facts[fact.id] = fact
-
+            self._apply_assert_fact(state, event)
         elif event.kind == "alias":
-            alias_data = event.payload
-            if isinstance(alias_data, dict):
-                alias_id = alias_data.get("aliasId")
-                primary_id = alias_data.get("primaryId")
-                if alias_id and primary_id:
-                    self.state.aliases[alias_id] = primary_id
+            self._apply_alias(state, event)
+
+    def _apply_upsert_entity(self, state: State, event: WorldEvent) -> None:
+        entity = event.payload
+        if isinstance(entity, Entity):
+            resolved_id = self._resolve_alias_in_state(state, entity.id)
+            entity.id = resolved_id
+            state.entities[resolved_id] = entity
+
+    def _apply_upsert_context(self, state: State, event: WorldEvent) -> None:
+        context = event.payload
+        if isinstance(context, Context):
+            state.contexts[context.id] = context
+
+    def _apply_relate(self, state: State, event: WorldEvent) -> None:
+        relationship = event.payload
+        if isinstance(relationship, Relationship):
+            state.relationships[relationship.id] = relationship
+
+    def _apply_assert_fact(self, state: State, event: WorldEvent) -> None:
+        fact = event.payload
+        if isinstance(fact, Fact):
+            state.facts[fact.id] = fact
+
+    def _apply_alias(self, state: State, event: WorldEvent) -> None:
+        alias_data = event.payload
+        if isinstance(alias_data, dict):
+            alias_id = alias_data.get("aliasId")
+            primary_id = alias_data.get("primaryId")
+            if alias_id and primary_id:
+                state.aliases[alias_id] = primary_id
 
     def resolve_alias(self, entity_id: str) -> str:
         """Resolve an entity ID through the alias chain."""
@@ -209,35 +220,7 @@ class EventStore:
 
     def _apply_event_to_state(self, state: State, event: WorldEvent) -> None:
         """Apply an event to a given state object."""
-        if event.kind == "upsertEntity":
-            entity = event.payload
-            if isinstance(entity, Entity):
-                resolved_id = self._resolve_alias_in_state(state, entity.id)
-                entity.id = resolved_id
-                state.entities[resolved_id] = entity
-
-        elif event.kind == "upsertContext":
-            context = event.payload
-            if isinstance(context, Context):
-                state.contexts[context.id] = context
-
-        elif event.kind == "relate":
-            relationship = event.payload
-            if isinstance(relationship, Relationship):
-                state.relationships[relationship.id] = relationship
-
-        elif event.kind == "assertFact":
-            fact = event.payload
-            if isinstance(fact, Fact):
-                state.facts[fact.id] = fact
-
-        elif event.kind == "alias":
-            alias_data = event.payload
-            if isinstance(alias_data, dict):
-                alias_id = alias_data.get("aliasId")
-                primary_id = alias_data.get("primaryId")
-                if alias_id and primary_id:
-                    state.aliases[alias_id] = primary_id
+        self._dispatch_event(state, event)
 
     def _resolve_alias_in_state(self, state: State, entity_id: str) -> str:
         """Resolve an entity ID through the alias chain in a given state."""

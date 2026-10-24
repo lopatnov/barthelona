@@ -29,11 +29,10 @@ def run_ingest_pipeline(
     store: EventStore,
     observations: list[IngestObservation],
     process_observation: Callable[[IngestObservation], IngestItemResult],
-    clock: Callable[[], int],
 ) -> IngestReport:
     """
     Run the ingest pipeline over a batch of observations.
-    
+
     Returns a report with counts and whether state changed.
     """
     # Capture state shape before
@@ -74,7 +73,6 @@ class IngestProcessor:
 
     def process_batch(self, observations: list[IngestObservation]) -> IngestReport:
         """Process a batch of observations through the ingest pipeline."""
-        from .store import world_state_shape
 
         # Capture state shape before
         shape_before = world_state_shape(self.store)
@@ -104,7 +102,7 @@ class IngestProcessor:
     def process_observation(self, obs: IngestObservation) -> IngestItemResult:
         """Process a single observation."""
         # Normalize provenance
-        source = self._normalize_provenance(obs.source, obs.at)
+        source = self._normalize_provenance(obs.source)
 
         # Create or update the observation entity
         obs_type = obs.type or "item"
@@ -155,7 +153,7 @@ class IngestProcessor:
             entity_ids=sorted(entity_ids),
         )
 
-    def _normalize_provenance(self, source: Provenance, at: str) -> StoredProvenance:
+    def _normalize_provenance(self, source: Provenance) -> StoredProvenance:
         """Normalize provenance to stored format."""
         at_iso = source.at.isoformat() if isinstance(source.at, str) is False else source.at
         return StoredProvenance(
@@ -274,52 +272,3 @@ class IngestProcessor:
         return existing
 
 
-def world_state_shape(store: EventStore) -> dict[str, Any]:
-    """Generate canonical state shape for comparison."""
-    return {
-        "entities": {
-            eid: {
-                "type": e.type,
-                "id": e.id,
-                "attrs": e.attrs,
-                "name": e.name,
-                "aliases": e.aliases,
-                "state": e.state.value,
-            }
-            for eid, e in sorted(store.state.entities.items())
-        },
-        "contexts": {
-            cid: {
-                "type": c.type,
-                "id": c.id,
-                "attrs": c.attrs,
-                "parent": c.parent,
-            }
-            for cid, c in sorted(store.state.contexts.items())
-        },
-        "relationships": {
-            rid: {
-                "id": r.id,
-                "from": r.from_,
-                "type": r.type,
-                "to": r.to,
-                "context": r.context,
-                "valid_from": r.valid_from,
-                "valid_to": r.valid_to,
-            }
-            for rid, r in sorted(store.state.relationships.items())
-        },
-        "facts": {
-            fid: {
-                "id": f.id,
-                "about": f.about,
-                "predicate": f.predicate,
-                "value": f.value,
-                "confidence": f.confidence,
-                "context": f.context,
-                "superseded_by": f.superseded_by,
-            }
-            for fid, f in sorted(store.state.facts.items())
-        },
-        "aliases": dict(sorted(store.state.aliases.items())),
-    }
