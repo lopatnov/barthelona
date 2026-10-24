@@ -156,17 +156,20 @@ def test_the_ci_checks_the_golden_tests_with_the_pinned_barthelona() -> None:
 
 
 def test_the_same_run_data_gives_the_same_bytes() -> None:
-    assert _render() == _render()
+    first, second = _render(), _render()
+    assert first == second
 
 
 def test_a_project_with_several_modules_is_refused() -> None:
+    spec = _spec(["src/main.asm", "src/util.asm"])
     with pytest.raises(UnsupportedCiTarget, match="single-module"):
-        _render(spec=_spec(["src/main.asm", "src/util.asm"]))
+        _render(spec=spec)
 
 
 def test_a_gas_project_is_refused_by_the_golden_ci() -> None:
+    spec = _spec(dialect=Dialect.GAS_INTEL)
     with pytest.raises(UnsupportedCiTarget, match="NASM"):
-        _render(spec=_spec(dialect=Dialect.GAS_INTEL))
+        _render(spec=spec)
 
 
 def test_a_branch_name_is_not_a_commit() -> None:

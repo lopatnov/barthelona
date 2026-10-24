@@ -86,7 +86,8 @@ def assemble_object(
         ), b""
     with tempfile.TemporaryDirectory(prefix="barthelona-asm-") as work:
         path, obj = Path(work) / "main.asm", Path(work) / "main.o"
-        path.write_text(source + "\n", encoding="utf-8", newline="\n")
+        # S2083 is a false positive: a fixed file name in a fresh temp folder, the source is only content.
+        path.write_text(source + "\n", encoding="utf-8", newline="\n")  # NOSONAR
         try:
             done = runner(
                 [binary, "-f", "elf64", "-o", str(obj), str(path)],

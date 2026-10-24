@@ -146,10 +146,12 @@ def test_package_refuses_a_run_that_did_not_stop_green(tmp_path: Path) -> None:
 def test_package_does_not_overwrite_without_force(tmp_path: Path) -> None:
     run_id = _green_run(tmp_path)
     assert _package(tmp_path, run_id).exit_code == 0
-    again = _package(tmp_path, run_id)
-    assert again.exit_code != 0
-    assert "--force" in again.output
+    readme = tmp_path / "out" / "README.md"
+    readme.write_text("edited by hand", encoding="utf-8")
+    assert _package(tmp_path, run_id).exit_code != 0
+    assert readme.read_text(encoding="utf-8") == "edited by hand"
     assert _package(tmp_path, run_id, "--force").exit_code == 0
+    assert readme.read_text(encoding="utf-8") != "edited by hand"
 
 
 @pytest.mark.skipif(shutil.which("nasm") is None, reason="nasm is not installed on this host; CI installs it")
