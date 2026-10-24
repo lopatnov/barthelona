@@ -39,7 +39,7 @@ def test_submit_queues_a_meterless_run_and_writes_the_request(tmp_path: Path) ->
 
 def test_submit_rejects_an_unknown_preset(tmp_path: Path) -> None:
     result = _invoke(tmp_path, "submit", "x", "--preset", "win-x64-masm", "--runs", str(tmp_path / "runs"))
-    assert result.exit_code != 0
+    assert result.exit_code == 2
     assert "linux-x64-nasm-static" in result.output
 
 
@@ -63,5 +63,5 @@ def test_decide_answers_the_one_open_gate_and_status_shows_it(tmp_path: Path) ->
 def test_decide_without_an_open_gate_is_an_error(tmp_path: Path) -> None:
     run_id = _submit(tmp_path)
     result = _invoke(tmp_path, "decide", run_id, "approve")
-    assert result.exit_code != 0
+    assert result.exit_code == 2
     assert "0 open gates" in result.output

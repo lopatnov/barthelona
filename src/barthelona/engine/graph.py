@@ -66,7 +66,6 @@ class RunState(TypedDict, total=False):
     spec: dict[str, Any]  # the `ProjectSpec` draft
     tests: list[dict[str, Any]]  # its acceptance `TestCase`s
     g1: str  # the decision made at gate G1
-    source: str  # the accepted source of the run
     verdict: str  # the oracle's verdict on it: pass, fail or unavailable
     g4: str  # the decision made at gate G4
 
@@ -166,19 +165,24 @@ class _Nodes:
 
     async def codegen(self, state: RunState) -> dict[str, Any]:
         run_id = state["run_id"]
-        done = await generate_source(
-            self._gateway(run_id),
-            ProjectSpec.model_validate(state["spec"]),
-            [TestCase.model_validate(case) for case in state["tests"]],
-            state.get("facts", ""),
-            self._services.memory,
-            self._services.nasm,
-            self._recorder(run_id),
-            run_id,
-        )
+        wall_s = self._services.load_run(run_id).budget.wall_s
+        try:
+            async with asyncio.timeout(wall_s):  # the longest node: bounded by the run's wall-clock budget
+                done = await generate_source(
+                    self._gateway(run_id),
+                    ProjectSpec.model_validate(state["spec"]),
+                    [TestCase.model_validate(case) for case in state["tests"]],
+                    state.get("facts", ""),
+                    self._services.memory,
+                    self._services.nasm,
+                    self._recorder(run_id),
+                    run_id,
+                )
+        except TimeoutError:
+            return {"stop": StopReason.BUDGET_TIME.value}
         if done.accepted:
             self._services.save_source(run_id, done.source)
-        update: dict[str, Any] = {"source": done.source, "verdict": done.verdict.status}
+        update: dict[str, Any] = {"verdict": done.verdict.status}
         return update if done.accepted else update | {"stop": done.stop.value}
 
     async def g4_gate(self, state: RunState) -> dict[str, Any]:

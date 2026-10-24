@@ -139,7 +139,7 @@ def test_package_writes_the_project_files_of_a_green_run(tmp_path: Path) -> None
 
 def test_package_refuses_a_run_that_did_not_stop_green(tmp_path: Path) -> None:
     result = _package(tmp_path, _green_run(tmp_path, StopReason.MAX_ATTEMPTS))
-    assert result.exit_code != 0
+    assert result.exit_code == 2
     assert not (tmp_path / "out").exists()
 
 
@@ -148,7 +148,7 @@ def test_package_does_not_overwrite_without_force(tmp_path: Path) -> None:
     assert _package(tmp_path, run_id).exit_code == 0
     readme = tmp_path / "out" / "README.md"
     readme.write_text("edited by hand", encoding="utf-8")
-    assert _package(tmp_path, run_id).exit_code != 0
+    assert _package(tmp_path, run_id).exit_code == 2
     assert readme.read_text(encoding="utf-8") == "edited by hand"
     assert _package(tmp_path, run_id, "--force").exit_code == 0
     assert readme.read_text(encoding="utf-8") != "edited by hand"

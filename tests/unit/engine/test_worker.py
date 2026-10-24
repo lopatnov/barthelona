@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import shutil
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import closing
@@ -46,6 +47,7 @@ from barthelona.engine.host import (
 from barthelona.engine.worker import Worker
 from barthelona.llm import FakeGateway, GatewayError
 from barthelona.llm.markovian import COMPLETE
+from barthelona.llm.types import Completion, CompletionRequest
 from barthelona.llm.zetaris import ZetarisError
 from barthelona.persistence import Store, connect, migrate
 
@@ -401,3 +403,28 @@ def test_default_facts_is_empty_without_a_key_and_swallows_a_down_zetaris(monkey
     monkeypatch.setenv("ZETARIS_API_KEY", "k")
     monkeypatch.setenv("ZETARIS_REST_URL", "http://127.0.0.1:9")
     assert default_facts()() == ""
+
+
+class _StallsAtCodegen(FakeGateway):
+    """Answers intake, spec and tests, then never answers the codegen call."""
+
+    async def complete(self, role: str, request: CompletionRequest) -> Completion:
+        if len(self.calls) >= len(REPLIES):
+            await asyncio.sleep(30)
+        return await super().complete(role, request)
+
+
+async def test_a_codegen_that_outlasts_the_run_budget_stops_as_budget_time(
+    store: Store, runs_dir: Path
+) -> None:
+    short = _run().model_copy(update={"budget": RunBudget(wall_s=0.5, tokens=100_000)})
+    store.create_run(short)
+    (runs_dir / "r1").mkdir(parents=True, exist_ok=True)
+    (runs_dir / "r1" / REQUEST_FILE).write_text("Print hello.", encoding="utf-8")
+    worker = _worker(store, runs_dir, gateway=_StallsAtCodegen(REPLIES))
+    await worker.step()
+    _decide(store, "approve")
+    await worker.step()
+    run = store.get_run("r1")
+    assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.BUDGET_TIME)
+    assert store.pending_gates("r1") == []

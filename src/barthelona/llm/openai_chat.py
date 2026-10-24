@@ -74,6 +74,15 @@ def _describe(exc: openai.OpenAIError, base_url: str | None = None) -> str:
     return " | ".join(parts) + (f" ({', '.join(extras)})" if extras else "")
 
 
+def _retry_after(exc: openai.OpenAIError) -> float | None:
+    """The ``Retry-After`` header in seconds (the HTTP-date form is ignored), if the provider sent one."""
+    response = getattr(exc, "response", None)
+    try:
+        return max(0.0, float(response.headers["retry-after"])) if response is not None else None
+    except (KeyError, ValueError, AttributeError):
+        return None
+
+
 def _call_error(exc: openai.OpenAIError, base_url: str | None) -> ModelCallError:
     block = _meterless_block(exc)
     return ModelCallError(
@@ -83,6 +92,7 @@ def _call_error(exc: openai.OpenAIError, base_url: str | None) -> ModelCallError
         code=getattr(exc, "code", None),
         fix=tuple(str(item) for item in block.get("fix") or []),
         chat_carrier=block.get("chat_carrier"),
+        retry_after=_retry_after(exc),
     )
 
 

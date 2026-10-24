@@ -64,6 +64,7 @@ class ModelCallError(GatewayError):
         code: str | None = None,
         fix: tuple[str, ...] = (),
         chat_carrier: bool | None = None,
+        retry_after: float | None = None,
     ) -> None:
         super().__init__(message)
         self.kind = kind
@@ -71,3 +72,4 @@ class ModelCallError(GatewayError):
         self.code = code
         self.fix = fix
         self.chat_carrier = chat_carrier
+        self.retry_after = retry_after  # seconds the provider asked to wait, the minimum before a repeat

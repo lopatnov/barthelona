@@ -1,6 +1,6 @@
 # Current Status: What Works Today (2026-10-24)
 
-This document describes the **actual, runnable capabilities** of barthelona as of Phase 1a (walking skeleton). The **Streamlit UI and worker are working**: `.\scripts\run.ps1` launches the worker (outer run graph: preflight → intake → spec → test_author → validate_spec → G1 → finalize) and the Streamlit UI with three pages (New Request, Approvals, Live Run) on http://127.0.0.1:8501. The deterministic spine (toolchains, verification, model gateway, CLI) works **without any LLM**.
+This document describes the **actual, runnable capabilities** of barthelona as of Phase 1a (walking skeleton). The **Streamlit UI and worker are working**: `.\scripts\run.ps1` launches the worker (outer run graph: preflight → intake → spec → test_author → validate_spec → G1 → codegen → G4 → finalize) and the Streamlit UI with three pages (New Request, Approvals, Live Run) on http://127.0.0.1:8501. The deterministic spine (toolchains, verification, model gateway, CLI) works **without any LLM**.
 
 > **Integration guides:** [`docs/meterless-guide.md`](meterless-guide.md) | [`docs/zetaris-guide.md`](zetaris-guide.md) | [`docs/hackathon-demo-guide.md`](hackathon-demo-guide.md)
 

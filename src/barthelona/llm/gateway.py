@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import random
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Protocol
@@ -19,6 +20,8 @@ from barthelona.llm.types import Completion, CompletionRequest, FailureKind, Gat
 
 # Seconds to wait before each repeat of a failed call on the same chain entry; the length is the retry bound.
 RETRY_DELAYS = (2.0, 6.0)
+# A provider that asks for a longer wait than this is treated as down for this call: the chain moves on.
+MAX_RETRY_AFTER_S = 30.0
 # Failures that can pass by themselves. An auth, refusal or bad-reply failure repeats identically.
 _TRANSIENT = frozenset({FailureKind.SERVER, FailureKind.RATE_LIMIT, FailureKind.TRANSPORT})
 
@@ -38,6 +41,7 @@ class Gateway:
         env: Mapping[str, str] | None = None,
         retry_delays: tuple[float, ...] = RETRY_DELAYS,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        jitter: Callable[[float], float] = lambda cap: random.uniform(0, cap),  # noqa: S311  # backoff, not security
     ) -> None:
         self._catalog = catalog
         self._backends = backends
@@ -46,6 +50,7 @@ class Gateway:
         self._slots: dict[str, asyncio.Semaphore] = {}
         self._retry_delays = retry_delays
         self._sleep = sleep
+        self._jitter = jitter
 
     def _unusable(self, target: ModelTarget) -> str | None:
         provider = target.provider
@@ -71,15 +76,18 @@ class Gateway:
         """The backend's reply or the reason this entry failed, with a note for each repeated call."""
         started = time.monotonic()
         notes: list[str] = []
-        for delay in (*self._retry_delays, None):
+        for cap in (*self._retry_delays, None):
             try:
                 async with self._slot(target):
                     return await self._backends[target.provider.kind].complete(target, request), notes
             except ModelCallError as exc:
                 reason = f"{exc} after {time.monotonic() - started:.1f}s [{exc.kind}]"
-                if delay is None or exc.kind not in _TRANSIENT:
+                if cap is None or exc.kind not in _TRANSIENT or (exc.retry_after or 0) > MAX_RETRY_AFTER_S:
                     return reason, notes
-                notes.append(f"{target.key}: retry in {delay:g}s: {reason}")
+                delay = max(
+                    exc.retry_after or 0.0, self._jitter(cap)
+                )  # full jitter; Retry-After is the minimum
+                notes.append(f"{target.key}: retry in {delay:.1f}s: {reason}")
                 await self._sleep(delay)
         raise AssertionError("unreachable: the last delay is None")  # pragma: no cover
 

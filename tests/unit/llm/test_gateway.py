@@ -79,6 +79,7 @@ def _gateway(
         env={},
         retry_delays=retry_delays,
         sleep=sleep,
+        jitter=lambda cap: cap,  # the upper end of the jitter range, so the delays are predictable
     )
 
 
@@ -151,6 +152,31 @@ async def test_repeats_are_bounded_then_the_chain_moves_on() -> None:
     result = await gateway.complete("worker", _request())
     assert (result.served_by, cloud.targets, sleeps) == ("local_main", ["big"] * 3, [0.5, 1.5])
     assert len(result.fallbacks) == 3  # two repeats and the final failure
+
+
+async def test_retry_after_is_the_minimum_wait_and_jitter_stays_under_the_cap() -> None:
+    cloud = _Backend(
+        [ModelCallError("429", FailureKind.RATE_LIMIT, retry_after=4.0), _reply("from cloud")],
+    )
+    sleeps: list[float] = []
+    gateway = _gateway(cloud, _Backend([]), retry_delays=(0.5,), sleeps=sleeps)
+    await gateway.complete("worker", _request())
+    assert sleeps == [4.0]  # the provider asked for more than the 0.5 s cap
+
+
+async def test_a_provider_that_asks_for_a_very_long_wait_is_not_waited_for() -> None:
+    cloud = _Backend([ModelCallError("429", FailureKind.RATE_LIMIT, retry_after=3600.0)])
+    sleeps: list[float] = []
+    gateway = _gateway(cloud, _Backend([_reply("local")]), retry_delays=(0.5, 1.5), sleeps=sleeps)
+    result = await gateway.complete("worker", _request())
+    assert (result.served_by, sleeps) == ("local_main", [])
+
+
+def test_the_default_jitter_is_a_random_wait_between_zero_and_the_cap() -> None:
+    gateway = Gateway(_catalog(), {}, env={})
+    waits = {gateway._jitter(2.0) for _ in range(20)}  # the default is part of the contract
+    assert len(waits) > 1
+    assert all(0 <= wait <= 2.0 for wait in waits)
 
 
 @pytest.mark.parametrize("kind", [FailureKind.AUTH, FailureKind.REFUSAL, FailureKind.BAD_REPLY])
