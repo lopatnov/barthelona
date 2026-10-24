@@ -26,6 +26,7 @@ from .types import (
 @dataclass
 class State:
     """Materialized view of the world state."""
+
     entities: dict[str, Entity] = field(default_factory=dict)
     contexts: dict[str, Context] = field(default_factory=dict)
     relationships: dict[str, Relationship] = field(default_factory=dict)
@@ -191,8 +192,15 @@ class EventStore:
             current = self.state.aliases[current]
         return current
 
-    def log_audit(self, action: str, by: str, detail: str,
-                  event_id: str | None = None, run_id: str | None = None, at: str | None = None) -> None:
+    def log_audit(
+        self,
+        action: str,
+        by: str,
+        detail: str,
+        event_id: str | None = None,
+        run_id: str | None = None,
+        at: str | None = None,
+    ) -> None:
         """Log an audit entry."""
         with self._lock:
             entry = AuditEntry(

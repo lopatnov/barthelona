@@ -192,9 +192,13 @@ class IngestProcessor:
 
             # Append event for the updated entity
             self.store.append("upsertEntity", existing, source.at)
-            self.store.log_audit("upsertEntity", source.by or "system",
-                               f"{resolved_id} ({input_data['type']})",
-                               run_id=source.run_id, at=source.at)
+            self.store.log_audit(
+                "upsertEntity",
+                source.by or "system",
+                f"{resolved_id} ({input_data['type']})",
+                run_id=source.run_id,
+                at=source.at,
+            )
             return existing
 
         # Create new entity
@@ -224,30 +228,48 @@ class IngestProcessor:
 
                 if decision == "auto-merge":
                     # Create alias event
-                    self.store.append("alias", {
-                        "aliasId": resolved_id,
-                        "primaryId": other.id,
-                        "mergedAt": source.at,
-                        "mergedBy": "resolver",
-                        "reason": f"similarity {similarity:.3f}",
-                    }, source.at)
-                    self.store.log_audit("auto-merge", "resolver",
-                                        f"{name} -> {other.name} ({similarity:.3f})",
-                                        undefined=None, run_id=None, at=source.at)
+                    self.store.append(
+                        "alias",
+                        {
+                            "aliasId": resolved_id,
+                            "primaryId": other.id,
+                            "mergedAt": source.at,
+                            "mergedBy": "resolver",
+                            "reason": f"similarity {similarity:.3f}",
+                        },
+                        source.at,
+                    )
+                    self.store.log_audit(
+                        "auto-merge",
+                        "resolver",
+                        f"{name} -> {other.name} ({similarity:.3f})",
+                        undefined=None,
+                        run_id=None,
+                        at=source.at,
+                    )
                     # Update the other entity with new data
                     return self._update_existing_entity(other, input_data, source, name)
 
                 elif decision == "review":
                     # Queue for review (simplified - just log)
-                    self.store.log_audit("merge-proposed", "resolver",
-                                        f"{name} ~ {other.name} ({similarity:.3f}) queued",
-                                        undefined=None, run_id=None, at=source.at)
+                    self.store.log_audit(
+                        "merge-proposed",
+                        "resolver",
+                        f"{name} ~ {other.name} ({similarity:.3f}) queued",
+                        undefined=None,
+                        run_id=None,
+                        at=source.at,
+                    )
 
         # Append new entity event
         self.store.append("upsertEntity", entity, source.at)
-        self.store.log_audit("upsertEntity", source.by or "system",
-                           f"{resolved_id} ({input_data['type']})",
-                           run_id=source.run_id, at=source.at)
+        self.store.log_audit(
+            "upsertEntity",
+            source.by or "system",
+            f"{resolved_id} ({input_data['type']})",
+            run_id=source.run_id,
+            at=source.at,
+        )
 
         return self.store.state.entities[resolved_id]
 
@@ -270,5 +292,3 @@ class IngestProcessor:
         self.store.append("upsertEntity", existing, source.at)
 
         return existing
-
-

@@ -273,9 +273,7 @@ async def run_conformance() -> int:
         _test_band_001,
     )
     await record("prov-001", "writes without provenance are rejected", _test_prov_001)
-    await record(
-        "idem-001", "ingest idempotency: same batch twice produces an empty diff", _test_idem_001
-    )
+    await record("idem-001", "ingest idempotency: same batch twice produces an empty diff", _test_idem_001)
     await record(
         "idem-002",
         "the idempotency check can fail: a mutated batch changes the shape",
@@ -283,8 +281,7 @@ async def run_conformance() -> int:
     )
     await record(
         "bitemp-001",
-        "bitemporal edges: a superseding edge closes the old one; "
-        "point-in-time queries respect validity",
+        "bitemporal edges: a superseding edge closes the old one; point-in-time queries respect validity",
         _test_bitemp_001,
     )
     await record("audit-001", "every mutation writes an audit entry in order", _test_audit_001)
@@ -303,4 +300,5 @@ async def run_conformance() -> int:
 
 if __name__ == "__main__":
     import asyncio
+
     sys.exit(asyncio.run(run_conformance()))

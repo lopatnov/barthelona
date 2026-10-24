@@ -31,11 +31,13 @@ from barthelona.world_model import (
 @pytest.fixture
 def world_model() -> WorldModel:
     """Create a fresh World Model instance for testing."""
-    return WorldModel(WorldModelOptions(
-        namespace="test_concurrent",
-        storage="memory",
-        clock=lambda: datetime(2026, 5, 18, 0, 0, 0),
-    ))
+    return WorldModel(
+        WorldModelOptions(
+            namespace="test_concurrent",
+            storage="memory",
+            clock=lambda: datetime(2026, 5, 18, 0, 0, 0),
+        )
+    )
 
 
 @pytest.fixture
@@ -172,14 +174,8 @@ class TestConcurrentWriters:
         num_agents = 10
 
         # Create tasks for 10 agents ingesting the same observations
-        tasks = [
-            agent_ingest_observation(world_model, i, observations[0])
-            for i in range(num_agents)
-        ]
-        tasks.extend([
-            agent_ingest_observation(world_model, i, observations[1])
-            for i in range(num_agents)
-        ])
+        tasks = [agent_ingest_observation(world_model, i, observations[0]) for i in range(num_agents)]
+        tasks.extend([agent_ingest_observation(world_model, i, observations[1]) for i in range(num_agents)])
 
         # Run all agents concurrently
         await asyncio.gather(*tasks)
@@ -222,11 +218,13 @@ class TestConcurrentWriters:
         num_agents = 10
 
         # --- Concurrent run ---
-        concurrent_world = WorldModel(WorldModelOptions(
-            namespace="test_concurrent_run",
-            storage="memory",
-            clock=lambda: datetime(2026, 5, 18, 0, 0, 0),
-        ))
+        concurrent_world = WorldModel(
+            WorldModelOptions(
+                namespace="test_concurrent_run",
+                storage="memory",
+                clock=lambda: datetime(2026, 5, 18, 0, 0, 0),
+            )
+        )
 
         tasks = [
             agent_update_entity(
@@ -245,11 +243,13 @@ class TestConcurrentWriters:
         concurrent_shape = concurrent_world.state_shape_canonical()
 
         # --- Serial run ---
-        serial_world = WorldModel(WorldModelOptions(
-            namespace="test_serial_run",
-            storage="memory",
-            clock=lambda: datetime(2026, 5, 18, 0, 0, 0),
-        ))
+        serial_world = WorldModel(
+            WorldModelOptions(
+                namespace="test_serial_run",
+                storage="memory",
+                clock=lambda: datetime(2026, 5, 18, 0, 0, 0),
+            )
+        )
 
         for i in range(num_agents):
             await agent_update_entity(
@@ -366,13 +366,9 @@ class TestConcurrentWriters:
         # Check that all 10 relationship creation attempts happened
         # With bitemporal semantics, each new edge with same from/type/to closes the previous
         # So we expect 10 creation events + 9 closure events = 19 total relate events
-        rels = [
-            r for r in world_model.events()
-            if r.kind == "relate"
-        ]
+        rels = [r for r in world_model.events() if r.kind == "relate"]
         assert len(rels) == num_agents * 2 - 1, (
-            f"Expected {num_agents * 2 - 1} relationship events "
-            f"(10 creates + 9 closes), got {len(rels)}"
+            f"Expected {num_agents * 2 - 1} relationship events (10 creates + 9 closes), got {len(rels)}"
         )
 
         # Final state should have exactly 1 open relationship (the last one created)

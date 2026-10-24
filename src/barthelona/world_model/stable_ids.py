@@ -57,6 +57,7 @@ def context_id_from_attrs(context_type: str, attrs: dict[str, Any], parent: str 
     Format: ctx_<sha256(type:parent:attrs_json)[:16]>
     """
     import json
+
     # Sort keys for deterministic output
     attrs_json = json.dumps(attrs, sort_keys=True, separators=(",", ":"))
     parent_str = parent or ""
@@ -72,6 +73,7 @@ def fact_id(about: str, predicate: str, value: Any, at: str, kind: str, url: str
     Format: fact_<sha256(about:predicate:value:at:kind:url)[:16]>
     """
     import json
+
     value_json = json.dumps(value, sort_keys=True, separators=(",", ":"))
     url_str = url or ""
     content = f"{about}:{predicate}:{value_json}:{at}:{kind}:{url_str}"
@@ -93,6 +95,7 @@ def relationship_id(
     Format: rel_<sha256(from:type:to:context:valid_from:attrs)[:16]>
     """
     import json
+
     context_str = context or ""
     valid_from_str = valid_from or ""
     attrs_json = json.dumps(attrs or {}, sort_keys=True, separators=(",", ":"))
@@ -109,4 +112,5 @@ def sha256_hex(content: str, length: int = 16) -> str:
 def canonical_json(obj: Any) -> str:
     """Generate canonical JSON string for state comparison."""
     import json
+
     return json.dumps(obj, sort_keys=True, separators=(",", ":"))

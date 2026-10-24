@@ -87,8 +87,7 @@ def create_observations(mutate: bool = False) -> list[IngestObservation]:
 
 async def main() -> int:
     parser = argparse.ArgumentParser(description="World Model idempotency check")
-    parser.add_argument("--mutate", action="store_true",
-                       help="Mutate the second run to prove check can fail")
+    parser.add_argument("--mutate", action="store_true", help="Mutate the second run to prove check can fail")
     args = parser.parse_args()
 
     mutate = args.mutate
@@ -96,11 +95,13 @@ async def main() -> int:
     def clock():
         return datetime(2026, 5, 18, 0, 0, 0)
 
-    world = WorldModel(WorldModelOptions(
-        storage="memory",
-        namespace="idem",
-        clock=clock,
-    ))
+    world = WorldModel(
+        WorldModelOptions(
+            storage="memory",
+            namespace="idem",
+            clock=clock,
+        )
+    )
 
     # Run 1
     obs1 = create_observations(mutate=False)
@@ -129,4 +130,5 @@ async def main() -> int:
 
 if __name__ == "__main__":
     import asyncio
+
     sys.exit(asyncio.run(main()))

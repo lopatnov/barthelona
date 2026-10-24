@@ -71,8 +71,7 @@ class WorldModel:
         """Normalize provenance to stored format."""
         if not source or not source.kind or source.at is None:
             raise ValueError(
-                "World Model: every write carries provenance (kind + at). "
-                "No provenance, no write."
+                "World Model: every write carries provenance (kind + at). No provenance, no write."
             )
 
         at = source.at.isoformat() if isinstance(source.at, datetime) else source.at
@@ -128,25 +127,39 @@ class WorldModel:
                     self.opts.resolver_review_band,
                 )
                 if decision == "auto-merge":
-                    self.store.append("alias", {
-                        "aliasId": entity_id,
-                        "primaryId": other.id,
-                        "mergedAt": source_stored.at,
-                        "mergedBy": "resolver",
-                        "reason": f"similarity {similarity:.3f}",
-                    }, source_stored.at)
-                    self.store.log_audit("auto-merge", "resolver",
-                                        f"{name} -> {other.name} ({similarity:.3f})",
-                                        None, None, source_stored.at)
-                    return self._fold_entity_upsert(other.id, {
-                        "type": type,
-                        "attrs": attrs or {},
-                    }, source_stored, name)
+                    self.store.append(
+                        "alias",
+                        {
+                            "aliasId": entity_id,
+                            "primaryId": other.id,
+                            "mergedAt": source_stored.at,
+                            "mergedBy": "resolver",
+                            "reason": f"similarity {similarity:.3f}",
+                        },
+                        source_stored.at,
+                    )
+                    self.store.log_audit(
+                        "auto-merge",
+                        "resolver",
+                        f"{name} -> {other.name} ({similarity:.3f})",
+                        None,
+                        None,
+                        source_stored.at,
+                    )
+                    return self._fold_entity_upsert(
+                        other.id,
+                        {
+                            "type": type,
+                            "attrs": attrs or {},
+                        },
+                        source_stored,
+                        name,
+                    )
                 elif decision == "review":
                     proposal_id = f"merge_{len(self.store.state.merge_queue) + 1}"
                     if not any(
-                        (p.left_id == entity_id and p.right_id == other.id) or
-                        (p.left_id == other.id and p.right_id == entity_id)
+                        (p.left_id == entity_id and p.right_id == other.id)
+                        or (p.left_id == other.id and p.right_id == entity_id)
                         for p in self.store.state.merge_queue
                     ):
                         proposal = MergeProposal(
@@ -161,14 +174,24 @@ class WorldModel:
                             proposed_at=source_stored.at,
                         )
                         self.store.state.merge_queue.append(proposal)
-                        self.store.log_audit("merge-proposed", "resolver",
-                                            f"{name} ~ {other.name} ({similarity:.3f}) queued",
-                                            None, None, source_stored.at)
+                        self.store.log_audit(
+                            "merge-proposed",
+                            "resolver",
+                            f"{name} ~ {other.name} ({similarity:.3f}) queued",
+                            None,
+                            None,
+                            source_stored.at,
+                        )
 
-        result = self._fold_entity_upsert(entity_id, {
-            "type": type,
-            "attrs": attrs or {},
-        }, source_stored, name)
+        result = self._fold_entity_upsert(
+            entity_id,
+            {
+                "type": type,
+                "attrs": attrs or {},
+            },
+            source_stored,
+            name,
+        )
 
         # Create external key alias for hash-based ID
         if external_key:
@@ -182,13 +205,17 @@ class WorldModel:
         """Create an alias from external key format (type:system:id) to the hash-based entity ID."""
         external_key_str = f"{type}:{external_key['system']}:{external_key['id']}"
         if external_key_str not in self.store.state.aliases:
-            self.store.append("alias", {
-                "aliasId": external_key_str,
-                "primaryId": entity_id,
-                "mergedAt": source.at,
-                "mergedBy": "system",
-                "reason": "external key alias",
-            }, source.at)
+            self.store.append(
+                "alias",
+                {
+                    "aliasId": external_key_str,
+                    "primaryId": entity_id,
+                    "mergedAt": source.at,
+                    "mergedBy": "system",
+                    "reason": "external key alias",
+                },
+                source.at,
+            )
             self.store.log_audit(
                 "alias", "system", f"{external_key_str} -> {entity_id}", None, None, source.at
             )
@@ -221,9 +248,14 @@ class WorldModel:
 
             # Append event for the updated entity
             event = self.store.append("upsertEntity", existing, source.at)
-            self.store.log_audit("upsertEntity", source.by or "system",
-                               f"{resolved} ({input_data['type']})",
-                               event.id, source.run_id, source.at)
+            self.store.log_audit(
+                "upsertEntity",
+                source.by or "system",
+                f"{resolved} ({input_data['type']})",
+                event.id,
+                source.run_id,
+                source.at,
+            )
             return existing
         else:
             # Create new entity
@@ -240,9 +272,14 @@ class WorldModel:
                 state=input_data.get("state", EntityState.ACTIVE),
             )
             event = self.store.append("upsertEntity", entity, source.at)
-            self.store.log_audit("upsertEntity", source.by or "system",
-                               f"{resolved} ({input_data['type']})",
-                               event.id, source.run_id, source.at)
+            self.store.log_audit(
+                "upsertEntity",
+                source.by or "system",
+                f"{resolved} ({input_data['type']})",
+                event.id,
+                source.run_id,
+                source.at,
+            )
             return self.store.state.entities[resolved]
 
     async def upsert_context(
@@ -284,8 +321,14 @@ class WorldModel:
             updated_at=source_stored.at,
         )
         event = self.store.append("upsertContext", context, source_stored.at)
-        self.store.log_audit("upsertContext", source_stored.by or "system",
-                           f"{context_id} ({type})", event.id, source_stored.run_id, source_stored.at)
+        self.store.log_audit(
+            "upsertContext",
+            source_stored.by or "system",
+            f"{context_id} ({type})",
+            event.id,
+            source_stored.run_id,
+            source_stored.at,
+        )
         return self.store.state.contexts[context_id]
 
     async def relate(
@@ -322,15 +365,22 @@ class WorldModel:
         # For bitemporal edges: find and close any existing open edge with same from and type
         # A superseding edge is defined by same from_ and type; the to entity can change
         for existing_rel in self.store.state.relationships.values():
-            if (existing_rel.from_ == from_resolved and
-                existing_rel.type == type and
-                existing_rel.valid_to is None):
+            if (
+                existing_rel.from_ == from_resolved
+                and existing_rel.type == type
+                and existing_rel.valid_to is None
+            ):
                 # Close the existing edge
                 existing_rel.valid_to = valid_from or source_stored.at
                 self.store.append("relate", existing_rel, source_stored.at)
-                self.store.log_audit("relate", source_stored.by or "system",
-                                   f"{from_resolved} -[{type}]-> {existing_rel.to} (closed)",
-                                   None, source_stored.run_id, source_stored.at)
+                self.store.log_audit(
+                    "relate",
+                    source_stored.by or "system",
+                    f"{from_resolved} -[{type}]-> {existing_rel.to} (closed)",
+                    None,
+                    source_stored.run_id,
+                    source_stored.at,
+                )
                 break
 
         rel_id = relationship_id(from_resolved, type, to_resolved, context, valid_from, attrs)
@@ -351,9 +401,14 @@ class WorldModel:
             created_at=source_stored.at,
         )
         event = self.store.append("relate", rel, source_stored.at)
-        self.store.log_audit("relate", source_stored.by or "system",
-                           f"{from_resolved} -[{type}]-> {to_resolved}",
-                           event.id, source_stored.run_id, source_stored.at)
+        self.store.log_audit(
+            "relate",
+            source_stored.by or "system",
+            f"{from_resolved} -[{type}]-> {to_resolved}",
+            event.id,
+            source_stored.run_id,
+            source_stored.at,
+        )
         return self.store.state.relationships[rel_id]
 
     async def assert_fact(
@@ -407,7 +462,8 @@ class WorldModel:
         # Conflict resolution
         policy = self.opts.conflict_policy
         rivals = [
-            f for f in self.store.state.facts.values()
+            f
+            for f in self.store.state.facts.values()
             if f.about == about_resolved and f.predicate == predicate and not f.superseded_by
         ]
         winner = fact
@@ -434,25 +490,34 @@ class WorldModel:
         # Ensure subject entity exists
         if about_resolved not in self.store.state.entities:
             inferred_type = about_resolved.split(":")[0] if ":" in about_resolved else "entity"
-            self.store.append("upsertEntity", Entity(
-                type=inferred_type,
-                id=about_resolved,
-                attrs={},
-                schema_version=1,
-                source=source_stored,
-                created_at=source_stored.at,
-                updated_at=source_stored.at,
-                aliases=[],
-                state=EntityState.EMERGING,
-            ), source_stored.at)
+            self.store.append(
+                "upsertEntity",
+                Entity(
+                    type=inferred_type,
+                    id=about_resolved,
+                    attrs={},
+                    schema_version=1,
+                    source=source_stored,
+                    created_at=source_stored.at,
+                    updated_at=source_stored.at,
+                    aliases=[],
+                    state=EntityState.EMERGING,
+                ),
+                source_stored.at,
+            )
 
         entity = self.store.state.entities[about_resolved]
         entity.attrs[predicate] = winner.value
         entity.updated_at = source_stored.at
 
-        self.store.log_audit("assertFact", source_stored.by or "system",
-                           f"{about_resolved}.{predicate} = {winner.value} ({policy})",
-                           event.id, source_stored.run_id, source_stored.at)
+        self.store.log_audit(
+            "assertFact",
+            source_stored.by or "system",
+            f"{about_resolved}.{predicate} = {winner.value} ({policy})",
+            event.id,
+            source_stored.run_id,
+            source_stored.at,
+        )
         self.store.persist()
 
         return self.store.state.facts[fact_id_val]
@@ -503,11 +568,7 @@ class WorldModel:
 
     def _approve_merge_sync(self, proposal_id: str, by: str) -> None:
         p = next(
-            (
-                m
-                for m in self.store.state.merge_queue
-                if m.id == proposal_id and m.status == "pending"
-            ),
+            (m for m in self.store.state.merge_queue if m.id == proposal_id and m.status == "pending"),
             None,
         )
         if not p:
@@ -518,13 +579,17 @@ class WorldModel:
         p.resolved_at = at
         p.resolved_by = by
 
-        self.store.append("alias", {
-            "aliasId": p.left_id,
-            "primaryId": p.right_id,
-            "mergedAt": at,
-            "mergedBy": by,
-            "reason": p.reason,
-        }, at)
+        self.store.append(
+            "alias",
+            {
+                "aliasId": p.left_id,
+                "primaryId": p.right_id,
+                "mergedAt": at,
+                "mergedBy": by,
+                "reason": p.reason,
+            },
+            at,
+        )
         self.store.log_audit("merge-approved", by, f"{p.left_name} -> {p.right_name}", None, None, at)
 
     async def reject_merge(self, proposal_id: str, by: str) -> None:
@@ -533,11 +598,7 @@ class WorldModel:
 
     def _reject_merge_sync(self, proposal_id: str, by: str) -> None:
         p = next(
-            (
-                m
-                for m in self.store.state.merge_queue
-                if m.id == proposal_id and m.status == "pending"
-            ),
+            (m for m in self.store.state.merge_queue if m.id == proposal_id and m.status == "pending"),
             None,
         )
         if not p:
@@ -571,6 +632,7 @@ class WorldModel:
 
 
 # ---------------------------------------------------------------- views
+
 
 class GraphView:
     def __init__(self, store: EventStore):
