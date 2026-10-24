@@ -37,6 +37,18 @@ def test_submit_queues_a_meterless_run_and_writes_the_request(tmp_path: Path) ->
     assert run.budget.cloud_allowed
 
 
+def test_submit_with_a_project_name_puts_the_run_in_that_demos_folder(tmp_path: Path) -> None:
+    run_id = _submit(tmp_path, "--project", "simplest-demo-en")
+    with closing(open_store(tmp_path / "app.sqlite")) as store:
+        assert store.get_run(run_id).workspace == "demos/simplest-demo-en"
+
+
+def test_submit_rejects_a_project_name_that_is_not_a_slug(tmp_path: Path) -> None:
+    result = _invoke(tmp_path, "submit", "Print hello.", "--project", "../etc", "--runs", str(tmp_path / "r"))
+    assert result.exit_code != 0
+    assert not (tmp_path / "r").exists()
+
+
 def test_submit_rejects_an_unknown_preset(tmp_path: Path) -> None:
     result = _invoke(tmp_path, "submit", "x", "--preset", "win-x64-masm", "--runs", str(tmp_path / "runs"))
     assert result.exit_code == 2
