@@ -50,6 +50,7 @@ mkdir -p var var/runs workspaces
 
 WORKER_PID=""
 UI_PID=""
+PIDS=()
 
 cleanup() {
     echo "Stopping processes..." >&2
@@ -76,6 +77,7 @@ start_worker() {
     echo "Starting worker: ${args[*]}" >&2
     PYTHONPATH=src "$ENV_SCRIPT" "${args[@]}" &
     WORKER_PID=$!
+    PIDS+=("$WORKER_PID")
 }
 
 start_ui() {
@@ -89,6 +91,7 @@ start_ui() {
     echo "Starting Streamlit UI: ${args[*]}" >&2
     PYTHONPATH=src "$ENV_SCRIPT" "${args[@]}" &
     UI_PID=$!
+    PIDS+=("$UI_PID")
 }
 
 if [[ "$UI_ONLY" != true ]]; then
@@ -107,4 +110,4 @@ echo "  Streamlit: $UI_PID on http://127.0.0.1:$STREAMLIT_PORT" >&2
 echo ""
 echo "Press Ctrl+C to stop both processes." >&2
 
-wait "$WORKER_PID" "$UI_PID"
+wait "${PIDS[@]}"
