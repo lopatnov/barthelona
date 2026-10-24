@@ -175,9 +175,9 @@ scripts/run.sh                    # Linux / WSL
 Options:
 
 ```powershell
-.\scripts\run.ps1 --worker-only   # only the worker (no UI)
-.\scripts\run.ps1 --ui-only       # only the UI (assumes worker is running)
-.\scripts\run.ps1 --port 8501     # custom Streamlit port
+.\scripts\run.ps1 -WorkerOnly            # only the worker (no UI)
+.\scripts\run.ps1 -UiOnly                # only the UI (assumes worker is running)
+.\scripts\run.ps1 -StreamlitPort 8502    # custom Streamlit port (default 8501)
 ```
 
 The UI pages (Phase 1a walking skeleton):
