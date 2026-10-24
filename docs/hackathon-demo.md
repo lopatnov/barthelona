@@ -2,12 +2,12 @@
 
 What Barthelona uses from the hackathon stack, and how to reproduce the demo.
 
-| Layer | Used for | Where |
-| --- | --- | --- |
-| Meterless Nightshift (Power) | Primary provider for the `meterless` profile | `config/models.yaml` (`meterless` provider), `src/barthelona/llm/meterless.py` |
-| NVIDIA Nemotron (Power) | Model behind a Nightshift lane, key lives in Nightshift only | Nightshift Providers tab |
-| Markovian Engine (Build) | Long generation as bounded chunks with flat context | `src/barthelona/llm/markovian.py`, `barthelona chunked run` |
-| Zetaris (Data) | Optional structured knowledge store next to Qdrant: read-only SQL, rows enter chunk 1 as untrusted facts | `src/barthelona/llm/zetaris.py`, `barthelona zetaris`, `chunked run --facts-sql` |
+| Layer                        | Used for                                                                                                 | Where                                                                            |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Meterless Nightshift (Power) | Primary provider for the `meterless` profile                                                             | `config/models.yaml` (`meterless` provider), `src/barthelona/llm/meterless.py`   |
+| NVIDIA Nemotron (Power)      | Model behind a Nightshift lane, key lives in Nightshift only                                             | Nightshift Providers tab                                                         |
+| Markovian Engine (Build)     | Long generation as bounded chunks with flat context                                                      | `src/barthelona/llm/markovian.py`, `barthelona chunked run`                      |
+| Zetaris (Data)               | Optional structured knowledge store next to Qdrant: read-only SQL, rows enter chunk 1 as untrusted facts | `src/barthelona/llm/zetaris.py`, `barthelona zetaris`, `chunked run --facts-sql` |
 
 The Markovian code is a Python port of the Apache-2.0 spec at github.com/Meterless/Meterless/tree/main/engines/markovian
 (ARCHITECT mode). Not ported: model-based carryover compression, RESEARCH mode, the reflection pass. The TypeScript
@@ -58,16 +58,16 @@ facts (for example Linux x86-64 syscall numbers) in Zetaris is still manual.
 
 One deliberate break each, run on 2026-10-23, then reverted with `git checkout`. Every break made pytest fail (no break was missed):
 
-| Break | Caught by |
-| --- | --- |
-| Server `fix[]` dropped from the error text | `test_the_server_message_comes_first_and_its_fix_wins_over_our_hint` |
-| Carrier refusal given our own hint | `test_a_carrier_refusal_is_never_blamed_on_the_machine_or_given_our_hint` |
-| `extract_code` keeps a repeated program | `test_extract_code_drops_a_block_that_repeats_the_program_without_its_comments` |
-| H-MEM written although the oracle rejected the run | `test_assemble_failure_exits_non_zero_and_keeps_the_memory_clean` |
-| `%include` guard switched off | `test_directives_that_read_host_files_are_refused_without_running_nasm` |
-| Markovian carryover dropped (state block ignored) | `test_chunks_run_until_the_model_completes` |
-| H-MEM write skipped (rolled back) | `test_memory_refuses_to_store_a_blocked_fact_and_ledgers_the_rejection` |
-| Injection rule weakened (`ignore/disregard` no longer matches) | `test_known_injections_are_blocked_with_evidence` (the `disregard` case) |
+| Break                                                          | Caught by                                                                       |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Server `fix[]` dropped from the error text                     | `test_the_server_message_comes_first_and_its_fix_wins_over_our_hint`            |
+| Carrier refusal given our own hint                             | `test_a_carrier_refusal_is_never_blamed_on_the_machine_or_given_our_hint`       |
+| `extract_code` keeps a repeated program                        | `test_extract_code_drops_a_block_that_repeats_the_program_without_its_comments` |
+| H-MEM written although the oracle rejected the run             | `test_assemble_failure_exits_non_zero_and_keeps_the_memory_clean`               |
+| `%include` guard switched off                                  | `test_directives_that_read_host_files_are_refused_without_running_nasm`         |
+| Markovian carryover dropped (state block ignored)              | `test_chunks_run_until_the_model_completes`                                     |
+| H-MEM write skipped (rolled back)                              | `test_memory_refuses_to_store_a_blocked_fact_and_ledgers_the_rejection`         |
+| Injection rule weakened (`ignore/disregard` no longer matches) | `test_known_injections_are_blocked_with_evidence` (the `disregard` case)        |
 
 ## Reproduce
 
@@ -82,8 +82,13 @@ One deliberate break each, run on 2026-10-23, then reverted with `git checkout`.
    under `demos/`, never in the repository root; the memory proof lives in `demos/hello/`)
    It prints one row per chunk (tokens in and out, latency, serving model, marker, carryover source) and a summary
    with `peak_prompt` (stays flat), `standard_cost`, `markovian_cost` and `efficiency`.
+
+   For short tasks (e.g. a 15-line hello world), use `--single-shot` to bypass chunking:
+   `python -m barthelona chunked run "write hello in NASM" --single-shot --code --out hello.asm`
+
    For the memory proof use the full command in `demos/hello/README.md` (it already has `--assemble --repair 2`,
    `--memory` and `--stats`), run it twice, then `python -m barthelona chunked stats`.
+
 5. In Nightshift's run details, confirm the Nemotron lane served the chunks.
 
 ## Honest limits

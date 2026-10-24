@@ -198,3 +198,49 @@ def test_facts_sql_without_a_key_stops_instead_of_being_skipped(monkeypatch: pyt
     result = runner.invoke(app, ["chunked", "run", "t", "--facts-sql", "SELECT 1"])
     assert result.exit_code != 0
     assert "ZETARIS_API_KEY" in result.output
+
+
+def test_single_shot_mode_bypasses_chunking(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Single-shot mode completes in one call without checkpoint markers."""
+    fake = FakeGateway([f"```asm\n_start:\n    mov eax, 60\n    xor edi, edi\n```\n{COMPLETE}"])
+    monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
+    out = tmp_path / "hello.asm"
+    result = runner.invoke(
+        app, ["chunked", "run", "write hello", "--single-shot", "--code", "--out", str(out)]
+    )
+    assert result.exit_code == 0, result.output
+    assert out.read_text(encoding="utf-8") == "_start:\n    mov eax, 60\n    xor edi, edi\n"
+    # Only one call to the worker role (no planner since not specified, no checkpoints)
+    assert [call[0] for call in fake.calls] == ["worker"]
+    # The output should show only 1 chunk with marker "complete"
+    assert "chunks=1" in result.output
+    assert "marker=complete" in result.output or "complete" in result.output.lower()
+
+
+def test_single_shot_with_plan_and_review(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Single-shot mode works with plan and review roles."""
+    fake = FakeGateway([
+        "1. data\n2. text",  # planner
+        f"```asm\n_start:\n```\n{COMPLETE}",  # worker
+        "looks complete",  # reviewer
+    ])
+    monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
+    out = tmp_path / "hello.asm"
+    result = runner.invoke(
+        app,
+        [
+            "chunked", "run", "write hello", "--plan-role", "planner",
+            "--review-role", "cheap", "--single-shot", "--code",
+            "--out", str(out), "--memory", str(tmp_path / "mem.sqlite"),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert [call[0] for call in fake.calls] == ["planner", "worker", "cheap"]
+    assert "Plan from the planner" in fake.calls[1][1].messages[1].content
+    assert out.read_text(encoding="utf-8") == "_start:\n"
+    # Single-shot has no state block, so no facts are written to memory (written=0)
+    assert "written=0" in result.output and "advisory" in result.output

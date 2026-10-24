@@ -25,6 +25,7 @@ from barthelona.llm import (
     extract_code,
     load_catalog,
     run_markovian,
+    run_single_shot,
 )
 from barthelona.llm.guard import wrap_untrusted
 from barthelona.llm.hmem import HMem, facts_from_state
@@ -183,6 +184,9 @@ def run(
     review_role: Annotated[
         str | None, typer.Option(help="Role that reviews the output afterwards (e.g. cheap); advisory.")
     ] = None,
+    single_shot: Annotated[
+        bool, typer.Option("--single-shot", help="Single completion without chunking (for short tasks).")
+    ] = False,
     chunk_tokens: Annotated[int, typer.Option(help="Tokens per chunk (engine range 1000-128000).")] = 8000,
     carryover_tokens: Annotated[int, typer.Option(help="Tokens of state carried between chunks.")] = 800,
     max_chunks: Annotated[int, typer.Option(help="Upper bound on chunks (1-32).")] = 24,
@@ -190,7 +194,7 @@ def run(
         "config/models.yaml"
     ),
 ) -> None:
-    """Run TASK in chunks, print per-chunk tokens and latency, and exit non-zero unless it completed."""
+    """Run TASK in chunks (or single-shot); print per-chunk tokens and latency; exit non-zero unless completed."""
     try:
         catalog = load_catalog(catalog_path)
         config = MarkovianConfig(chunk_tokens, carryover_tokens, max_chunks)
@@ -207,13 +211,20 @@ def run(
     plan = _side_call(gateway, plan_role, "plan", _PLAN, task)
     chunk_task = f"{task}\n\nPlan from the planner (follow it):\n{plan}" if plan else task
 
-    def attempt(task_text: str, number: int) -> tuple[MarkovianResult, str]:
-        result = asyncio.run(run_markovian(gateway, role, task_text, config, memory_context))
-        _record_stats(stats, result, task, profile, recalled, number)
+    if single_shot:
+        result = asyncio.run(run_single_shot(gateway, role, chunk_task, memory_context))
+        _record_stats(stats, result, task, profile, recalled, 0)
         _report(result)
-        return result, _answer_text(result, code, out)
+        text = _answer_text(result, code, out)
+        gate = None
+    else:
+        def attempt(task_text: str, number: int) -> tuple[MarkovianResult, str]:
+            result = asyncio.run(run_markovian(gateway, role, task_text, config, memory_context))
+            _record_stats(stats, result, task, profile, recalled, number)
+            _report(result)
+            return result, _answer_text(result, code, out)
 
-    result, text, gate = _until_it_assembles(attempt, chunk_task, nasm if assemble else NO_ORACLE, repair)
+        result, text, gate = _until_it_assembles(attempt, chunk_task, nasm if assemble else NO_ORACLE, repair)
     accepted = gate is None or gate.status == "pass"
     if store:
         _remember(store, result, recalled, domain, gate.status if gate else "")

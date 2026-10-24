@@ -263,3 +263,52 @@ async def run_markovian(
         if marker == "complete":
             return MarkovianResult("\n".join(bodies), StopReason.GREEN, tuple(stats), config.carryover_tokens)
     return MarkovianResult("\n".join(bodies), StopReason.MAX_ATTEMPTS, tuple(stats), config.carryover_tokens)
+
+
+_SINGLE_SHOT_SYSTEM = (
+    "You solve a task in a single response. Put all code in fenced blocks (three backticks). "
+    "Text outside the fences is commentary and is dropped."
+)
+
+
+async def run_single_shot(
+    gateway: ModelGateway,
+    role: str,
+    task: str,
+    memory_context: str = "",
+) -> MarkovianResult:
+    """Run *task* as a single completion (no chunking).
+
+    *memory_context* (an H-MEM ``[MEMORY CONTEXT]`` block) is put in front of the prompt.
+    """
+    content = f"Task:\n{task}"
+    if memory_context:
+        content = f"{memory_context}\n\n{content}"
+    request = CompletionRequest(
+        messages=(
+            ChatMessage(role="system", content=_SINGLE_SHOT_SYSTEM),
+            ChatMessage(role="user", content=content),
+        ),
+    )
+    try:
+        completion = await gateway.complete(role, request)
+    except GatewayError:
+        return MarkovianResult("", StopReason.NO_MODEL_AVAILABLE, tuple(), 0)
+    body, _, _ = _split(completion.text)
+    record = completion.record
+    measured = record.tokens_out > 0
+    stat = ChunkStat(
+        index=0,
+        tokens_in=record.tokens_in,
+        tokens_out=record.tokens_out,
+        tokens=record.tokens_out if measured else math.ceil(len(completion.text) / _CHARS_PER_TOKEN),
+        token_source="measured" if measured else "estimated",
+        latency_ms=record.latency_ms,
+        served_by=completion.served_by,
+        marker="complete",
+        carryover="none",
+        fallbacks=completion.fallbacks,
+        state="",
+        answered_by=completion.answered_by,
+    )
+    return MarkovianResult(body, StopReason.GREEN, (stat,), 0)
