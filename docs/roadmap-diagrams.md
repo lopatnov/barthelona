@@ -1,6 +1,6 @@
 # Roadmap diagrams: what Barthelona looks like when finished
 
-Ten drawings of the finished system, based on `docs/architecture.md`, `docs/roadmap.md` and the ADRs. Use them to check a delivered phase against the plan: every box is coloured by what exists on `main`, and the caption under each drawing names the phase that delivers it. The phases and exit criteria themselves are in `docs/roadmap.md`.
+Twelve drawings of the finished system, based on `docs/architecture.md`, `docs/roadmap.md` and the ADRs. Use them to check a delivered phase against the plan: every box is coloured by what exists on `main`, and the caption under each drawing names the phase that delivers it. The phases and exit criteria themselves are in `docs/roadmap.md`.
 
 Colours (as of 2026-10-17, checked against `main`):
 
@@ -71,3 +71,17 @@ Where each kind of truth lives: `var/`, the repository, and each project's own g
 Phase 2 runs two tracks: 2a oracles plus the MCP server, 2b meta-agency (plan review, 2026-10-17). Each phase ends on its exit criterion plus the phase review (D-037).
 
 ![Phases and what each one adds](images/10-phases.svg)
+
+Phases 6 and 7 and the purple "new" marks were added on 2026-10-18 from `docs/requirements.md`. Drawings 1, 6 and 8 got a text refresh and a purple "proposed" box in the same pass (Linux host and multi-PC endpoints, new check families, endpoint scheduling policy); a full redraw happens when their phases land.
+
+## 11. Capabilities the reference workloads need
+
+Capabilities derived from the hardest version of each demo, coloured by status. Source: `docs/requirements.md` section 2.
+
+![Capabilities the reference workloads need](images/11-reference-workloads.svg)
+
+## 12. Proposed architecture changes
+
+What the requirements pass proposes to add to the engine, mostly as reserved fields and registries before Phase 1b freezes schemas. Source: `docs/requirements.md` section 4.
+
+![Proposed architecture changes](images/12-architecture-changes.svg)
