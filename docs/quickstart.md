@@ -115,17 +115,29 @@ in chunks, NASM decides whether it is valid. You write no assembly.
 Not possible yet: several modules, other dialects (GAS, FASM), editing an existing project, or a pass that proves
 behavior. Those need the Scrum engine and the emulator (Phase 1 and 2).
 
-## Other commands
+## Run the Streamlit UI (Phase 1a+)
 
-| Command                                                    | What it does                                                                            |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `python -m barthelona version`, `schema [Document]`        | version, domain JSON schemas                                                            |
-| `python -m barthelona probe`                               | probe the `bart-tc` container, write `config/toolchains.lock.json` (needs WSL + Docker) |
-| `python -m barthelona verify <workspace> --level V6`       | run the ladder on a NASM or GAS workspace (needs WSL + Docker for V5/V6)                |
-| `python -m barthelona training status`                     | opt-in training-data setting and counts                                                 |
-| `python -m barthelona bench ...`                           | benchmark models on the dev tasks                                                       |
-| `python -m barthelona meterless status`                    | Nightshift online/unauthorized/offline and routes                                       |
-| `python -m barthelona zetaris status`, `zetaris sql "..."` | Zetaris facts store (hackathon requirement)                                                            |
+```powershell
+.\scripts\run.ps1                 # Windows: launches worker + Streamlit on http://127.0.0.1:8501
+# or
+scripts/run.sh                    # Linux / WSL
+```
+
+The UI provides three pages (Phase 1a walking skeleton):
+
+- **New Request** — create a run: choose dialect/preset, mode (create/edit), prompt, budget, model profile (local-only / hybrid / cloud)
+- **Approvals** — review and resolve human gates (G1 spec, G2 contracts, G4 final)
+- **Live Run** — real-time event log tail, sprint topology DOT graph, run controls (cancel, extend budget)
+
+Options:
+
+```powershell
+.\scripts\run.ps1 --worker-only   # only the worker (no UI)
+.\scripts\run.ps1 --ui-only       # only the UI (assumes worker is running)
+.\scripts\run.ps1 --port 8501     # custom Streamlit port
+```
+
+## Other commands
 
 ## Troubleshooting
 

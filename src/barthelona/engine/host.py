@@ -8,11 +8,18 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 
 import orjson
 
-from barthelona.domain import ProjectSpec, Run, TestCase
+from barthelona.domain import (
+    EventKind,
+    ProjectSpec,
+    Run,
+    RunEvent,
+    TestCase,
+)
 from barthelona.engine.graph import SOURCE_FILE, Services
 from barthelona.engine.preflight import preflight_for
 from barthelona.llm.gateway import ModelGateway
@@ -40,16 +47,23 @@ def no_facts() -> str:
     return ""
 
 
-def default_facts() -> Callable[[], str]:
-    """Knowledge-table facts when ZETARIS_API_KEY is set, none otherwise; a down Zetaris never stops a run."""
+def default_facts(
+    emit_event: Callable[[str, str], None] | None = None,
+) -> Callable[[], str]:
+    """Knowledge-table facts when ZETARIS_API_KEY is set, none otherwise; a down Zetaris never stops a run.
+
+    If emit_event is provided, it will be called with (run_id, error_message) when Zetaris fails.
+    """
     config = ZetarisConfig.from_env(os.environ)
     if config is None:
         return no_facts
 
-    def facts() -> str:
+    def facts(run_id: str | None = None) -> str:
         try:
             return facts_block(run_sql(config, DEFAULT_FACTS_SQL, 100), DEFAULT_FACTS_SQL)
-        except ZetarisError:
+        except ZetarisError as e:
+            if emit_event and run_id:
+                emit_event(run_id, f"Zetaris facts unavailable: {e}")
             return ""
 
     return facts
@@ -67,7 +81,7 @@ def services_for(
     store: Store,
     runs_dir: Path,
     gateway_for: Callable[[Run], ModelGateway],
-    facts: Callable[[], str] = no_facts,
+    facts: Callable[[], str] | None = None,
     memory: HMem | None = None,
     nasm: str | None = None,
 ) -> Services:
@@ -85,6 +99,22 @@ def services_for(
         folder = run_dir(runs_dir, run_id)
         folder.mkdir(parents=True, exist_ok=True)
         (folder / SOURCE_FILE).write_text(source + "\n", encoding="utf-8", newline="\n")
+
+    def emit_zetaris_error(run_id: str, message: str) -> None:
+        store.append_events(
+            [
+                RunEvent(
+                    run_id=run_id,
+                    seq=store.next_seq(run_id),
+                    ts=datetime.now(UTC),
+                    kind=EventKind.ERROR,
+                    payload={"message": message},
+                )
+            ]
+        )
+
+    if facts is None:
+        facts = default_facts(emit_event=emit_zetaris_error)
 
     return Services(
         preflight=preflight_for(store),

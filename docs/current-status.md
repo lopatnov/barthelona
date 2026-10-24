@@ -1,6 +1,6 @@
 # Current Status: What Works Today (2026-10-24)
 
-This document describes the **actual, runnable capabilities** of barthelona as of Phase 0. The engine (Meta-Agentic Scrum loop, AI-composed sprint graphs, Streamlit UI) is **only started**: Phase 1a slice 1 is the worker and the first nodes of the outer run graph (section 5). What follows is the deterministic spine: toolchains, verification, model gateway, and CLI tools that work **without any LLM**.
+This document describes the **actual, runnable capabilities** of barthelona as of Phase 1a (walking skeleton). The **Streamlit UI and worker are working**: `.\scripts\run.ps1` launches the worker (outer run graph: preflight → intake → spec → test_author → validate_spec → G1 → finalize) and the Streamlit UI with three pages (New Request, Approvals, Live Run) on http://127.0.0.1:8501. The deterministic spine (toolchains, verification, model gateway, CLI) works **without any LLM**.
 
 > **Integration guides:** [`docs/meterless-guide.md`](meterless-guide.md) | [`docs/zetaris-guide.md`](zetaris-guide.md) | [`docs/hackathon-demo-guide.md`](hackathon-demo-guide.md)
 
@@ -25,20 +25,21 @@ WSL2 Ubuntu 26.04 and Docker are used for building and sandboxed testing. Full s
 
 Run `python -m barthelona --help` for the full list. Key commands:
 
-| Command             | Purpose                                                        | Status                    |
-| ------------------- | -------------------------------------------------------------- | ------------------------- |
-| `version`           | Print barthelona version                                       | ✅                        |
-| `schema [Document]` | Print JSON schema of a domain document, or list all            | ✅                        |
-| `probe`             | Probe `bart-tc` container, write `config/toolchains.lock.json` | ✅ (needs Docker)         |
-| `verify`            | Run verification ladder (V0–V2, V5, V6) on assembly sources    | ✅ (needs Docker)         |
-| `training status`   | Show opt-in training data setting and sample counts            | ✅                        |
-| `meterless status`  | Probe Meterless Runtime (Nightshift)                           | ✅                        |
-| `zetaris status`    | Probe Zetaris REST API                                         | ✅                        |
-| `zetaris sql`       | Run read-only SQL against Zetaris                              | ✅                        |
-| `worker`            | Run queued runs to gate G1, then codegen and gate G4           | ✅ (needs model endpoint) |
-| `runs submit/status/decide` | Queue a run, watch it, answer its gates without the UI  | ✅                        |
-| `chunked run`       | Run a long task through the model gateway as Markovian chunks  | ✅ (needs model endpoint) |
-| `chunked stats`     | Show run statistics from SQLite DB                             | ✅                        |
+| Command                     | Purpose                                                        | Status                   |
+| --------------------------- | -------------------------------------------------------------- | ------------------------ |
+| `version`                   | Print barthelona version                                       | ✅                        |
+| `schema [Document]`         | Print JSON schema of a domain document, or list all            | ✅                        |
+| `probe`                     | Probe `bart-tc` container, write `config/toolchains.lock.json` | ✅ (needs Docker)         |
+| `verify`                    | Run verification ladder (V0–V2, V5, V6) on assembly sources    | ✅ (needs Docker)         |
+| `training status`           | Show opt-in training data setting and sample counts            | ✅                        |
+| `meterless status`          | Probe Meterless Runtime (Nightshift)                           | ✅                        |
+| `zetaris status`            | Probe Zetaris REST API                                         | ✅                        |
+| `zetaris sql`               | Run read-only SQL against Zetaris                              | ✅                        |
+| `worker`                    | Run queued runs to gate G1, then codegen and gate G4           | ✅ (needs model endpoint) |
+| `runs submit/status/decide` | Queue a run, watch it, answer its gates without the UI         | ✅                        |
+| `chunked run`               | Run a long task through the model gateway as Markovian chunks  | ✅ (needs model endpoint) |
+| `chunked stats`             | Show run statistics from SQLite DB                             | ✅                        |
+| `run.ps1` / `run.sh`        | Launch worker + Streamlit UI (Phase 1a walking skeleton)       | ✅                        |
 
 ### 2.1 `probe` — Toolchain Lock File
 
@@ -326,7 +327,7 @@ The `contracts.codegen` module (`src/barthelona/contracts/codegen.py`) generates
 | Feature                                                                                  | Phase |
 | ---------------------------------------------------------------------------------------- | ----- |
 | Meta-Agentic Scrum engine (outer run graph, sprint loop)                                 | 1     |
-| Streamlit UI (New request, Approvals, Sprint board, Live run, Review)                    | 1     |
+| Streamlit UI (New request, Approvals, Live run) — Phase 1a walking skeleton              | 1a ✅ |
 | AI-composed sprint graphs (L0 templates, L1/L2 composition)                              | 1/2   |
 | `architect`, `refine_backlog`, `test_author`, `sprint_planner`, `codegen`, `fixer` nodes | 1     |
 | Human gates G0–G6 (except CLI approximations)                                            | 1     |
