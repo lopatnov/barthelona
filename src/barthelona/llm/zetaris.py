@@ -25,6 +25,7 @@ TIMEOUT_S = 60.0
 DEFAULT_LIMIT = 50
 _MAX_FACT_CHARS = 4000
 _READ_ONLY = re.compile(r"^\s*(select|show|describe|with)\b", re.IGNORECASE)
+_REGISTER = re.compile(r"^\s*create\s+lightning\s+(database|filestore\s+table)\b", re.IGNORECASE)
 
 ZetarisState = Literal["online", "unauthorized", "offline", "unconfigured"]
 
@@ -74,7 +75,18 @@ def run_sql(
     config: ZetarisConfig, sql: str, limit: int = DEFAULT_LIMIT, client: httpx.Client | None = None
 ) -> SqlResult:
     """Run one read-only statement and return its rows as text cells."""
-    statement = check_read_only(sql)
+    return _post(config, check_read_only(sql), limit, client)
+
+
+def register(config: ZetarisConfig, sql: str, client: httpx.Client | None = None) -> None:
+    """Send one CREATE LIGHTNING DATABASE or FILESTORE TABLE statement: the only write the product makes."""
+    statement = sql.strip().rstrip(";").strip()
+    if ";" in statement or not _REGISTER.match(statement):
+        raise ZetarisError("only CREATE LIGHTNING DATABASE / FILESTORE TABLE is sent")
+    _post(config, statement, DEFAULT_LIMIT, client)
+
+
+def _post(config: ZetarisConfig, statement: str, limit: int, client: httpx.Client | None) -> SqlResult:
     headers = {
         "Authorization": f"Bearer {config.api_key}",
         "X-Org-ID": config.org_id,

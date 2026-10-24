@@ -2,7 +2,7 @@
 
 Phase 1a fields:
 - Mode: create / edit
-- Dialect/preset picker (from toolchains.lock.json)
+- Dialect/preset picker (built-in list)
 - Prompt textarea (Russian/English/Ukrainian)
 - Profile: local-only / hybrid / cloud
 - Budget controls (wall time, tokens, optional USD cap)
@@ -17,99 +17,14 @@ from uuid import uuid4
 import streamlit as st
 
 from barthelona.domain import CompositionLevel, Profile, Run, RunBudget, RunMode, TargetProfile
-from barthelona.domain.enums import ABI, OS, Arch, Dialect, Linker, ObjFormat, RunEnv
+from barthelona.domain.presets import builtin_presets
 from barthelona.persistence import open_store
-from barthelona.toolchains.probe import read_lock_file
-
-
-def _load_presets() -> list[TargetProfile]:
-    """Load available presets from toolchains.lock.json.
-
-    For Phase 1a, we derive presets from the tools available in the lock file.
-    In the future, this will be a dedicated presets registry.
-    """
-    lock_path = Path("config/toolchains.lock.json")
-    if not lock_path.exists():
-        return []
-
-    try:
-        lock = read_lock_file(lock_path)
-    except Exception:
-        return []
-
-    presets = []
-    tools = lock.tools
-
-    # Check for NASM + ld (linux-x64-nasm)
-    if "nasm" in tools and "ld" in tools:
-        presets.append(
-            TargetProfile(
-                preset="linux-x64-nasm-static",
-                dialect=Dialect.NASM,
-                dialect_version=tools["nasm"].version,
-                arch=Arch.X86_64,
-                os=OS.LINUX,
-                abi=ABI.SYSV64,
-                obj_format=ObjFormat.ELF64,
-                link=Linker.LD,
-                pie=False,
-                entry="_start",
-                run_env=RunEnv.DOCKER_NATIVE,
-            )
-        )
-
-    # Check for GAS (as) + ld (linux-x64-gas-intel)
-    if "as" in tools and "ld" in tools:
-        presets.append(
-            TargetProfile(
-                preset="linux-x64-gas-intel",
-                dialect=Dialect.GAS_INTEL,
-                dialect_version=tools["as"].version,
-                arch=Arch.X86_64,
-                os=OS.LINUX,
-                abi=ABI.SYSV64,
-                obj_format=ObjFormat.ELF64,
-                link=Linker.LD,
-                pie=False,
-                entry="_start",
-                run_env=RunEnv.DOCKER_NATIVE,
-            )
-        )
-
-    # GAS AT&T is the same tools, different dialect
-    if "as" in tools and "ld" in tools:
-        presets.append(
-            TargetProfile(
-                preset="linux-x64-gas-att",
-                dialect=Dialect.GAS_ATT,
-                dialect_version=tools["as"].version,
-                arch=Arch.X86_64,
-                os=OS.LINUX,
-                abi=ABI.SYSV64,
-                obj_format=ObjFormat.ELF64,
-                link=Linker.LD,
-                pie=False,
-                entry="_start",
-                run_env=RunEnv.DOCKER_NATIVE,
-            )
-        )
-
-    return presets
 
 
 def page_new_request() -> None:
     st.header("🆕 New Request")
 
-    # Load presets
-    presets = _load_presets()
-
-    if not presets:
-        st.warning(
-            "No toolchain presets available. Run `barthelona probe` first to discover toolchains "
-            "and write `config/toolchains.lock.json`."
-        )
-        st.code("python -m barthelona probe", language="bash")
-        return
+    presets = builtin_presets()
 
     with st.form("new_request_form", clear_on_submit=False):
         col1, col2 = st.columns(2)

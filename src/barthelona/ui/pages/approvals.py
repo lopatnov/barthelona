@@ -71,6 +71,7 @@ def _render_gate_request(store: Store, gate: Any, run: Any) -> bool:
                     )
                     try:
                         from barthelona.domain import CommandKind, RunCommand
+
                         command = RunCommand(
                             run_id=run.id,
                             kind=CommandKind.RESUME,
@@ -239,6 +240,7 @@ def page_approvals() -> None:
     if auto_refresh:
         st.sidebar.caption("Refreshing every 2 seconds...")
         import time
+
         time.sleep(2)
         st.rerun()
 

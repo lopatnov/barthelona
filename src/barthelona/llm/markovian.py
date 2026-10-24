@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -243,7 +244,7 @@ def _request(
 ) -> CompletionRequest:
     progress = carryover or "(nothing yet: this is the first step)"
     content = f"Task:\n{task}\n\nStep {index + 1} of at most {config.max_chunks}. State so far:\n{progress}"
-    if memory_context and index == 0:  # spec: memory enters chunk 0 only; later chunks get the carryover
+    if memory_context:
         content = f"{memory_context}\n\n{content}"
     return CompletionRequest(
         messages=(ChatMessage(role="system", content=_SYSTEM), ChatMessage(role="user", content=content)),
@@ -278,10 +279,13 @@ async def run_markovian(
     task: str,
     config: MarkovianConfig | None = None,
     memory_context: str = "",
+    recall: Callable[[str], str] | None = None,
 ) -> MarkovianResult:
     """Run *task* as chunks until the model completes it or `max_chunks` is spent.
 
-    *memory_context* (an H-MEM ``[MEMORY CONTEXT]`` block) is put in front of the first chunk only.
+    *memory_context* (an H-MEM ``[MEMORY CONTEXT]`` block) is put in front of the first chunk. With
+    *recall*, every later chunk gets a fresh block for the state so far (``recall(carryover)``), so the
+    facts follow what the run is doing while the carryover stays small.
     """
     config = config or MarkovianConfig()
     limit_chars = config.carryover_tokens * _CHARS_PER_TOKEN
@@ -290,9 +294,10 @@ async def run_markovian(
     carryover = ""
     for index in range(config.max_chunks):
         try:
-            completion = await gateway.complete(
-                role, _request(task, carryover, index, config, memory_context)
-            )
+            context = memory_context
+            if index > 0:
+                context = recall(carryover) if recall else ""
+            completion = await gateway.complete(role, _request(task, carryover, index, config, context))
         except GatewayError:
             return MarkovianResult(
                 "\n".join(bodies), StopReason.NO_MODEL_AVAILABLE, tuple(stats), config.carryover_tokens
