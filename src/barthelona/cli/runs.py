@@ -17,6 +17,8 @@ from rich.console import Console
 
 from barthelona.cli.package import package_command
 from barthelona.domain import (
+    DEFAULT_TOKENS,
+    DEFAULT_WALL_S,
     CommandKind,
     GateDecision,
     Profile,
@@ -46,8 +48,8 @@ def submit(
     request: Annotated[str, typer.Argument(help="The request text, or @file to read it from a file.")],
     profile: Annotated[Profile, typer.Option(help="Catalog profile the run uses.")] = Profile.METERLESS,
     preset: Annotated[str, typer.Option(help="Target preset.")] = "linux-x64-nasm-static",
-    wall_s: Annotated[float, typer.Option(min=1, help="Wall-clock limit in seconds.")] = 3600,
-    tokens: Annotated[int, typer.Option(min=1, help="Token limit.")] = 400_000,
+    wall_s: Annotated[float, typer.Option(min=1, help="Wall-clock limit in seconds.")] = DEFAULT_WALL_S,
+    tokens: Annotated[int, typer.Option(min=1, help="Token limit.")] = DEFAULT_TOKENS,
     project: Annotated[
         str | None, typer.Option(help="Name of the demos/ subfolder the project is for (a lowercase slug).")
     ] = None,

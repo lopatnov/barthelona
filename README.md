@@ -29,10 +29,17 @@ You choose an assembler dialect (NASM and GNU as first; FASM, MASM-compatible an
 3. accepts code only when real tools agree: the assembler, linker, symbol and ABI checks, the Unicorn emulator, and sandboxed tests in Docker;
 4. delivers a self-contained git repository that builds without barthelona.
 
+The technologies of the Open Agent Hackathon are parts of this pipeline, not add-ons (the table with status is in [`docs/architecture.md` section 3.1](docs/architecture.md#31-where-the-hackathon-technologies-sit-in-the-pipeline)):
+
+- **Meterless Nightshift with NVIDIA Nemotron** answers every model call: the gateway asks for the routes `meterless/auto`, `meterless/deep` and `meterless/fast` by role, and Nightshift picks (and may race) the models;
+- **Zetaris** is the structured knowledge store: syscall and ABI facts read by SQL go into the spec and test prompts, seed the memory, and run history is written back to it;
+- **H-MEM and the Markovian chunk loop** (Python ports of the Meterless specs) give long generations bounded prompts and memory across runs;
+- the **World Model** (TypeScript) is the shared state for parallel agents; it is built but not used until the sprint loop exists.
+
 Models are pluggable:
 
-- a local model in LM Studio (or Ollama) is always available;
-- Anthropic, OpenAI, Google Gemini and DeepSeek are optional accelerators, configured in [`config/models.yaml`](config/models.yaml);
+- Meterless Nightshift is the default provider (profile `meterless`) and a local model in LM Studio (or Ollama) is always available as the last fallback;
+- Anthropic, OpenAI and Google Gemini are planned accelerators: they are listed in [`config/models.yaml`](config/models.yaml) but have no backend yet, so a chain entry for them is skipped (#252); DeepSeek is also listed but its reasoning parameters are not mapped yet;
 - dollar budgets are optional (spending is always metered; time and token limits always apply), and provider outages or empty balances fall back automatically to the next model, ending with the local one.
 
 ## Status

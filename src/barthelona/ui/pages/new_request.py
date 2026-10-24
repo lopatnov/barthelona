@@ -17,7 +17,17 @@ from uuid import uuid4
 
 import streamlit as st
 
-from barthelona.domain import DEMOS_DIR, CompositionLevel, Profile, Run, RunBudget, RunMode, project_workspace
+from barthelona.domain import (
+    DEFAULT_TOKENS,
+    DEFAULT_WALL_S,
+    DEMOS_DIR,
+    CompositionLevel,
+    Profile,
+    Run,
+    RunBudget,
+    RunMode,
+    project_workspace,
+)
 from barthelona.domain.presets import builtin_presets
 from barthelona.engine.host import REQUEST_FILE, run_dir
 from barthelona.persistence import open_store
@@ -55,6 +65,29 @@ def _form_problem(prompt: str, folder: str) -> str | None:
     except ValueError as exc:
         return f"Folder name: {exc}"
     return None
+
+
+def _limits_fields() -> tuple[float, int, float, int]:
+    """The run limits, collapsed: every run is bounded (invariant 6), but nobody has to fill these in."""
+    with st.expander("Limits (optional: the defaults shown here apply if you leave them as they are)"):
+        st.caption(
+            "A run stops at the first limit it reaches. Money is metered, but capped only if you set a cap."
+        )
+        col_time, col_tokens, col_usd = st.columns(3)
+        with col_time:
+            wall_s = st.number_input(
+                "Wall time (seconds)", min_value=10.0, max_value=86400.0, value=DEFAULT_WALL_S, step=60.0
+            )
+        with col_tokens:
+            tokens = st.number_input(
+                "Token limit", min_value=1000, max_value=10_000_000, value=DEFAULT_TOKENS, step=10_000
+            )
+        with col_usd:
+            usd = st.number_input(
+                "USD cap (0 = none)", min_value=0.0, max_value=1000.0, value=0.0, step=0.1, format="%.2f"
+            )
+        max_sprints = st.number_input("Max sprints", min_value=1, max_value=50, value=10, step=1)
+    return float(wall_s), int(tokens), float(usd), int(max_sprints)
 
 
 def page_new_request() -> None:
@@ -110,21 +143,7 @@ def page_new_request() -> None:
 
         st.divider()
 
-        # Budget controls
-        st.subheader("Budget")
-        col3, col4, col5 = st.columns(3)
-        with col3:
-            wall_s = st.number_input("Wall time (seconds)", min_value=10, max_value=3600, value=300, step=10)
-        with col4:
-            tokens = st.number_input(
-                "Token budget", min_value=1000, max_value=1000000, value=50000, step=1000
-            )
-        with col5:
-            usd = st.number_input(
-                "USD cap (optional)", min_value=0.0, max_value=1000.0, value=0.0, step=0.1, format="%.2f"
-            )
-
-        max_sprints = st.number_input("Max sprints", min_value=1, max_value=50, value=10, step=1)
+        wall_s, tokens, usd, max_sprints = _limits_fields()
 
         col6, col7 = st.columns(2)
         with col6:

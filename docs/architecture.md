@@ -112,7 +112,7 @@ Measured costs:
 
 So the worker keeps one WSL agent and one toolchain container alive, and runs tests in batches.
 
-**Layering** (D-045), enforced by a stdlib `ast` test (`tests/unit/test_layering.py`) that holds this table as data; a new edge is a reviewed edit of the table:
+**Layering** (D-045), meant to be enforced by a stdlib `ast` test (`tests/unit/test_layering.py`) that holds this table as data; a new edge is a reviewed edit of the table. That test does not exist yet (as of 2026-10-24, so nothing stops a violation such as #271):
 
 | Package | May import |
 | --- | --- |
@@ -130,6 +130,22 @@ So the worker keeps one WSL agent and one toolchain container alive, and runs te
 - Nothing imports `ui`, `cli`, or (except `cli`) `engine`. The engine never imports Streamlit.
 - Ports are defined by the consumer and adapters are injected at one composition root (`engine/wiring.py`; `cli` for headless tools). Example: `llm` defines a `CallSink` protocol and `persistence` provides the adapter.
 - SDK containment: `langgraph` only in `engine`; `streamlit` only in `ui`; `openai`, `anthropic`, `google.genai` only in `llm`; `unicorn`, `capstone` only in the emulator child package. A node is a plain async function `(ctx, state) -> update` that `engine` adapts to LangGraph, which keeps the interpreter fallback (§7) a one-module change.
+
+### 3.1 Where the hackathon technologies sit in the pipeline
+
+Meterless (Nightshift and the Nemotron lanes), Zetaris, H-MEM, the Markovian chunk loop and the World Model are
+parts of this system, not side projects. This table says which step of a run uses which one and what is true today
+(checked 2026-10-24; the live evidence is in [hackathon-demo-guide.md](hackathon-demo-guide.md#where-it-stands)).
+
+| Step of a run | Technology | What it does there | Today |
+| --- | --- | --- | --- |
+| Every model call (intake, spec, test author, code, repair; plus the optional review of `chunked run`) | **Meterless Nightshift**, routing to **NVIDIA Nemotron** lanes (profile `meterless`) | The gateway (§16) sends roles `main` and `worker` to `meterless/auto`, `planner` and `escalation` to `meterless/deep`, `cheap` to `meterless/fast`, over one OpenAI-compatible endpoint. Nightshift picks the model and may race several; the run record keeps which one answered. | Working; the only cloud-side provider with a backend |
+| Spec and test author | **Zetaris** | Syscall and ABI facts read by SQL (`barthelona_files.linux_x64_syscalls`, `abi_facts`) go into the prompts, marked as untrusted data | Working, on by default when `ZETARIS_API_KEY` is set |
+| Code generation | **H-MEM** and the **Markovian** chunk loop (Python ports of the Meterless specs) | Long output is produced as bounded chunks with a flat prompt; memory recalled before each chunk is seeded from Zetaris (`zetaris seed`) and from earlier green runs | Working in `chunked run` and in the worker's code step |
+| After a run | **Zetaris** | `zetaris publish` copies run history and memory into Zetaris tables, so they can be queried with SQL; SQLite stays the store | Working, run by hand |
+| Several agents at once | **World Model** (TypeScript, `engines/world-model/`) | Event-sourced shared state so parallel agents do not plan on stale facts | Built, not used: the pipeline has no parallel agents until the sprint loop exists |
+
+The acceptance of code is still decided by the oracles (assembler, emulator, tests), never by these technologies.
 
 ## 4. Domain model (Pydantic v2, `src/barthelona/domain/`)
 
