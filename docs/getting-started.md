@@ -81,6 +81,46 @@ Read the output like this:
 
 `*.raw.txt` next to `--out` is the model's unfiltered text; use it to see why a run failed.
 
+## Create your own assembly program
+
+Today a program is one NASM file (x86-64 Linux, `nasm -f elf64`). You describe it in a text file, Barthelona writes it
+in chunks, NASM decides whether it is valid. You write no assembly.
+
+1. **Write the task as plain text**, the way you would brief a colleague. Copy `demos/hello/task.txt` as a start:
+
+   ```powershell
+   mkdir demos\myprog
+   copy demos\hello\task.txt demos\myprog\task.txt
+   ```
+
+   Say what the program must do, the platform (Linux x86-64, raw syscalls, no libc), the exact output and the exit code.
+   The more concrete the task, the fewer repair rounds it needs. Keep it a prompt a person could write.
+2. **Run it** from the repository root, in the activated terminal, as one line. The output goes to your folder, not to
+   the repository root:
+
+   ```powershell
+   python -m barthelona chunked run @demos/myprog/task.txt --profile meterless --assemble --repair 2 --memory var/hmem.sqlite --stats var/runs.sqlite --out demos/myprog/myprog.asm
+   ```
+
+   - `@file` reads the task from the file; plain text in quotes works too.
+   - Add `--repair-role planner` to let a deeper model do the repair rounds, and `--plan-role planner` to plan first.
+   - Add `--facts-sql "SELECT ..."` to give the first chunk rows from Zetaris (optional).
+3. **Read the result.** `assemble: pass` means NASM accepted `demos/myprog/myprog.asm`. On `assemble: fail` the file is
+   not trustworthy: read the errors, then `demos/myprog/myprog.asm.raw.txt` (the model's unfiltered text), sharpen the
+   task and run again. Repeating a run with the same `--memory` file reuses what earlier passing runs learned.
+4. **Look at the numbers:** `python -m barthelona chunked stats` shows per model the chunks, tokens and time.
+5. **Try the program yourself, outside Barthelona.** It was only assembled, never run. On Linux or in WSL:
+
+   ```bash
+   nasm -f elf64 demos/myprog/myprog.asm -o /tmp/myprog.o && ld /tmp/myprog.o -o /tmp/myprog && /tmp/myprog; echo $?
+   ```
+
+   Run only code you have read. The product itself never runs generated code on the host (invariant 2); this check is
+   yours, and the sandboxed run (V5/V6) is the part that is still to be wired in.
+
+Not possible yet: several modules, other dialects (GAS, FASM), editing an existing project, or a pass that proves
+behavior. Those need the Scrum engine and the emulator (Phase 1 and 2).
+
 ## Known limits
 
 - Small tasks are a poor fit for chunking: the model restates the whole program in every chunk, which led to the
