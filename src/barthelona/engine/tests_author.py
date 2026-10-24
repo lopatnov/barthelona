@@ -35,8 +35,13 @@ Answer with ONE JSON object and nothing else:
 Rules: every requirement id is covered by at least one test. Give "stdout" (the exact text, use \\n for
 newlines) only when the specification fixes the whole output. When the program prints free text, such as
 prompts or messages, give "stdout_contains" instead: short texts that the output must hold, taken from the
-requirements (scores, result words, formats). Each test has "stdout" or "stdout_contains". At most 20
-tests; keep them short; no code."""
+requirements (scores, result words, formats). Never invent text the requirements do not give, such as the
+wording of prompts. Pick inputs whose result is easy to count (all yes, all no, alternating) and work every
+expected value out from the rules, one step at a time, before you write it. Each test has "stdout" or
+"stdout_contains". At most 20 tests; keep them short; no code."""
+
+# An exact expected output longer than this cannot be fixed by a specification: it holds invented text (#259).
+MAX_EXACT_STDOUT = 200
 
 
 class TestDraft(DomainModel):
@@ -72,6 +77,12 @@ def problems(spec: ProjectSpec, draft: TestsDraft) -> str | None:
     unknown = sorted({rid for t in draft.tests for rid in t.requirement_ids} - known)
     if unknown:
         return f"tests name requirements that do not exist: {', '.join(unknown)}"
+    long_exact = [t.id for t in draft.tests if t.stdout is not None and len(t.stdout) > MAX_EXACT_STDOUT]
+    if long_exact:
+        return (
+            f"test {', '.join(long_exact)} pins more than {MAX_EXACT_STDOUT} characters of stdout, "
+            'which the specification does not fix: give "stdout_contains" with the result lines instead'
+        )
     covered = {rid for t in draft.tests for rid in t.requirement_ids}
     missing = [r.id for r in spec.requirements if r.id not in covered]
     if missing:

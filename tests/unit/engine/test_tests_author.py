@@ -79,6 +79,19 @@ async def test_a_test_that_checks_no_output_is_sent_back_and_then_accepted() -> 
     assert "checks no output" in gateway.calls[1][1].messages[-1].content
 
 
+async def test_a_long_exact_transcript_is_sent_back_for_substring_checks() -> None:
+    transcript = "Question? (y/n): " * 30
+    long_exact = (
+        '{"tests": [{"id": "T1", "requirement_ids": ["R1"], "stdin": "y\\n", "stdout": "'
+        + transcript
+        + '"}]}'
+    )
+    gateway = FakeGateway([long_exact, _CONTAINS])
+    _, cases = await author_tests(gateway, _spec(), "", lambda _r: None)
+    assert cases[0].expect.stdout_contains == ["Score: 2"]
+    assert 'give "stdout_contains"' in gateway.calls[1][1].messages[-1].content
+
+
 class _CutOff(FakeGateway):
     """Reports the first answer as stopped by the length limit, like a provider does."""
 
