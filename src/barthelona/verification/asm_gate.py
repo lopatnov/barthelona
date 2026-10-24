@@ -86,7 +86,8 @@ def assemble_object(
         ), b""
     with tempfile.TemporaryDirectory(prefix="barthelona-asm-") as work:
         path, obj = Path(work) / "main.asm", Path(work) / "main.o"
-        path.write_text(source + "\n", encoding="utf-8", newline="\n")
+        # S2083 is a false positive: a fixed file name in a fresh temp folder, the source is only content.
+        path.write_text(source + "\n", encoding="utf-8", newline="\n")  # NOSONAR
         try:
             done = runner(
                 [binary, "-f", "elf64", "-o", str(obj), str(path)],
@@ -123,13 +124,14 @@ def assemble_best(joined: str, blocks: Sequence[str], nasm: str | None = None) -
     """The joined source if it assembles, else the last single block that does; NASM still decides.
 
     Seen live: a model restates the program in a later chunk with small changes, so the blocks joined
-    define every label twice although one block alone is a valid program.
+    define every label twice although one block alone is a valid program. Blocks with an entry point come
+    first: a data-only snippet assembles too, but it is not the program.
     """
     gate = assemble_source(joined, nasm)
     if gate.status != "fail":
         return joined, gate
     tried = {joined}
-    for block in reversed(blocks):
+    for block in sorted(reversed(blocks), key=lambda text: "_start" not in text):
         if block in tried:
             continue
         tried.add(block)

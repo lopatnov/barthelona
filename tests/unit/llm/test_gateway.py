@@ -58,11 +58,29 @@ def _reply(text: str = "ok") -> RawReply:
     return RawReply(text=text, tokens_in=10, tokens_out=4, stop_reason="stop", latency_ms=2000)
 
 
-def _gateway(cloud: _Backend | None, local: _Backend, **catalog_args: object) -> Gateway:
+def _gateway(
+    cloud: _Backend | None,
+    local: _Backend,
+    retry_delays: tuple[float, ...] = (),
+    sleeps: list[float] | None = None,
+    **catalog_args: object,
+) -> Gateway:
     backends: dict[str, _Backend] = {"openai_chat": local}
     if cloud is not None:
         backends["anthropic_messages"] = cloud
-    return Gateway(_catalog(**catalog_args), backends, env={})  # type: ignore[arg-type]
+
+    async def sleep(seconds: float) -> None:  # NOSONAR S7503
+        if sleeps is not None:
+            sleeps.append(seconds)
+
+    return Gateway(
+        _catalog(**catalog_args),
+        backends,  # type: ignore[arg-type]
+        env={},
+        retry_delays=retry_delays,
+        sleep=sleep,
+        jitter=lambda cap: cap,  # the upper end of the jitter range, so the delays are predictable
+    )
 
 
 async def test_first_usable_model_answers_and_the_ledger_row_is_filled() -> None:
@@ -111,6 +129,63 @@ async def test_exhausted_chain_raises_with_every_reason() -> None:
     local = _Backend([ModelCallError("also boom")])
     with pytest.raises(GatewayError, match=r"boom.*also boom"):
         await _gateway(cloud, local).complete("worker", _request())
+
+
+async def test_a_transient_failure_is_repeated_on_the_same_model_before_falling_through() -> None:
+    cloud = _Backend(
+        [ModelCallError("APIError: 404 provider_error", FailureKind.SERVER), _reply("from cloud")]
+    )
+    sleeps: list[float] = []
+    gateway = _gateway(cloud, _Backend([]), retry_delays=(0.5, 1.5), sleeps=sleeps)
+    result = await gateway.complete("worker", _request())
+    assert (result.served_by, result.text, cloud.targets) == ("big", "from cloud", ["big", "big"])
+    assert sleeps == [0.5]
+    assert result.fallbacks[0].startswith("big: retry in 0.5s: APIError: 404 provider_error after ")
+    assert len(result.fallbacks) == 1
+
+
+async def test_repeats_are_bounded_then_the_chain_moves_on() -> None:
+    errors = [ModelCallError("down", FailureKind.SERVER) for _ in range(3)]
+    cloud = _Backend(list(errors))
+    sleeps: list[float] = []
+    gateway = _gateway(cloud, _Backend([_reply("local")]), retry_delays=(0.5, 1.5), sleeps=sleeps)
+    result = await gateway.complete("worker", _request())
+    assert (result.served_by, cloud.targets, sleeps) == ("local_main", ["big"] * 3, [0.5, 1.5])
+    assert len(result.fallbacks) == 3  # two repeats and the final failure
+
+
+async def test_retry_after_is_the_minimum_wait_and_jitter_stays_under_the_cap() -> None:
+    cloud = _Backend(
+        [ModelCallError("429", FailureKind.RATE_LIMIT, retry_after=4.0), _reply("from cloud")],
+    )
+    sleeps: list[float] = []
+    gateway = _gateway(cloud, _Backend([]), retry_delays=(0.5,), sleeps=sleeps)
+    await gateway.complete("worker", _request())
+    assert sleeps == [4.0]  # the provider asked for more than the 0.5 s cap
+
+
+async def test_a_provider_that_asks_for_a_very_long_wait_is_not_waited_for() -> None:
+    cloud = _Backend([ModelCallError("429", FailureKind.RATE_LIMIT, retry_after=3600.0)])
+    sleeps: list[float] = []
+    gateway = _gateway(cloud, _Backend([_reply("local")]), retry_delays=(0.5, 1.5), sleeps=sleeps)
+    result = await gateway.complete("worker", _request())
+    assert (result.served_by, sleeps) == ("local_main", [])
+
+
+def test_the_default_jitter_is_a_random_wait_between_zero_and_the_cap() -> None:
+    gateway = Gateway(_catalog(), {}, env={})
+    waits = {gateway._jitter(2.0) for _ in range(20)}  # the default is part of the contract
+    assert len(waits) > 1
+    assert all(0 <= wait <= 2.0 for wait in waits)
+
+
+@pytest.mark.parametrize("kind", [FailureKind.AUTH, FailureKind.REFUSAL, FailureKind.BAD_REPLY])
+async def test_a_failure_that_repeats_identically_is_not_retried(kind: FailureKind) -> None:
+    cloud = _Backend([ModelCallError("no", kind)])
+    sleeps: list[float] = []
+    gateway = _gateway(cloud, _Backend([_reply("local")]), retry_delays=(0.5, 1.5), sleeps=sleeps)
+    result = await gateway.complete("worker", _request())
+    assert (result.served_by, cloud.targets, sleeps) == ("local_main", ["big"], [])
 
 
 async def test_fake_gateway_replays_the_script_and_records_calls() -> None:

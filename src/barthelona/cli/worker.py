@@ -12,10 +12,12 @@ from rich.console import Console
 
 from barthelona.domain import Run
 from barthelona.engine.graph import build_graph
-from barthelona.engine.host import default_facts, services_for, zetaris_facts
+from barthelona.engine.host import services_for, zetaris_facts
 from barthelona.engine.worker import Worker
 from barthelona.llm import CatalogError, Gateway, OpenAIChatBackend, load_catalog
 from barthelona.llm.gateway import ModelGateway
+from barthelona.llm.hmem import HMem
+from barthelona.llm.trace import ReasoningLog
 from barthelona.llm.zetaris import ZetarisError
 from barthelona.persistence import open_store
 
@@ -28,22 +30,24 @@ async def _run(
     runs: Path,
     catalog_path: Path,
     facts_sql: str | None,
+    memory: Path,
     poll: float,
     once: bool,
+    trace: ReasoningLog | None,
 ) -> None:
     catalog = load_catalog(catalog_path)
-    facts = zetaris_facts(facts_sql) if facts_sql else default_facts()
+    facts = zetaris_facts(facts_sql) if facts_sql else None  # None: services_for uses the default facts
     backends = {"openai_chat": OpenAIChatBackend()}
 
     def gateway_for(run: Run) -> ModelGateway:
-        return Gateway(catalog, backends, profile=run.profile.value)
+        return Gateway(catalog, backends, profile=run.profile.value, trace=trace)
 
     store = open_store(db)
+    hmem = HMem(memory)
     checkpoints.parent.mkdir(parents=True, exist_ok=True)
     try:
         async with AsyncSqliteSaver.from_conn_string(str(checkpoints)) as saver:
-            # services_for now handles default_facts internally with error emission
-            worker = Worker(store, build_graph(services_for(store, runs, gateway_for, facts), saver))
+            worker = Worker(store, build_graph(services_for(store, runs, gateway_for, facts, hmem), saver))
             if once:
                 await worker.recover()
                 while await worker.step():
@@ -51,6 +55,7 @@ async def _run(
             else:
                 await worker.serve(poll)
     finally:
+        hmem.close()
         store.close()
 
 
@@ -71,14 +76,38 @@ def worker_command(
             "(default with ZETARIS_API_KEY: the Barthelona knowledge tables).",
         ),
     ] = None,
+    memory: Annotated[
+        Path | None,
+        typer.Option(help="H-MEM store recalled in every chunk (default: hmem.sqlite next to --db)."),
+    ] = None,
     poll: Annotated[float, typer.Option(min=0.1, help="Seconds between polls when idle.")] = 1.0,
     once: Annotated[
         bool, typer.Option("--once", help="Run what is queued, then exit (for tests and CI).")
     ] = False,
+    trace_reasoning: Annotated[
+        str | None,
+        typer.Option(
+            "--trace-reasoning",
+            help="Append every model's reasoning and answer to this file ('-' prints to stderr). Off by "
+            "default: the log holds the request text.",
+        ),
+    ] = None,
 ) -> None:
     """Claim queued runs, run them to their next human gate and continue them when the UI resumes them."""
     try:
-        asyncio.run(_run(db, checkpoints, runs, catalog_path, facts_sql, poll, once))
+        asyncio.run(
+            _run(
+                db,
+                checkpoints,
+                runs,
+                catalog_path,
+                facts_sql,
+                memory or db.parent / "hmem.sqlite",
+                poll,
+                once,
+                ReasoningLog(trace_reasoning) if trace_reasoning else None,
+            )
+        )
     except (CatalogError, ZetarisError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     except KeyboardInterrupt:

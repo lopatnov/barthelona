@@ -1,645 +1,384 @@
-# Barthelona Hackathon 2026 Demo Guide
+# Barthelona at the Open Agent Hackathon 2026: demo guide
 
-Complete step-by-step instructions for demonstrating Barthelona's technologies at the Open Agent Hackathon 2026.
+How to set up the three hackathon layers on your machine and what Barthelona can honestly show today. Read
+"Where it stands" first: it says what was run live, what was not proven and what does not exist yet.
+
+Last updated 2026-10-24, from live runs on the owner's PC (free NVIDIA Nemotron through Meterless Nightshift, a
+local Zetaris, the worker and the Unicorn emulator).
 
 ---
 
-## Table of Contents
+## Table of contents
 
-1. [Overview](#overview)
-2. [Prerequisites Check](#prerequisites-check)
-3. [Layer 1: DATA — Zetaris Setup](#layer-1-data--zetaris-setup)
-4. [Layer 2: BUILD — Cursor + Barthelona Setup](#layer-2-build--cursor--barthelona-setup)
-5. [Layer 3: POWER — Meterless/NVIDIA Nemotron Setup](#layer-3-power--meterlessnvidia-nemotron-setup)
-6. [Integration Verification](#integration-verification)
-7. [Demo Scenarios](#demo-scenarios)
-8. [Running the Demos](#running-the-demos)
+1. [Where it stands](#where-it-stands)
+2. [The three layers](#the-three-layers)
+3. [Prerequisites](#prerequisites)
+4. [Layer 1: Zetaris](#layer-1-data-zetaris)
+5. [Layer 2: Barthelona](#layer-2-build-barthelona)
+6. [Layer 3: Meterless and Nemotron](#layer-3-power-meterless-and-nemotron)
+7. [Check that the layers work together](#check-that-the-layers-work-together)
+8. [Demos](#demos)
 9. [Troubleshooting](#troubleshooting)
 10. [Glossary](#glossary)
 
 ---
 
-## Overview
+## Where it stands
 
-This guide prepares you to demonstrate **Barthelona** — a local-first agentic system whose goal is to create or edit multi-file assembly projects from natural-language requests (today it builds single-module programs; see "Status today") — using the three hackathon layers:
+Rules of this hackathon run: free models only (NVIDIA Nemotron through Nightshift), no paid model APIs and no
+local models. Zetaris and Meterless are both required. Everything a demo shows is produced by Barthelona; no
+person hand-writes a demo's sources, tests, README, CI or release files.
 
-| Layer     | Technology                             | Role in Barthelona                                                                                                                          |
-| --------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **DATA**  | Zetaris                                | Structured knowledge store: syscall and ABI fact tables read by SQL, used in the prompts (and via `--facts-sql`), seeding H-MEM, receiving run data |
-| **BUILD** | Cursor + Barthelona                    | Development environment; Barthelona's create flow and `chunked run` with its own Markovian and H-MEM ports (bounded chunks, memory)          |
-| **POWER** | Meterless Nightshift + NVIDIA Nemotron | Model provider: Barthelona asks for `meterless/auto`, `deep` or `fast` and Nightshift routes to Nemotron lanes (a local fallback exists but is off for demo runs) |
+**Worked live (2026-10-24):**
 
-**Eligibility**: All three layers must be running on your machine.
+- The create flow through the worker: `runs submit`, gate G1, code generation, NASM, the Unicorn emulator and gate
+  G4 reached `green` for "print hello" (twice) and "print the digits 1 to 9" (twice). Each run took 4 model calls and
+  about a minute of model time, with no repair attempts.
+- `runs package` turned a green run into 7 files (source, golden tests, README with the request and per-model
+  calls, tokens and seconds, CI, release workflow, dependabot). `check` on the packaged source passed in the
+  emulator.
+- Zetaris: two knowledge tables (37 Linux x86-64 syscalls, 11 ABI rows) are registered in the owner's local
+  Zetaris, read into the spec and test-author prompts, mined into 48 H-MEM facts by `zetaris seed`, and recalled in
+  every chunk. `zetaris publish` copies run and memory data back into Zetaris tables.
+- Meterless: the `meterless` profile calls Nightshift; the `meterless/auto` and `meterless/deep` routes both
+  answered. Which concrete model serves a route is decided by Nightshift's lanes: check the run details there.
+- The gateway repeats a call that failed with a temporary error (Nightshift answers an intermittent
+  `404 provider_error`), up to twice, with jitter.
 
----
+**Not proven:**
 
-## Status today (2026-10-24, checked on the Windows dev PC)
+- **Compounding** (the same task run twice on the same memory, the second run needing fewer chunks). The hello and
+  digits tasks fit in one chunk, so a second run cannot need fewer. An earlier hello run (2026-10-23) took 9 chunks
+  and the next one chunk, but that second output did not assemble, so it does not count. FizzBuzz, the task long
+  enough to need several chunks, has not passed on any profile yet (#246).
+- **The temperament questionnaire** (the English demo). The first run stopped at gate G1 because 3 of its 8 golden
+  tests had wrong expected results (#259). A fix to the test author is on the branch; the rerun is pending.
+- **A published demo.** The packaged English "digits" project is on the owner's PC only. No GitHub CI or release
+  has run on it yet.
 
-Read this first: the rest of the guide is a setup walkthrough, and this table says what has actually been shown to work.
-
-| Piece                       | State                                                                                                                                                                                                                                                                       |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Zetaris (DATA)              | Running locally; `zetaris status` prints `online`. Two knowledge tables are registered (`barthelona_files.linux_x64_syscalls`, 37 rows; `barthelona_files.abi_facts`, 11 rows). Their rows go into the spec and test-author prompts by default, seed H-MEM (`zetaris seed`), and run data is written back with `zetaris publish` (`barthelona_runtime.*`). |
-| Meterless + Nemotron (POWER) | Nightshift answers on `http://127.0.0.1:8088/v1`; `meterless status` prints `online`. In the runs below every call was answered by `nvidia/nemotron-3-ultra-550b-a55b` through `meterless/auto`, `meterless/deep` and `meterless/fast`.                                   |
-| Create flow (BUILD)         | **In open PR #253, not merged into `main` yet:** `worker` plus `runs submit / status / decide / package` for **single-module** programs. On that branch "print hello" and "print the digits 1 to 9" each went green end to end on Nemotron only (request, spec, tests, gate G1, code, gate G4), and `runs package` wrote source, tests, README and CI/release workflows. On `main` today the worker stops at gate G1 and there is no `runs` command. |
-| Not working yet             | An interactive 12-question questionnaire: the test author wrote wrong expected results (3 of 8 tests) and the run was parked at gate G1. FizzBuzz through `chunked run` failed the oracle in every setup tried (local models, `local-coder`, Nightshift). Multi-module sprints, the full Streamlit UI and generated docs/release for multi-module projects do not exist yet (`docs/current-status.md` section 7). |
-| Memory proof                | Not demonstrated. The hello task needs one chunk, so a second run cannot need fewer. In the measured digits runs the second run recalled more context but needed the same number of calls and more tokens. Do not claim fewer chunks unless a run shows it.                |
-| Models                      | Decision for the hackathon period: free models only, that is Nemotron through Nightshift. No local model and no paid cloud model is used for demo runs.                                                                                                                      |
-
-What the runs looked like (UTC, from the run database; times include waiting for a person to approve the gates): hello 3.7 minutes with 4 model calls, about 1.6 minutes of model work; digits 2.4 to 2.5 minutes with 4 calls. A first attempt can fail when the provider behind Nightshift answers `404 Function ... Not found` for a moment (3 of the first 4 hello attempts did); issue #255 and PR #253 add a bounded retry on the same model, and the runs that followed on that branch needed none.
-
----
-
-## Prerequisites Check
-
-Before starting, ensure your machine meets requirements:
-
-| Requirement | Minimum                     | Recommended                      |
-| ----------- | --------------------------- | -------------------------------- |
-| **OS**      | Windows 11 / macOS / Linux  | Windows 11 (tested)              |
-| **RAM**     | 16 GB                       | 32 GB (for local fallback model) |
-| **Disk**    | 15 GB free                  | 50 GB free                       |
-| **Docker**  | 25+                         | Latest                           |
-| **WSL2**    | Ubuntu 26.04 (Windows only) | Ubuntu 26.04                     |
-| **GPU**     | Optional (cloud models)     | NVIDIA for local models          |
-
-> ⚠️ **Start Zetaris first** — it downloads large container images (30–45 min). Set up Build and Power while it runs.
+**Does not exist yet:** several modules in one project, the architect, contracts and sprint loop, GAS and other
+dialects, editing an existing project, a `cloud` profile that can answer (#252), and a reference model that checks
+the author's expected test results (#259).
 
 ---
 
-## Layer 1: DATA — Zetaris Setup
+## The three layers
 
-### 1.1 Register at Zetaris Cloud
+| Layer | Technology | Role in Barthelona |
+| --- | --- | --- |
+| **DATA** | Zetaris | Structured facts (Linux syscalls, ABI rules) read into the prompts, recalled as H-MEM facts, and run history published back as tables |
+| **BUILD** | Barthelona's worker and Markovian engine | Runs a request through spec, tests, code generation, NASM and the emulator; long tasks in bounded chunks with H-MEM recall in every chunk |
+| **POWER** | Meterless Nightshift with free NVIDIA Nemotron | The `meterless` profile: routes `meterless/auto` (main and worker) and `meterless/deep` (planning, review) |
 
-1. Go to Zetaris Cloud → **Run locally** page
-2. Download the **Zetaris platform bundle**
-3. Copy the **registry sign-in command** (looks like `docker login registry.zetaris.com -u ... -p ...`)
+All layers run on your machine. The project was built with Claude Code; any editor works, and nothing in the demos
+needs Cursor.
 
-### 1.2 Install Prerequisites
+---
 
-```bash
-# Docker Desktop (if not installed)
-# https://docs.docker.com/get-docker
+## Prerequisites
 
-# Git (if not installed)
-# https://git-scm.com/downloads
+These are what the tested machine had (checked 2026-10-24), not vendor minimums; for Zetaris's own requirements see
+the participant guide and https://github.com/zetaris/getting-started.
 
-# WSL2 Ubuntu 26.04 (Windows only)
-wsl --install -d Ubuntu
-# Then: wsl -d Ubuntu -e sudo apt update && sudo apt upgrade -y
+| Requirement | Tested with | Notes |
+| --- | --- | --- |
+| OS | Windows 11 with WSL2 | Linux is the reference host for the engine; macOS is untested |
+| RAM | 16 GB | Docker was given 8 GB for Zetaris |
+| Disk | 15 GB free | Zetaris images are large |
+| Docker | Docker Desktop | Zetaris, and the `bart-tc` toolchain container |
+| NASM | any recent | `nasm` on PATH, or `BARTHELONA_NASM` |
+
+> **Start Zetaris first.** The first start downloads large images (30 to 45 minutes). Set up the other layers while it
+> runs.
+
+---
+
+## Layer 1: DATA, Zetaris
+
+### 1.1 Install and start
+
+Follow the hackathon participant guide (`.reference/7e1b7ca3995b4673b30a73555c87e71f.pdf`) and
+https://github.com/zetaris/getting-started: download the platform bundle from Zetaris Cloud ("Run locally"), run the
+registry sign-in command it gives you, then `docker compose up -d` in the getting-started folder. Give Docker at
+least 8 GB of memory and 4 CPUs. Full details are in [zetaris-guide.md](zetaris-guide.md).
+
+On the tested machine the web UI is on http://localhost:3000, the REST API on http://localhost:8888/api/v1.0 and JDBC
+on port 10000.
+
+### 1.2 API key and environment
+
+Create an API key in the Zetaris web UI. It is shown once. Set it for your shell (never commit it):
+
+```powershell
+setx ZETARIS_API_KEY "<key>"        # Windows; open a new terminal afterwards
 ```
 
-### 1.3 Configure Docker Resources
-
-**Docker Desktop → Settings → Resources → Advanced:**
-
-- **Memory**: 8 GB (minimum) — Zetaris needs this
-- **CPUs**: 4
-- **Disk**: 15+ GB free
-
-### 1.4 Install Zetaris
-
-Follow the installation guide that comes with the Zetaris bundle (in the `getting-started` repository:
-`docs/install/updated_zetaris_installation_guide.md`; the sign-in command and the compose file come from Zetaris Cloud
-"Run locally"). The commands in the first version of this guide (a `docker login registry.zetaris.com ...` line, a
-`/health` check) were not verified and have been removed; `GET /api/v1.0/health` answers 404 on the dev PC.
-
-What the dev PC runs after the bundle is up (checked with `docker ps`, 2026-10-24):
-
-| Container          | Image (hackathon build `2.4.3`)             | Port on this PC               |
-| ------------------ | ------------------------------------------- | ----------------------------- |
-| `zetaris-api-1`    | `zetarishackathon.azurecr.io/zetaris-ndp-api`    | `127.0.0.1:8888` (REST API)   |
-| `zetaris-driver-1` | `zetarishackathon.azurecr.io/zetaris-ndp-driver` | `127.0.0.1:4040` and others   |
-| `zetaris-ui-1`     | `zetarishackathon.azurecr.io/zetaris-new-ui`     | `0.0.0.0:3000` (web UI)       |
-| `zetaris-postgres-1` | `postgres:16-alpine`                      | `127.0.0.1:32772`             |
-
-The web UI is on port **3000**, the REST API on **8888** (the first version of this guide said 8888 for the UI).
-
-### 1.5 Create API Key
-
-1. Open the Zetaris web UI: http://localhost:3000
-2. Log in with the account from the bundle.
-3. Create the API key in the UI (the Zetaris getting-started guide says to create it there yourself; never ask an
-   agent to create it). The exact menu path was not re-checked.
-4. Copy the key — you won't see it again. Put it in `.env` as `ZETARIS_API_KEY` (see 1.6).
-
-### 1.6 Test Zetaris Connection
-
-Put `ZETARIS_API_KEY` in `.env` (and `ZETARIS_REST_URL`, `ZETARIS_ORG_ID` only if they differ from
-`http://localhost:8888/api/v1.0` and `1`). Agent shells and scripts that must see `.env` use the `-LoadEnv` switch
-(`.\scripts\dev.ps1 -LoadEnv <command>`, D-057); in your own activated terminal `.env` is already loaded.
-
 ```bash
-python -m barthelona zetaris status
-# → online http://localhost:8888/api/v1.0
+export ZETARIS_API_KEY="<key>"      # Linux, macOS, WSL
+```
+
+`ZETARIS_REST_URL` (default `http://localhost:8888/api/v1.0`) and `ZETARIS_ORG_ID` (default `1`) only need setting
+when yours differ. Check it:
+
+```
+python -m barthelona zetaris status        # online, unauthorized, offline or unconfigured
 python -m barthelona zetaris sql "SHOW LIGHTNING DATABASES"
-# → one row per Lightning database (name | description | id)
 ```
 
-The status command sends `POST <rest url>/sql-editor/sqls/run` with `Authorization: Bearer <key>`, `X-Org-ID`,
-`X-Request-ID` and a body with `queryId`, `sql`, `source` and `limit`, and expects `SELECT 1` to return `1`. The
-`unconfigured`, `unauthorized` and `offline` answers are described in Troubleshooting.
+### 1.3 Register the knowledge tables
 
-### 1.7 Register the Assembler Facts (once)
+Barthelona ships the facts as CSV files in `knowledge/zetaris/` (`linux_x64_syscalls.csv`, `abi_facts.csv`). Zetaris
+creates the tables from files with `CREATE LIGHTNING FILESTORE TABLE`; there is no `INSERT` path. The exact docker
+and SQL steps, verified on the hackathon stack, are in [`knowledge/zetaris/README.md`](../knowledge/zetaris/README.md).
+The numbers were written from memory of the public kernel table and the System V ABI and still need a documentation
+check before anything depends on them.
 
-The knowledge lives in two CSV files in `knowledge/zetaris/` (`linux_x64_syscalls.csv`, 37 rows, and
-`abi_facts.csv`, 11 rows). They become Zetaris **file tables**; the first version of this guide created tables with
-`CREATE TABLE ... INSERT`, which was never run and is not how Zetaris registers files. The verified steps (2026-10-24)
-are in [`knowledge/zetaris/README.md`](../knowledge/zetaris/README.md); in short:
+Check the result:
 
-1. Copy both CSVs into the volume that the Zetaris api and driver containers share, from the `knowledge/zetaris`
-   folder with **relative** paths (an absolute `C:\...` path makes `docker cp` read `C` as a container name):
-
-   ```bash
-   docker exec <driver container> mkdir -p /home/zetaris/customer-data/shared/barthelona
-   docker cp ./linux_x64_syscalls.csv <driver container>:/home/zetaris/customer-data/shared/barthelona/linux_x64_syscalls.csv
-   docker cp ./abi_facts.csv <driver container>:/home/zetaris/customer-data/shared/barthelona/abi_facts.csv
-   ```
-
-2. Send these statements one at a time (the Zetaris SQL editor, or `POST /sql-editor/sqls/run`; the API key was
-   accepted for `CREATE`). A second run answers "already exists":
-
-   ```sql
-   CREATE LIGHTNING DATABASE barthelona_files DESCRIBE BY "Barthelona knowledge tables";
-   CREATE LIGHTNING FILESTORE TABLE linux_x64_syscalls FROM barthelona_files FORMAT CSV
-     OPTIONS (path "/home/zetaris/customer-data/shared/barthelona/linux_x64_syscalls.csv", header "true", delimiter ",");
-   CREATE LIGHTNING FILESTORE TABLE abi_facts FROM barthelona_files FORMAT CSV
-     OPTIONS (path "/home/zetaris/customer-data/shared/barthelona/abi_facts.csv", header "true", delimiter ",");
-   ```
-
-`python -m barthelona zetaris sql` itself is read-only (one `SELECT`, `SHOW`, `DESCRIBE` or `WITH`), so it cannot run
-these statements. `zetaris publish` is the only command that writes: it registers and fills the
-`barthelona_runtime` tables (`runs`, `run_chunks`, `memories`, `memory_ledger`) from the local SQLite files.
-The numbers in the CSVs were written from memory of the public syscall table and still need the check against the
-kernel table and the psABI that `knowledge/zetaris/README.md` asks for.
-
-### 1.8 Verify Facts Are Queryable
-
-```bash
-python -m barthelona zetaris sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name IN ('write','exit_group')"
-# → write | rdi=fd | rsi=buf | rdx=count
-# → exit_group | rdi=status | None | None
+```
+python -m barthelona zetaris sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name IN ('write', 'exit_group')"
 ```
 
-**✅ You're done with DATA when:** `python -m barthelona zetaris status` prints `online` and that query returns the two rows.
+### 1.4 Seed memory and publish run data
+
+```
+python -m barthelona zetaris seed --memory var/hmem.sqlite
+python -m barthelona zetaris publish <driver container>
+```
+
+`seed` turns the registered tables into H-MEM facts (source `zetaris:<table>`); `publish` copies run history and
+memory into Zetaris tables so they can be queried with SQL. See [zetaris-engines.md](zetaris-engines.md).
+
+**Done with DATA when** `zetaris status` prints `online` and the `SELECT` above returns rows.
 
 ---
 
-## Layer 2: BUILD — Cursor + Barthelona Setup
+## Layer 2: BUILD, Barthelona
 
-### 2.1 Install Cursor
+### 2.1 Environment
 
-1. Download from https://cursor.com
-2. Install and sign in (Cursor credit pays for Grok/Composer during development)
-3. Open the Barthelona repository in Cursor:
-   ```bash
-   cursor c:/projects/barthelona-parallel-dev
-   ```
-
-### 2.2 Set Up Barthelona Environment
+```powershell
+.\scripts\create_env.ps1          # once
+. .\scripts\activate.ps1          # your own terminal: this loads .env
+.\scripts\doctor.ps1
+```
 
 ```bash
-# Windows PowerShell
-.\scripts\create_env.ps1
-. .\scripts\activate.ps1
-.\scripts\doctor.ps1
-
-# Git Bash / Linux
 scripts/create_env.sh
 source scripts/activate.sh
 scripts/doctor.sh
 ```
 
-### 2.3 Verify Core Barthelona CLI
+Coding agents never run `activate`; they use `.\scripts\dev.ps1 [-LoadEnv] <command>` (see
+[create-flow.md](create-flow.md)).
 
-```bash
-# Version and schemas
+### 2.2 Check the core
+
+```
 python -m barthelona version
-python -m barthelona schema
-
-# Probe toolchains (needs Docker + bart-tc container)
-scripts/setup-toolchain.sh  # or: wsl -d Ubuntu -e bash scripts/setup-toolchain.sh
+scripts/setup-toolchain.sh        # builds the bart-tc container (WSL on Windows)
 python -m barthelona probe
-
-# Verify ladder on test projects
-python -m barthelona verify tests/projects/nasm-triple --level V6 --dialect nasm \
-  --contracts tests/projects/nasm-triple/contracts.yaml \
-  --tests tests/projects/nasm-triple/tests.yaml
+python -m barthelona verify tests/projects/nasm-triple --level V6
 ```
 
-### 2.4 The Meterless engines (Markovian, H-MEM)
+The create flow needs only NASM and the Unicorn emulator, not the container. The container is for the verification
+ladder above V2.
 
-There is nothing to install. Barthelona carries its **own Python ports** of the Markovian and H-MEM specs
-(Apache-2.0, github.com/Meterless/Meterless), not the Meterless code: `src/barthelona/llm/markovian.py`
-(`run_markovian`, `MarkovianConfig`) and `src/barthelona/llm/hmem.py` (`HMem`). Check that they import:
+### 2.3 The engines
 
-```bash
-python -c "from barthelona.llm.markovian import run_markovian; print('Markovian OK')"
-python -c "from barthelona.llm.hmem import HMem; print('H-MEM OK')"
-```
+The Markovian chunk loop (`src/barthelona/llm/markovian.py`) and H-MEM (`src/barthelona/llm/hmem.py`) are Python
+ports of the Meterless engine specs; what is and is not ported is listed in [hackathon-demo.md](hackathon-demo.md).
 
-(An earlier version of this guide imported `MarkovianEngine` and `HMemStore`; those names do not exist.)
-
-### 2.5 Explore the Prompts
-
-The benchmark prompt templates are in `bench/prompts/` (`single.md.j2`, `fix.md.j2`, `c.md.j2`). The prompts of the
-create flow (intake, spec, test author) are in `src/barthelona/engine/` for now; the planned
-`policies/v1/prompts/` folder does not exist yet.
-
-### 2.6 Cursor Integration Tips
-
-- **Grok**: Use for harder, longer coding tasks (Ctrl+K → Grok)
-- **Composer**: Fast everyday coding (default)
-- **Barthelona CLI**: Run from Cursor's integrated terminal (Ctrl+`)
-- **Debug**: Set breakpoints in `src/barthelona/cli/verify.py` etc.
-
-**✅ You're done with BUILD when:** `python -m barthelona verify` passes on `nasm-triple` and `gas-triple` test projects.
+**Done with BUILD when** `verify` passes on `nasm-triple` and `check` passes on a packaged project (Demo A).
 
 ---
 
-## Layer 3: POWER — Meterless/NVIDIA Nemotron Setup
+## Layer 3: POWER, Meterless and Nemotron
 
-### 3.1 Option A: Meterless Nightshift (Recommended)
+### 3.1 Nightshift
 
-#### 3.1.1 Install Nightshift
+1. Install Nightshift from https://meterless.ai and start it. It serves an OpenAI-compatible API on
+   http://127.0.0.1:8088/v1 by default.
+2. **Setup, Providers, add NVIDIA**, with a free key from https://build.nvidia.com/. The key stays in Nightshift. It
+   is also fine to keep `NVIDIA_API_KEY` in your own `.env`, but Barthelona never reads it.
+3. **NIGHT, LANES**: add at least two lanes backed by different free models. The hackathon participant guide says a
+   model never grades its own answers, so Nightshift warns when two lanes share one family (source: the participant
+   guide, https://meterless.ai; the warning itself was not re-checked in the UI on 2026-10-24). Nemotron 3.5 needs
+   thinking switched off on the main lane (`chat_template_kwargs: {enable_thinking: false}`); the deep lane keeps
+   thinking on. This was observed in live runs on 2026-10-23 (PRs #204 and #208, and the comment in
+   `config/models.yaml`); model details are on https://build.nvidia.com/.
+4. Copy the runtime token from **Console** into `METERLESS_RUNTIME_TOKEN` (same way as the Zetaris key).
+   `METERLESS_BASE_URL` is only needed when the URL is not the default.
 
-1. Download from https://meterless.ai
-2. Install and launch the app
-3. Verify it's running: http://127.0.0.1:8088/v1/models
-
-#### 3.1.2 Add NVIDIA Provider
-
-1. **Nightshift UI → Setup → Providers → Add Provider → NVIDIA**
-2. Get free API key from https://build.nvidia.com/
-3. Paste key in Nightshift (stays there, never in `.env`)
-4. Click **Save**
-
-#### 3.1.3 Lanes
-
-Barthelona only talks to the three routing modes `meterless/auto`, `meterless/deep` and `meterless/fast`
-(`config/models.yaml`: roles `main`/`worker` use `auto`, `planner` uses `deep`, `cheap` uses `fast`); which model a
-mode picks is decided by the lanes in Nightshift (NIGHT, LANES; the lanes have a duty such as Race, Judge or Verify,
-and the dev PC uses a Race lane). The model ids in the first version of this guide (`nemotron-3.5-lightning-30b-a3b`,
-`gpt-4o-mini`) were copied from the setup text and **not re-checked**; follow Nightshift's own screens. What is
-verified: with the lanes the dev PC had on 2026-10-24 (before a Llama model was added to the Race lane that evening),
-every call of the free-only runs (all three modes) was answered by `nvidia/nemotron-3-ultra-550b-a55b`, as shown in
-`chunked stats` (`answered by`) and in the `llm_calls` table of `var/app.sqlite`. With more than one model in a lane,
-read `answered by` after each run instead of assuming the model.
-
-> The hackathon setup text says a model should not grade its own answers and that Nightshift shows a red warning with a
-> single lane family; keep two different model families in the lanes if you need that warning gone. Barthelona's
-> reviewer is advisory only (the assembler and the emulator decide).
-
-#### 3.1.4 Get Runtime Token
-
-1. **Nightshift → Console → Runtime Token → Copy**
-2. Add to `.env` (create from `.env.example`):
-
-```bash
-# .env (gitignored — NEVER commit!)
-METERLESS_RUNTIME_TOKEN=your-token-here
-# METERLESS_BASE_URL=http://127.0.0.1:8088/v1  # optional if default
+```
+python -m barthelona meterless status      # online and the meterless/* routes
 ```
 
-#### 3.1.5 Verify Meterless Connection
+### 3.2 What the catalog does
 
-```bash
-python -m barthelona meterless status
-# Expected: "online" + lists meterless/auto, meterless/deep, meterless/fast
-```
+`config/models.yaml` has three Meterless routes: `meterless_auto` (roles `main` and `worker`), `meterless_deep`
+(`planner`, `escalation`) and `meterless_fast` (`cheap`). Every chain ends with the local model `local_main` in the
+shipped catalog. Under the free-models rule use a copy of the catalog with the LM Studio provider disabled and pass
+it with `--catalog` (`worker`, `chunked run`). Make the copy by copying `config/models.yaml` and setting `enabled: false`
+on the `lmstudio` provider (the file used in the live runs was `var/proof/models-free.yaml`, kept on that PC and
+not in git). Then a run whose Nightshift calls all fail ends as
+`no_model_available` instead of calling a local model.
 
-### 3.2 Direct NVIDIA API
+### 3.3 Optional: a local fallback
 
-Not available. `config/models.yaml` has no `nvidia` provider and no backend for one (the first version of this guide
-showed a YAML block for it; it was never tested). Reach Nemotron through Nightshift.
+Not used in the hackathon runs. If you want one: install LM Studio, load a coder model with a 16K context, start the
+local server on port 1234. On Windows cap WSL memory in `%UserProfile%\.wslconfig` (`memory=8GB`) and run
+`wsl --shutdown`.
 
-### 3.3 Local Fallback Model (LM Studio) — optional, off for demo runs
-
-Decision of 2026-10-24: for the hackathon period only Nemotron through Nightshift is used for demo runs; no local model
-and no paid cloud model. Be aware that **every model chain in `config/models.yaml` ends in the local model** (invariant
-11), so with LM Studio running a failed Nightshift call falls through to `local_main` without a warning. That is how
-a run on the `cloud` profile ended up answered by a local model on 2026-10-24. To make a run fail instead, give it a
-catalog copy in which only the `lmstudio` provider has `enabled: false`:
-
-```bash
-python -m barthelona chunked run ... --profile meterless --catalog var/proof/models-free.yaml
-python -m barthelona worker --catalog var/proof/models-free.yaml ...
-```
-
-(`var/proof/` is a gitignored scratch folder; copy `config/models.yaml` there and change that one line. Do not edit the
-committed catalog for this.) If you do want a local fallback: install LM Studio (https://lmstudio.ai), load a coding
-model with a 16K context, start the local server (port 1234) and check http://127.0.0.1:1234/v1/models.
-
-### 3.4 WSL Memory Cap (Windows only, only if you run a local model next to WSL)
-
-Create `%UserProfile%\.wslconfig`:
-
-```ini
-[general]
-instanceIdleTimeout=-1  # never stop distro when idle
-
-[wsl2]
-memory=8GB              # leave RAM for LM Studio on Windows
-processors=8
-```
-
-Then: `wsl --shutdown`
-
-**✅ You're done with POWER when:** `python -m barthelona meterless status` prints `online` and lists the `meterless/*` routes. A local fallback is optional (3.3).
+**Done with POWER when** `meterless status` prints `online`.
 
 ---
 
-## Integration Verification
+## Check that the layers work together
 
-Run the complete smoke test to verify all three layers work together:
-
-```bash
-# 1. Activate environment
-. .\scripts\activate.ps1  # or: source scripts/activate.sh
-
-# 2. Verify Zetaris
-python -m barthelona zetaris status
-# → online
-
-# 3. Verify Meterless
-python -m barthelona meterless status
-# → online + routes listed
-
-# 4. Verify Barthelona core
-python -m barthelona verify tests/projects/nasm-triple --level V6 --dialect nasm \
-  --contracts tests/projects/nasm-triple/contracts.yaml \
-  --tests tests/projects/nasm-triple/tests.yaml
-# → All levels V0-V2, V5, V6: PASS
-
-# 5. Zetaris facts reach the models: read the knowledge tables
-python -m barthelona zetaris sql "SELECT name, arg1 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'"
-# → write | rdi=fd
-
-# 6. Seed a fresh H-MEM store from Zetaris and look at what recall returns
-python -m barthelona zetaris seed --memory var/proof/hm.sqlite
-# → seeded 48 new facts; H-MEM now holds 48   (a second run says 0 new facts)
-
-# 7. One run through Nightshift: hello world with memory and stats
-python -m barthelona chunked run @demos/hello/task.txt \
-  --profile meterless --assemble --repair 2 \
-  --expect-stdout "Hello, Barthelona!\n" --expect-exit 0 \
-  --memory var/proof/hmem.sqlite --stats var/proof/runs.sqlite \
-  --out var/proof/hello.asm
-# → look for "assemble: pass" and the per-chunk table (answered by: the Nemotron model)
-
-# 8. Show stats
-python -m barthelona chunked stats --db var/proof/runs.sqlite
 ```
-
-Step 7 passed with local models on 2026-10-24 (hello in one chunk, `assemble: pass`); an earlier live Nightshift run
-of the same task is recorded in `docs/hackathon-demo.md` (2026-10-23). It was not repeated through Nightshift on
-2026-10-24; the Nightshift-only evidence of that day comes from the create flow (Demo 1 below, open PR #253).
-
-**✅ All layers integrated when:** steps 2 to 6 pass and step 7 prints `assemble: pass`.
+python -m barthelona zetaris status          # online
+python -m barthelona meterless status        # online
+python -m barthelona verify tests/projects/nasm-triple --level V6
+python -m barthelona worker --once           # in a second terminal: processes what Demo A queues
+```
 
 ---
 
-## Demo Scenarios
+## Demos
 
-Three demo scenarios, in the order of how well they are backed by evidence. Each says what was actually shown.
+### Demo A: create a program through the worker (works)
 
-### Demo 1: The create flow, request to green (hello, digits)
+The path that was run live. Terminal 1 keeps the worker running; terminal 2 queues and answers gates.
 
-**Needs open PR #253** (it adds `runs submit / status / decide / package` and the code and G4 steps; on `main` the
-worker stops at gate G1). Evidence from 2026-10-24: "hello" and "digits 1 to 9" went green on Nemotron only, each in
-about 4 model calls and 1 to 2 minutes of model work.
-
-```powershell
-# Terminal 1: the worker (state in a scratch folder; catalog copy with lmstudio disabled, see 3.3)
-.\scripts\dev.ps1 -LoadEnv python -m barthelona worker --catalog var/proof/models-free.yaml `
-  --db var/proof/e2e/app.sqlite --checkpoints var/proof/e2e/cp.sqlite --runs var/proof/e2e/runs `
-  --memory var/proof/e2e/hm.sqlite --poll 1
-
-# Terminal 2: submit, then answer the two gates
-.\scripts\dev.ps1 python -m barthelona runs submit "Write a program that prints hello and a newline, then exits with code 0." `
-  --db var/proof/e2e/app.sqlite --runs var/proof/e2e/runs        # prints the run id
-.\scripts\dev.ps1 python -m barthelona runs status <run id> --db var/proof/e2e/app.sqlite --runs var/proof/e2e/runs
-# at gate ...-G1: read runs/<run id>/spec.json and tests.json, then
-.\scripts\dev.ps1 python -m barthelona runs decide <run id> approve --db var/proof/e2e/app.sqlite
-# at gate ...-G4: read runs/<run id>/main.asm, then approve the same way; the run ends `green`
-.\scripts\dev.ps1 python -m barthelona runs package <run id> --out var/proof/hello-pkg `
-  --barthelona-ref <full commit sha> --db var/proof/e2e/app.sqlite --runs var/proof/e2e/runs
+```
+python -m barthelona worker --catalog var/proof/models-free.yaml --trace-reasoning var/proof/reasoning.md
+python -m barthelona runs submit "Write a NASM program that prints the digits 1 to 9, one per line, and exits 0"
+python -m barthelona runs status                  # the run id, and the open gate
+python -m barthelona runs decide <run_id> approve # G1: read the spec and tests first
+python -m barthelona runs decide <run_id> approve # G4: the verdict and the program
+python -m barthelona runs package <run_id> --out var/proof/digits-pkg --barthelona-ref <full commit sha>
+python -m barthelona check var/proof/digits-pkg/src/digits.asm --tests var/proof/digits-pkg/tests/golden.json
 ```
 
-`runs decide` takes only `--db` (no `--runs`). Seed the memory first with `python -m barthelona zetaris seed --memory
-var/proof/e2e/hm.sqlite` if you want the Zetaris facts in it.
+At G1, recompute the expected results of the tests from the specification before you approve: the tests are frozen
+afterwards, and the test author has written wrong expected results once (#259). `--trace-reasoning` writes what each
+model thought and answered to a file. All flags: [create-flow.md](create-flow.md).
 
-**Key talking points (true as measured):**
+What it shows: spec and tests from a model, an oracle (NASM and the emulator) deciding, two human gates, and a
+packaged project with README, CI and release workflow, all generated. The `meterless/auto` and `meterless/deep`
+calls, their tokens and seconds are in the packaged README.
 
-- "A person writes one sentence; the system writes the spec and the tests, and a person approves them at gate G1."
-- "The assembler and the emulator decide; the model only proposes. The reviewer is advisory."
-- "Every call is recorded (model, tokens, latency) in `var/app.sqlite`; here all of them were Nemotron."
-- "`runs package` writes the repository: source, tests, README, CI and a release workflow."
+### Demo B: Zetaris facts in the prompts (works)
 
-**Do not say:** that it builds multi-module programs or an interactive quiz (it does not yet), or that the release was
-published (the packaged workflows were not run on GitHub).
+With `ZETARIS_API_KEY` set the worker reads both knowledge tables into the spec and test-author prompts by default
+(`worker --facts-sql "SELECT ..."` replaces the statement). The facts reach the model as an untrusted-data block, and
+the oracle still decides. To show it, run Demo A with a task that names a syscall and look in `--trace-reasoning`
+for the syscall number the model used. With the default statement a down Zetaris gives a run without facts, not a
+failed run; with an explicit `--facts-sql` a failing Zetaris stops the run as `infra_error`.
 
-### Demo 2: Multi-chunk generation (FizzBuzz) — currently failing, show only as an honest limit
+`chunked run` accepts `--facts-sql` too:
 
-**What it shows:** Markovian chunking and the repair loop on a task that does not fit one chunk.
-
-```bash
-python -m barthelona chunked run @demos/fizzbuzz/task.txt \
-  --profile meterless --catalog var/proof/models-free.yaml \
-  --plan-role planner --review-role cheap --repair-role planner \
-  --chunk-tokens 2000 --carryover-tokens 128 --max-chunks 8 --assemble --repair 2 \
-  --expect-stdout "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz\n" --expect-exit 0 \
-  --memory var/proof/fb-hmem.sqlite --stats var/proof/fb-runs.sqlite --out var/proof/fizzbuzz.asm
+```
+python -m barthelona chunked run "NASM program that prints Hello using sys_write" --profile meterless --facts-sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'" --assemble --repair 2 --expect-stdout "Hello\n" --expect-exit 0 --out var/proof/zeta.asm
 ```
 
-Result on 2026-10-24: it did not pass in any setup tried. With local models the programs were wrong or the run
-crashed; through Nightshift two runs failed the oracle (a leaked reasoning text and a state block ended up in the
-`.asm`, issue #254, fixed in PR #253). The Markovian numbers are real (for example 8 chunks, `efficiency` about 75%
-against a full history, by the project's own cost model), but there is no green FizzBuzz to show.
+### Demo C: memory and long tasks (not proven yet)
 
-### Demo 3: Zetaris fact injection
+The pieces exist: H-MEM recall in every chunk, write-back after an assembled run, `chunked stats` and the
+`runs`/`run_chunks` tables published to Zetaris. The claim "the second run needs fewer chunks" has no valid
+evidence yet (see "Where it stands"). To test it honestly you need a task that takes several chunks, such as
+FizzBuzz (`demos/fizzbuzz/`), run twice against the same `--memory` file, with the second run counting only if it also
+assembles and passes the emulator check. If both runs finish in one chunk, say that the task was too short.
 
-**What it shows:** facts from a structured store are put in front of the model, and the oracles still decide.
+### What to say, and what not to say
 
-```bash
-python -m barthelona chunked run "Write a NASM program that prints 'Hello' using the write syscall" \
-  --profile meterless \
-  --facts-sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name IN ('write','exit_group')" \
-  --assemble --repair 2 --expect-stdout "Hello\n" --expect-exit 0 \
-  --memory var/proof/hmem.sqlite --stats var/proof/runs.sqlite --out var/proof/zeta-hello.asm
-```
-
-**Key talking points (true as measured):**
-
-- "The syscall facts live in Zetaris tables (37 syscalls, 11 ABI facts) and come back as rows."
-- "They are untrusted data: wrapped in a `[ZETARIS FACTS]` block, with the injection guard in front."
-- "In the create flow they are used by default (spec and test-author prompts) and seed H-MEM (`zetaris seed`)."
-- "Run data goes back into Zetaris (`zetaris publish` → `barthelona_runtime.*`), so it can be queried with SQL."
-
-This exact command with `--facts-sql` against the real tables was not re-run on 2026-10-24; the default facts of the
-create flow and `zetaris seed` / `publish` were.
-
----
-
-## Running the Demos
-
-Run the demos from the repository root. A suggested order for a live session (about 15 minutes; model calls on
-Nemotron take 5 to 60 seconds each):
-
-1. Show the layers: `python -m barthelona zetaris status`, `python -m barthelona meterless status`,
-   `python -m barthelona zetaris sql "SELECT name, arg1 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'"`.
-2. Demo 1, the create flow (needs PR #253): submit one sentence, read the spec and tests at G1, approve, read the code
-   at G4, approve, then `runs package`.
-3. Demo 3, Zetaris: `zetaris seed` into a fresh memory file, the recall output, and `zetaris publish` followed by
-   `SELECT COUNT(*) FROM barthelona_runtime.runs` (`publish` needs the id of the Zetaris driver container and
-   `--hmem-db <file>`).
-4. Say plainly where the limits are (Demo 2 and the "Not working yet" row at the top).
-
-There is no all-in-one script: the first version of this guide had a `demo.ps1` that ran the "memory proof" twice;
-that proof is not demonstrated (see Status today), so the script was removed.
-
-### What Judges Can See
-
-| Demo                | What is shown                                                                                    | Evidence                                              |
-| ------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| Create flow         | One sentence becomes spec, tests, code and a package; two gates answered by a person              | Run ends `green`; `llm_calls` rows; the packaged repo |
-| Zetaris             | Syscall and ABI facts come from SQL tables and flow into the prompts and into H-MEM               | `zetaris sql`, `zetaris seed`, recall output          |
-| Meterless/Nemotron  | Every model call was answered by Nemotron through `meterless/auto`, `deep` and `fast`            | `answered by` in `chunked stats`; `llm_calls`         |
-| Markovian numbers   | `peak_prompt`, `standard_cost`, `markovian_cost`, `efficiency` per run (the project's cost model) | The summary line of `chunked run`                     |
-| Limits, stated      | FizzBuzz not green; the quiz needs a better test author; no memory-proof run yet                   | The "Not working yet" row                             |
+| Demo | Evidence you can show | Do not claim |
+| --- | --- | --- |
+| A, create flow | Green run, package, `check` pass, per-model table | That the result is ABI-checked, fuzzed or multi-module |
+| B, Zetaris | Facts in the prompt and in the reasoning log, `seed` and `publish` tables | That the tables are verified against the kernel source |
+| C, memory | The mechanism and the published tables | That a second run is cheaper: not shown |
 
 ---
 
 ## Troubleshooting
 
-### Zetaris Issues
+### Zetaris
 
-| Symptom               | Fix                                                                   |
-| --------------------- | --------------------------------------------------------------------- |
-| `unauthorized`        | Regenerate API key in the Zetaris UI (port 3000); update `ZETARIS_API_KEY` |
-| `offline`             | Start the Zetaris stack from the bundle; check `docker ps` and Docker resources |
-| `unconfigured`        | The key is not in this process: for an agent shell use `dev.ps1 -LoadEnv`; otherwise set `ZETARIS_API_KEY` and restart the shell (a Windows `setx` only reaches new processes) |
-| Query returns no rows or "table not found" | Tables are `barthelona_files.linux_x64_syscalls` and `barthelona_files.abi_facts`; register them as in 1.7; `barthelona_runtime.*` exists only after `zetaris publish` |
-| `zetaris publish` fails with `WinError 2` | On Windows `docker` may be only `docker.bat` (`wsl docker %*`); issue #248, fixed in PR #253 (the command now starts docker by its full path) |
+| Symptom | Fix |
+| --- | --- |
+| `unauthorized` | Create a new key in the Zetaris UI and update `ZETARIS_API_KEY`; open a new terminal after `setx` |
+| `offline` | `docker compose up -d` in the getting-started folder; check Docker's memory |
+| `unconfigured` | `ZETARIS_API_KEY` is not set in this shell |
+| A query returns no rows | The table is not registered or is in another database: see `knowledge/zetaris/README.md` |
 
-### Meterless/Nightshift Issues
+### Meterless and Nightshift
 
-| Symptom                | Fix                                                     |
-| ---------------------- | ------------------------------------------------------- |
-| `unauthorized`         | Copy a fresh token from the Nightshift Console; update `.env` (an agent shell needs `-LoadEnv`, or a restart after `setx`) |
-| `offline`              | Start the Nightshift app; check port 8088               |
-| Red "no Judge lane" in Nightshift | Per the hackathon setup text, add a lane on a different model family (not re-checked) |
-| Falls to `local_main`  | Every chain ends in the local model; use a catalog copy with `lmstudio` disabled (3.3) to see the real error |
-| `no_model_available` right after the first calls | Look for `404 Function ... Not found` in the provider error: an upstream blip that PR #253 retries (#255); resubmit |
-| Empty/truncated output | Increase `--chunk-tokens` (default 8000); PR #253 names a reply cut off at the output limit (#257) |
-| Reasoning text or `[STATE_CHECKPOINT]` inside the `.asm` | Issue #254, fixed in PR #253; the raw answer is in `<out>.raw.txt` |
+| Symptom | Fix |
+| --- | --- |
+| `unauthorized` | Copy a fresh runtime token from the Nightshift Console into `METERLESS_RUNTIME_TOKEN` |
+| `offline` | Start Nightshift; check the port (default 8088) |
+| `404 provider_error` | Intermittent upstream error; the gateway repeats the call up to twice. If it persists, check the lane in Nightshift |
+| Empty or cut-off reply | The thinking lane used the output budget; use the non-thinking lane for long outputs, or raise `--chunk-tokens` |
+| The run used `local_main` | A Nightshift call failed and the chain fell through; with the free-models catalog it stops instead |
 
-### Barthelona Issues
+### Barthelona
 
-| Symptom                  | Fix                                                                   |
-| ------------------------ | --------------------------------------------------------------------- |
-| `assemble: unavailable`  | Install NASM (https://www.nasm.us/) or set `BARTHELONA_NASM`          |
-| `assemble: fail`         | Read NASM errors; sharpen task; re-run                                |
-| Docker container missing | `scripts/setup-toolchain.sh` (or WSL equivalent)                      |
-| `chunks=` not decreasing | Not a bug: a short task needs one chunk, and recall adds context without reducing calls (measured on the digits runs). Memory is written only after `assemble: pass` |
-| `runs decide ... --runs` fails | `runs decide` takes only `--db` |
+| Symptom | Fix |
+| --- | --- |
+| `assemble: unavailable` | Install NASM or set `BARTHELONA_NASM` |
+| A run stops as `max_attempts` | The checker rejected every attempt or the model gave no valid JSON twice; read `runs status <run_id>` |
+| The run stops as `budget_time` | The run's `--wall-s` limit ran out while generating code |
+| `runs package` refuses | The run is not green, the project has several modules, or the files exist (`--force`) |
 
-### Windows-Specific
+### Windows
 
-| Issue                         | Fix                                               |
-| ----------------------------- | ------------------------------------------------- |
-| `conda activate` does nothing | Use `. .\scripts\activate.ps1` (note leading dot) |
-| `wsl -l` garbled              | `WSL_UTF8=1` (activate script sets this)          |
-| Python not found in Git Bash  | Use `scripts/dev.sh python` or activated terminal |
+| Issue | Fix |
+| --- | --- |
+| `conda activate` does nothing | Use `. .\scripts\activate.ps1` (note the leading dot) |
+| `wsl -l` output is garbled | Set `WSL_UTF8=1` (`activate` does) |
+| Python not found in Git Bash | Use `scripts/dev.sh python ...` |
 
 ---
 
 ## Glossary
 
-| Term                      | Meaning                                                           |
-| ------------------------- | ----------------------------------------------------------------- |
-| **Agent**                 | App where AI model decides steps/tools to finish a task           |
-| **API Key/Token**         | Secret password for service auth; keep in `.env`                  |
-| **Base URL**              | Web address for model requests (e.g., `http://127.0.0.1:8088/v1`) |
-| **Chunk**                 | Bounded generation unit (default 8K tokens) in Markovian Engine   |
-| **H-MEM**                 | Hierarchical Memory — recalls facts from prior successful runs    |
-| **Lane**                  | A model served by Nightshift; Barthelona asks for a mode (`meterless/auto`, `deep`, `fast`) and Nightshift picks the lane |
-| **Markovian Engine**      | Long generation as bounded chunks with flat context               |
-| **Oracle**                | Tool that decides correctness (NASM, linker, emulator)            |
-| **Gate (G1, G4)**         | A point where a person approves: G1 the spec and tests, G4 the code |
-| **Run id / `runs`**       | The create flow's unit of work; `runs submit/status/decide/package` (PR #253) |
-| **Zetaris**               | Data virtualization platform; SQL interface for structured facts  |
-| **`--facts-sql`**         | CLI flag injecting Zetaris query results into chunk 1             |
-| **`assemble: pass/fail`** | NASM verdict — the true oracle                                    |
+| Term | Meaning |
+| --- | --- |
+| **Gate (G1, G4)** | A point where a person approves or rejects: G1 the specification and tests, G4 the finished program |
+| **Oracle** | A tool that decides correctness: NASM, the linker, the emulator. Models propose, oracles decide |
+| **Chunk** | One bounded generation step of the Markovian engine; state is carried between chunks, so the prompt stays flat |
+| **H-MEM** | Hierarchical memory: facts recalled before each chunk and written back after an assembled run |
+| **Route (`meterless/auto`, `deep`, `fast`)** | A Nightshift routing mode; the lanes in Nightshift decide which concrete model answers |
+| **Lane** | A model with a duty in Nightshift (Race, Judge, Verify) |
+| **Zetaris** | Data virtualisation platform with a SQL interface; here the store of knowledge tables and published run data |
+| **Profile** | A catalog set of role chains: `local-only`, `hybrid`, `cloud`, `meterless` |
 
 ---
 
-## Quick Reference Card
+## Hackathon day checklist
 
-```bash
-# ===== ONE-TIME SETUP =====
-# 1. Zetaris: install the bundle (the getting-started install guide), create the API key in the UI (http://localhost:3000)
-#    then register the knowledge tables (section 1.7)
-# 2. Barthelona
-.\scripts\create_env.ps1 ; . .\scripts\activate.ps1
-scripts/setup-toolchain.sh        # Windows: wsl -d Ubuntu -e bash scripts/setup-toolchain.sh
-python -m barthelona probe
-# 3. Nightshift: install from meterless.ai, add the NVIDIA provider and lanes in its screens
-#    copy the runtime token into .env as METERLESS_RUNTIME_TOKEN
-# 4. Secrets in an agent shell: prefix commands with  .\scripts\dev.ps1 -LoadEnv   (in your own activated terminal .env is loaded)
-
-# ===== DAILY START =====
-python -m barthelona zetaris status    # online
-python -m barthelona meterless status  # online + meterless/* routes
-
-# ===== DEMO COMMANDS =====
-# Zetaris facts and memory
-python -m barthelona zetaris sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'"
-python -m barthelona zetaris seed --memory var/proof/hm.sqlite        # 48 facts, a second run adds 0
-
-# Create flow (open PR #253): worker in one terminal, then in another
-python -m barthelona runs submit "Write a program that prints hello and a newline, then exits with code 0." --db var/proof/e2e/app.sqlite --runs var/proof/e2e/runs
-python -m barthelona runs status <run id> --db var/proof/e2e/app.sqlite --runs var/proof/e2e/runs
-python -m barthelona runs decide <run id> approve --db var/proof/e2e/app.sqlite      # at G1 and again at G4
-python -m barthelona runs package <run id> --out var/proof/hello-pkg --barthelona-ref <full sha> --db var/proof/e2e/app.sqlite --runs var/proof/e2e/runs
-
-# Long task as chunks (one command; see the demos/ READMEs for the full flags)
-python -m barthelona chunked run @demos/hello/task.txt --profile meterless --assemble --repair 2 --expect-stdout "Hello, Barthelona!\n" --expect-exit 0 --memory var/proof/hmem.sqlite --stats var/proof/runs.sqlite --out var/proof/hello.asm
-python -m barthelona chunked stats --db var/proof/runs.sqlite
-```
-
----
-
-## Hackathon Day Checklist
-
-- [ ] Zetaris running (`docker ps` shows the api, driver, ui and postgres containers `healthy`)
-- [ ] `ZETARIS_API_KEY` reaches the shell (`-LoadEnv` or a fresh terminal), `zetaris status` → `online`
-- [ ] Knowledge tables registered: the `write` / `exit_group` query in 1.8 returns two rows
-- [ ] Nightshift running, `meterless status` → `online` and the `meterless/*` routes
-- [ ] Demo runs use a catalog copy with `lmstudio` disabled (3.3) so no local model answers by accident
-- [ ] Barthelona env works, `.\scripts\doctor.ps1` passes
-- [ ] Open PR #253 merged (or its branch checked out) if you show the create flow
-- [ ] One create-flow run rehearsed end to end (about 4 minutes with the gates)
-- [ ] The limits are on the slide: FizzBuzz and the quiz are not green; no memory-proof run
-- [ ] `smoke_test.py` passes (if provided by the hackathon)
+- [ ] Zetaris up, `zetaris status` prints `online`, both knowledge tables return rows
+- [ ] `zetaris seed` done (48 facts) and `zetaris publish` has run once
+- [ ] Nightshift up with two lanes on different free models, `meterless status` prints `online`
+- [ ] A catalog copy with LM Studio disabled, if you promise free models only
+- [ ] NASM found (`python -m barthelona check` on a packaged project passes)
+- [ ] Demo A rehearsed once; you know which models served `auto` and `deep` (Nightshift run details)
+- [ ] You can state what is not proven (compounding, temperament, published demo)
 
 ---
 
 ## Resources
 
-| Resource                    | Link                                              |
-| --------------------------- | ------------------------------------------------- |
-| Barthelona Architecture     | [`docs/architecture.md`](architecture.md)         |
-| Meterless Guide             | [`docs/meterless-guide.md`](meterless-guide.md)   |
-| Zetaris Guide               | [`docs/zetaris-guide.md`](zetaris-guide.md)       |
-| Quickstart                  | [`docs/quickstart.md`](quickstart.md)             |
-| Current Status              | [`docs/current-status.md`](current-status.md)     |
-| Runbook                     | [`docs/runbook.md`](runbook.md)                   |
-| Hackathon Participant Guide | `.reference/7e1b7ca3995b4673b30a73555c87e71f.pdf` |
-| Meterless GitHub            | https://github.com/Meterless/Meterless            |
-| Zetaris Getting Started     | https://github.com/zetaris/getting-started        |
-| NVIDIA Nemotron             | https://build.nvidia.com/                         |
-
----
-
-_Last updated: 2026-10-24. Based on Open Agent Hackathon 2026 Participant Setup Guide (21 Oct 2026)._
+| Resource | Link |
+| --- | --- |
+| Create flow: commands and flags | [`create-flow.md`](create-flow.md) |
+| Architecture | [`architecture.md`](architecture.md) |
+| Meterless guide | [`meterless-guide.md`](meterless-guide.md) |
+| Zetaris guide and engines | [`zetaris-guide.md`](zetaris-guide.md), [`zetaris-engines.md`](zetaris-engines.md) |
+| Current status | [`current-status.md`](current-status.md) |
+| Runbook | [`runbook.md`](runbook.md) |
+| Hackathon participant guide | `.reference/7e1b7ca3995b4673b30a73555c87e71f.pdf` |
+| Meterless on GitHub | https://github.com/Meterless/Meterless |
+| Zetaris getting started | https://github.com/zetaris/getting-started |
+| NVIDIA build | https://build.nvidia.com/ |

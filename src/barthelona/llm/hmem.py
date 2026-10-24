@@ -211,3 +211,14 @@ def _format(memories: tuple[Memory, ...]) -> str:
     ]
     body = "What earlier runs learned. Use it, do not re-decide it:\n" + "\n".join(lines)
     return "[MEMORY CONTEXT]\n" + wrap_untrusted(body, "h-mem")
+
+
+# Zetaris-seeded memory is many short facts (one per syscall): recall more than the spec default of 5.
+RECALL_TOP_N = 8
+
+
+def chunk_recall(store: HMem | None, task: str, domain: str) -> Callable[[str], str] | None:
+    """Per-chunk recall for the run's state so far, so no chunk after the first runs without memory."""
+    if store is None:
+        return None
+    return lambda state: store.query(f"{task}\n{state}", domain=domain, top_n=RECALL_TOP_N).context

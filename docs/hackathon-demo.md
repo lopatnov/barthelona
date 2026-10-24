@@ -9,7 +9,7 @@ What Barthelona uses from the hackathon stack, and how to reproduce the demo.
 | Meterless Nightshift (Power) | Primary provider for the `meterless` profile                                                             | `config/models.yaml` (`meterless` provider), `src/barthelona/llm/meterless.py`   |
 | NVIDIA Nemotron (Power)      | Model behind a Nightshift lane, key lives in Nightshift only                                             | Nightshift Providers tab                                                         |
 | Markovian Engine (Build)     | Long generation as bounded chunks with flat context                                                      | `src/barthelona/llm/markovian.py`, `barthelona chunked run`                      |
-| Zetaris (Data)               | Structured knowledge store next to Qdrant (hackathon requirement): read-only SQL, rows enter the prompts as untrusted facts; `seed` copies them into H-MEM and `publish` writes run data back | `src/barthelona/llm/zetaris.py`, `barthelona zetaris`, `chunked run --facts-sql` |
+| Zetaris (Data)               | Structured knowledge store next to Qdrant (hackathon requirement): read-only SQL, rows enter chunk 1 as untrusted facts | `src/barthelona/llm/zetaris.py`, `barthelona zetaris`, `chunked run --facts-sql` |
 
 The Markovian code is a Python port of the Apache-2.0 spec at github.com/Meterless/Meterless/tree/main/engines/markovian
 (ARCHITECT mode). Not ported: model-based carryover compression, RESEARCH mode, the reflection pass. The TypeScript
@@ -47,25 +47,32 @@ what the assembler or the emulator rejected as a lesson.
 
 ## Zetaris facts
 
-Zetaris must be running (the hackathon guide, Data part 1.9) and its API key created by you in the Zetaris web
-interface. Put `ZETARIS_API_KEY` (and `ZETARIS_REST_URL`, `ZETARIS_ORG_ID` if they differ from
+Zetaris must be running (the hackathon guide, [Layer 1](hackathon-demo-guide.md#layer-1-data-zetaris)) and its API
+key created by you in the Zetaris web interface. Put `ZETARIS_API_KEY` (and `ZETARIS_REST_URL`, `ZETARIS_ORG_ID` if they differ from
 `http://localhost:8888/api/v1.0` and `1`) in `.env`. Then:
 
 - `python -m barthelona zetaris status` runs `SELECT 1` and prints `online`, `unauthorized`, `offline` or `unconfigured`.
 - `python -m barthelona zetaris sql "SHOW LIGHTNING DATABASES"` prints the rows. Only one SELECT, SHOW, DESCRIBE or
   WITH statement is ever sent.
 - `chunked run ... --facts-sql "SELECT name, nr FROM <your table>"` puts the rows in front of chunk 1 inside an
-  untrusted-data block (the injection guard can refuse them). With `--facts-sql` a missing key or a failing Zetaris
-  stops the run; it is never skipped silently. The create flow (worker) instead uses the knowledge tables by default
-  when `ZETARIS_API_KEY` is set, and a down Zetaris gives it no facts, not a failed run.
+  untrusted-data block (the injection guard can refuse them). A missing key or a failing Zetaris stops the run; it is
+  never skipped silently.
 
-The request follows the guide (`POST /sql-editor/sqls/run`, bearer key, `X-Org-ID`, `X-Request-ID`). It has run against
-the real local Zetaris (hackathon build 2.4.3, checked 2026-10-24): `status` prints `online` and `zetaris sql` returns
-rows. The assembler facts are two file tables, `barthelona_files.linux_x64_syscalls` (37 rows) and
-`barthelona_files.abi_facts` (11 rows), registered from the CSVs in `knowledge/zetaris/` with the steps in
-`knowledge/zetaris/README.md`. They are used by default in the spec and test-author prompts, `zetaris seed` copies
-them into H-MEM, and `zetaris publish` writes run data to `barthelona_runtime.*` (the only commands that write to
-Zetaris; `zetaris sql` stays read-only). The earlier "tested against a fake transport only" statement is obsolete.
+The request follows the Zetaris getting-started guide (https://github.com/zetaris/getting-started, checked
+2026-10-24): `POST /sql-editor/sqls/run`, bearer key, `X-Org-ID`, `X-Request-ID`. Unit tests use
+a fake HTTP transport; on 2026-10-24 it also ran against the owner's local Zetaris, with two knowledge tables
+registered from `knowledge/zetaris/` (steps in its README; the numbers still need a documentation check). The worker
+reads both tables into its prompts by default when `ZETARIS_API_KEY` is set; with the default statement a down
+Zetaris gives a run without facts, with an explicit `--facts-sql` it stops the run. `zetaris seed` and
+`zetaris publish` are described in [zetaris-engines.md](zetaris-engines.md).
+
+## Status on 2026-10-24
+
+The create flow through the worker reached `green` on free Nemotron for the hello and digits tasks, and `runs package`
+produced a project with README, CI and release workflow from one of them. The compounding claim above is **not**
+proven: those tasks fit in one chunk, and the multi-chunk task (FizzBuzz) has not passed yet (#246). The English
+temperament demo stopped at gate G1 on wrong golden tests (#259). The full account is in the
+[demo guide](hackathon-demo-guide.md#where-it-stands).
 
 ## Tests that can fail (Meterless prompt "Prove each test can fail")
 
@@ -84,9 +91,9 @@ One deliberate break each, run on 2026-10-23, then reverted with `git checkout`.
 
 ## Reproduce
 
-1. In Nightshift: Setup, Providers, add the NVIDIA key; NIGHT, LANES, add a Nemotron lane and pin it. (The lane id
-   in the first version of this page, `nvidia/nemotron-3.5-lightning-30b-a3b`, was not re-checked. The model that
-   answered every call of the 2026-10-24 runs was `nvidia/nemotron-3-ultra-550b-a55b`.)
+1. In Nightshift: Setup, Providers, add the NVIDIA key; NIGHT, LANES, add a Nemotron lane (for example
+   `nvidia/nemotron-3.5-lightning-30b-a3b`; the id is an example: take the current one from
+   https://build.nvidia.com/, checked 2026-10-23) and pin it.
 2. Put the Console values in `.env` (gitignored): `METERLESS_RUNTIME_TOKEN`, and `METERLESS_BASE_URL` if it is not
    `http://127.0.0.1:8088/v1`. The NVIDIA key never goes into `.env`.
 3. Check the runtime: `python -m barthelona meterless status` prints `online` and the `meterless/*` ids, or
@@ -102,12 +109,6 @@ One deliberate break each, run on 2026-10-23, then reverted with `git checkout`.
 
 ## Honest limits
 
-- Status of the demos on 2026-10-24: see "Status today" in `docs/hackathon-demo-guide.md`. FizzBuzz through
-  `chunked run` has not passed in any setup; the memory proof (second run needing fewer chunks) is not demonstrated
-  beyond the 2026-10-23 hello data above; in the two digits runs of the create flow on one memory file the second run
-  made the same 4 model calls and used more input tokens (its prompts carried the recalled facts).
-- Without a Nightshift token the router skips `meterless` and falls to the local model; the run still works. With LM
-  Studio running, a failed Nightshift call also falls through to the local model without a warning; use a catalog
-  copy with `lmstudio` disabled (guide, section 3.3) when the demo must be Nemotron only.
+- Without a Nightshift token the router skips `meterless` and falls to the local model; the run still works.
 - `meterless/auto` may route to a non-NVIDIA model; pin the Nemotron lane to make the evidence unambiguous.
 - Token counts are `measured` when the provider reports usage, otherwise `estimated` as ceil(chars/4).

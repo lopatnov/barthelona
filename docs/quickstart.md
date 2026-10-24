@@ -140,6 +140,9 @@ Options:
 
 ## Other commands
 
+The worker, `runs submit/status/decide/package`, `check`, the `-LoadEnv` switch and the optional reasoning log
+(`--trace-reasoning`) are described, with every flag, in [create-flow.md](create-flow.md).
+
 ## Troubleshooting
 
 | Symptom                                                    | Likely cause                                                                                                                 |
