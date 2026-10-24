@@ -90,7 +90,7 @@ Go to **NIGHT → LANES** and add at least two lanes:
 
 | Lane Name | Duty  | Suggested Model                                                  | Purpose                                             |
 | --------- | ----- | ---------------------------------------------------------------- | --------------------------------------------------- |
-| `race`    | Race  | `nemotron-3.5-lightning-30b-a3b`                                 | Primary coding model                                |
+| `race`    | Race  | a Nemotron model from Nightshift's list (the id here before was not re-checked; the dev PC's lane answered as `nvidia/nemotron-3-ultra-550b-a55b`) | Primary coding model                                |
 | `judge`   | Judge | Different model family (e.g., `gpt-4o-mini` or another Nemotron) | Review/validation — **must be different from Race** |
 
 > ⚠️ **Critical**: A model never grades its own answers. You MUST have at least two lanes with different model families, or Nightshift will show a red warning.

@@ -37,7 +37,7 @@ Models are pluggable:
 
 ## Status
 
-**Barthelona cannot create or edit projects yet.** The agent engine (the Meta-Agentic Scrum loop, the UI and the model-driven pipeline) does not exist; the description above is the design, not today's behavior.
+**Barthelona cannot create or edit multi-module projects yet.** The Meta-Agentic Scrum loop and sprint planner do not exist; the description above is the design. What exists on `main` is the worker up to gate G1 and a UI walking skeleton (#251). Open PR #253 adds a create flow for **single-module** programs (spec, tests, gate G1, code, gate G4, then `runs package`): "print hello" and "print the digits 1 to 9" went green on Nemotron only on 2026-10-24; an interactive 12-question program did not (see `docs/hackathon-demo-guide.md`, "Status today").
 
 - **Current phase:** Phase 0, foundations and the deterministic spine (last updated 2026-10-24). **Done:** design docs, agent configuration, environment scripts, domain models, the SQLite store, executors (Fake/WSL/Local/Sandbox), NASM/GAS adapters, the verification ladder V0–V2/V5/V6 ([`python -m barthelona verify`](src/barthelona/cli/verify.py)), the model gateway with fallback chains, the bench library, the ABI mutation corpus, Meterless (Nightshift) and Zetaris integrations, Markovian chunked runs, opt-in training data collection. **Still open:** the bake-off and local-model choice, Docker image digests in [`config/toolchains.lock.json`](config/toolchains.lock.json), and the Phase 0 review. Phase 1a has started: [`python -m barthelona worker`](src/barthelona/cli/worker.py) runs queued runs through preflight, intake, spec and test-author nodes to gate G1 ([`docs/current-status.md`](docs/current-status.md) section 5); there is no UI yet.
 - **What you can try today:** the CLI ([`python -m barthelona version | schema | probe | verify | training status | chunked | meterless | zetaris | worker`](src/barthelona/cli/)), two hand-written 3-module test projects that pass the full MVP ladder. **Detailed guide:** [`docs/current-status.md`](docs/current-status.md). The goal is code that is **correct**, as the oracles decide; today the demo path checks only that it assembles, not that it behaves.
@@ -152,10 +152,12 @@ The [`docs/adr/`](docs/adr/) directory contains all architecture decisions (D-00
 
 [`docs/hackathon-demo-guide.md`](docs/hackathon-demo-guide.md) — Complete hackathon preparation guide:
 
-- **Layer 1 (DATA)**: Zetaris setup, API key, fact registration (syscalls, instructions)
-- **Layer 2 (BUILD)**: Cursor + Barthelona env, `verify`, Markovian/H-MEM engines
-- **Layer 3 (POWER)**: Nightshift install, NVIDIA provider, Race+Judge lanes, LM Studio fallback
-- **Integration verification**: 7-step smoke test across all layers
+- **Status today**: what was shown to work on the dev PC and what was not (read this first)
+- **Layer 1 (DATA)**: Zetaris setup, API key, registration of the syscall and ABI fact tables
+- **Layer 2 (BUILD)**: Cursor + Barthelona env, `verify`, the Markovian and H-MEM ports
+- **Layer 3 (POWER)**: Nightshift install, NVIDIA provider, lanes, the optional local fallback (off for demo runs)
+- **Integration verification**: smoke test across all layers
+- **Demos**: the create flow (open PR #253), Zetaris facts, and the FizzBuzz limit, with what each run proved
 - **Demo scenarios**: Memory proof (hello), Multi-chunk (fizzbuzz), Zetaris injection
 - **Troubleshooting**: Per-layer common issues with fixes
 - **Quick reference card**: One-time setup, daily start, demo commands
@@ -166,8 +168,8 @@ The [`docs/adr/`](docs/adr/) directory contains all architecture decisions (D-00
 
 Additional demo projects (each has its own README with run instructions):
 
-- [`demos/hello/`](demos/hello/) — hello world demo proving memory recall (H-MEM) across runs; run with `--profile meterless`
-- [`demos/fizzbuzz/`](demos/fizzbuzz/) — fizzbuzz demo needing multiple chunks; run with `--profile local-coder` (requires LM Studio with Qwen coder + Codestral)
+- [`demos/hello/`](demos/hello/) — hello world through the chunk loop with memory; one chunk, so it cannot show a chunk reduction (the memory proof is not demonstrated, see the guide's "Status today")
+- [`demos/fizzbuzz/`](demos/fizzbuzz/) — fizzbuzz demo needing multiple chunks; it has not passed the oracle in any setup tried (local models, `local-coder`, Nightshift) as of 2026-10-24
 
 See [`docs/hackathon-demo.md`](docs/hackathon-demo.md) for design notes on the demo path.
 
