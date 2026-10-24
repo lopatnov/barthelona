@@ -243,9 +243,10 @@ def run(
     else:
         _out.print(text, markup=False)
     if gate is not None:
-        _err.print(
-            f"assemble: {gate.status}" + ("" if accepted else f" ({'; '.join(gate.errors)})"), markup=False
-        )
+        detail = f" ({'; '.join(gate.errors)})" if not accepted else ""
+        if accepted and expect is not None:
+            detail = " (it also ran in the emulator: stdout and exit code as expected)"
+        _err.print(f"assemble: {gate.status}{detail}", markup=False)
     if result.stop_reason.value != "green" or not accepted:
         raise typer.Exit(1)
 
