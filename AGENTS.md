@@ -37,7 +37,7 @@ A local-first agentic system that **creates or edits multi-file assembly project
 7. Released `policies/vN/` are immutable. Create vN+1 instead.
 8. **Layering:** the engine never imports Streamlit, and the UI never imports the engine or LangGraph. They talk through SQLite (WAL).
 9. `subprocess` takes argv lists only; never `shell=True`. Write text files with `newline="\n"` and `encoding="utf-8"`.
-10. **Secrets come only from env vars.** Never log them, put them in session state, or commit them. Never read `.env`.
+10. **Secrets come only from env vars.** Never log them, put them in session state, or commit them. Never read `.env`. Agents get keys via `dev.* -LoadEnv` (D-057).
 11. **Cloud providers are optional and unreliable.** Every role chain ends in the local model, dollar budgets are optional, and provider failures are handled as events, not crashes (§16.6).
 
 ## When goals conflict
@@ -49,7 +49,7 @@ Order: host safety (sandbox, secrets) > correctness as the oracles decide it > b
 ## Environment
 
 - The owner's PC is a Windows 11 host with conda env `barthelona` (Python 3.13). Create it with `.\scripts\create_env.ps1` (Git Bash: `scripts/create_env.sh`). The engine also runs on a Linux host with Docker (D-049; Linux is the reference host, CI uses it), and LM Studio or Ollama may serve models from other PCs; the Windows/WSL rules below apply to the owner's PC.
-- **Agent tool shells start without the env.** Run every Python tool through `.\scripts\dev.ps1 <cmd>` (PowerShell) or `scripts/dev.sh <cmd>` (bash): it puts the env on PATH for one command and does not load `.env`. **Never dot-source `activate.ps1` in an agent shell** (it loads the owner's API keys); `activate.*` is for the owner's terminal.
+- **Agent tool shells start without the env.** Run every Python tool through `.\scripts\dev.ps1 <cmd>` (PowerShell) or `scripts/dev.sh <cmd>` (bash): it puts the env on PATH for one command; `.env` only with `-LoadEnv`. **Never dot-source `activate.ps1` in an agent shell** (it loads the owner's API keys); `activate.*` is for the owner's terminal.
 - Dependencies are declared **only** in `pyproject.toml`. After editing them, run `.\scripts\lock.ps1` (or `-UpgradePackage x`), then `create_env.ps1`. Never `pip install` ad hoc.
 - WSL2 Ubuntu 26.04 (distro `Ubuntu`) has gcc, binutils, make and docker; nasm, fasm, gdb and qemu are **not** installed (`docs/runbook.md` §2). The VM may be stopped; then the project Qdrant (:6343, D-034), the owner's `qdrant-db` (:6333) and the Qdrant MCP (:8000) are unreachable, which is expected.
 - LM Studio serves models at `http://127.0.0.1:1234/v1`. Ollama is installed but not running. Cloud keys (Anthropic, OpenAI, Gemini, DeepSeek) live in `.env`.
