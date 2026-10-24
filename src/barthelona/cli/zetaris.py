@@ -3,15 +3,26 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Annotated
 
 import typer
 from rich.console import Console
 
+from barthelona.llm.hmem import HMem
 from barthelona.llm.zetaris import DEFAULT_LIMIT, ZetarisConfig, ZetarisError, probe, run_sql
+from barthelona.llm.zetaris_memory import seed_hmem
+from barthelona.llm.zetaris_publish import (
+    DATABASE,
+    copy_into_container,
+    default_sources,
+    export_csv,
+    register_missing,
+)
 
 zetaris_app = typer.Typer(help="Zetaris structured knowledge store (optional).", no_args_is_help=True)
 _out = Console(soft_wrap=True, highlight=False)
+_UNCONFIGURED = "unconfigured: set ZETARIS_API_KEY"
 
 
 @zetaris_app.command("status")
@@ -31,7 +42,7 @@ def sql(
     """Run one read-only statement and print the rows."""
     config = ZetarisConfig.from_env(os.environ)
     if config is None:
-        _out.print("unconfigured: set ZETARIS_API_KEY", markup=False)
+        _out.print(_UNCONFIGURED, markup=False)
         raise typer.Exit(1)
     try:
         result = run_sql(config, statement, limit)
@@ -39,3 +50,52 @@ def sql(
         _out.print(str(exc), markup=False)
         raise typer.Exit(1) from exc
     _out.print(result.as_text(), markup=False)
+
+
+@zetaris_app.command("publish")
+def publish(
+    container: Annotated[str, typer.Argument(help="Name or id of the Zetaris driver container (docker ps).")],
+    runs_db: Annotated[Path, typer.Option(help="Run statistics database.")] = Path("var/runs.sqlite"),
+    hmem_db: Annotated[Path, typer.Option(help="H-MEM database.")] = Path("var/hmem.sqlite"),
+    out: Annotated[Path, typer.Option(help="Where the CSV files are written first.")] = Path(
+        "var/zetaris_export"
+    ),
+) -> None:
+    """Copy run history and H-MEM into Zetaris as tables (SQLite stays the store); safe to repeat."""
+    config = ZetarisConfig.from_env(os.environ)
+    if config is None:
+        _out.print(_UNCONFIGURED, markup=False)
+        raise typer.Exit(1)
+    try:
+        sources = default_sources(runs_db, hmem_db)
+        files = [export_csv(source, out) for source in sources]
+        copy_into_container(files, container)
+        created = register_missing(config, [source.zetaris_table for source in sources])
+    except ZetarisError as exc:
+        _out.print(str(exc), markup=False)
+        raise typer.Exit(1) from exc
+    _out.print(
+        f"published {len(files)} tables to {DATABASE}; newly registered: {', '.join(created) or 'none'}",
+        markup=False,
+    )
+
+
+@zetaris_app.command("seed")
+def seed(
+    memory: Annotated[Path, typer.Option(help="H-MEM database to seed.")] = Path("var/hmem.sqlite"),
+    domain: Annotated[str, typer.Option(help="H-MEM domain of the seeded facts.")] = "assembly",
+) -> None:
+    """Turn the registered knowledge tables into H-MEM memories, so chunked runs recall them per task."""
+    config = ZetarisConfig.from_env(os.environ)
+    if config is None:
+        _out.print(_UNCONFIGURED, markup=False)
+        raise typer.Exit(1)
+    store = HMem(memory)
+    try:
+        written = seed_hmem(config, store, domain)
+        _out.print(f"seeded {written} new facts; H-MEM now holds {store.count()}", markup=False)
+    except ZetarisError as exc:
+        _out.print(str(exc), markup=False)
+        raise typer.Exit(1) from exc
+    finally:
+        store.close()

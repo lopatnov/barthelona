@@ -44,3 +44,13 @@ Check it:
 ```sql
 SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name IN ('write', 'exit_group');
 ```
+
+## Publish run history and memory (SQLite stays the store)
+
+`python -m barthelona zetaris publish <driver container>` exports `var/runs.sqlite` (`runs`, `run_chunks`) and
+`var/hmem.sqlite` (`memories`, `memory_ledger`) to CSV, copies them into the shared volume and registers them once as
+tables in `barthelona_runtime`. Repeat it after runs to refresh the files. Then, for example:
+
+```sql
+SELECT label, profile, chunks, recalled FROM barthelona_runtime.runs ORDER BY id DESC;
+```
