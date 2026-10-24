@@ -1,6 +1,6 @@
 # Current Status: What Works Today (2026-10-24)
 
-This document describes the **actual, runnable capabilities** of barthelona as of Phase 0. The engine (Meta-Agentic Scrum loop, AI-composed sprint graphs, Streamlit UI) does **not exist yet** — those are Phase 1 deliverables. What follows is the deterministic spine: toolchains, verification, model gateway, and CLI tools that work **without any LLM**.
+This document describes the **actual, runnable capabilities** of barthelona as of Phase 0. The engine (Meta-Agentic Scrum loop, AI-composed sprint graphs, Streamlit UI) is **only started**: Phase 1a slice 1 is the worker and the first nodes of the outer run graph (section 5). What follows is the deterministic spine: toolchains, verification, model gateway, and CLI tools that work **without any LLM**.
 
 ---
 
@@ -428,3 +428,15 @@ barthelona/
 ---
 
 _Last updated: 2026-10-24. This document reflects the actual runnable state of the Phase 0 deterministic spine. The engine and UI are Phase 1 deliverables._
+
+---
+
+## 5. The Worker (Phase 1a, slice 1)
+
+`python -m barthelona worker [--once]` claims queued runs from `var/app.sqlite`, runs the outer run graph and
+parks each run at gate G1. The graph so far is `preflight` (unsupported presets stop the run as
+`unsupported_target`), the G1 gate and `finalize`. A `resume` command with `approve` or `reject` continues the run;
+`reject` and `cancel` stop it as `human_abort`; a crash is recovered from `var/checkpoints.sqlite`. `approve` stops
+the run with `infra_error` ("not built yet") until the next slices (intake and spec, architect and scaffold, the
+sprint loop) add their nodes. There is no UI page for it yet; the commands go in through the store
+(`Store.enqueue_command`).
