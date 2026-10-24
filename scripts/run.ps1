@@ -18,9 +18,6 @@
     The worker and Streamlit communicate via SQLite (invariant 8: engine never imports Streamlit).
 #>
 
-$ErrorActionPreference = 'Stop'
-Set-StrictMode -Version Latest
-
 param(
     [string]$DbPath = "var/app.sqlite",
     [string]$CheckpointsPath = "var/checkpoints.sqlite",
@@ -32,6 +29,10 @@ param(
     [switch]$UiOnly,
     [int]$StreamlitPort = 8501
 )
+
+# param() must be the first statement of the script, so these come after it
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
 
 # Guard inactive process IDs before strict mode can complain
 $workerProcess = $null
@@ -46,6 +47,13 @@ $envScript = ".\scripts\dev.ps1"
 if (-not (Test-Path $envScript)) {
     Write-Error "Environment script not found: $envScript"
     exit 1
+}
+
+# One command line for a child PowerShell: dev.ps1 plus the arguments, each in single quotes
+function ConvertTo-ChildCommand {
+    param([object[]]$Arguments)
+    $quoted = $Arguments | ForEach-Object { "'" + ([string]$_).Replace("'", "''") + "'" }
+    return "& '" + $envScript.Replace("'", "''") + "' " + ($quoted -join " ")
 }
 
 function Invoke-Worker {
@@ -73,8 +81,7 @@ function Invoke-Worker {
 
     if ($PSCmdlet.ShouldProcess("worker process", "Start worker")) {
         Write-Host "Starting worker: $($cmdArgs -join ' ')" -ForegroundColor Cyan
-        $scriptBlock = [scriptblock]::Create("& `"$envScript`" " + ($cmdArgs | ForEach-Object { [System.Management.Automation.CodeGenerator]::EncodeScriptBlockParameter($_) }) -join " ")
-        return Start-Process powershell -ArgumentList "-Command", $scriptBlock -PassThru
+        return Start-Process powershell -ArgumentList "-NoProfile", "-Command", (ConvertTo-ChildCommand $cmdArgs) -PassThru
     }
 }
 
@@ -93,8 +100,7 @@ function Invoke-Ui {
 
     if ($PSCmdlet.ShouldProcess("Streamlit UI process", "Start Streamlit UI")) {
         Write-Host "Starting Streamlit UI: $($cmdArgs -join ' ')" -ForegroundColor Green
-        $scriptBlock = [scriptblock]::Create("& `"$envScript`" " + ($cmdArgs | ForEach-Object { [System.Management.Automation.CodeGenerator]::EncodeScriptBlockParameter($_) }) -join " ")
-        return Start-Process powershell -ArgumentList "-Command", $scriptBlock -PassThru
+        return Start-Process powershell -ArgumentList "-NoProfile", "-Command", (ConvertTo-ChildCommand $cmdArgs) -PassThru
     }
 }
 
@@ -113,8 +119,8 @@ try {
 
     Write-Host ""
     Write-Host "barthelona is running." -ForegroundColor Yellow
-    Write-Host "  Worker:  $($workerProcess.Id)" -ForegroundColor Cyan
-    Write-Host "  Streamlit: $($uiProcess.Id) on http://127.0.0.1:$StreamlitPort" -ForegroundColor Green
+    if ($workerProcess) { Write-Host "  Worker:  $($workerProcess.Id)" -ForegroundColor Cyan }
+    if ($uiProcess) { Write-Host "  Streamlit: $($uiProcess.Id) on http://127.0.0.1:$StreamlitPort" -ForegroundColor Green }
     Write-Host ""
     Write-Host "Press Ctrl+C to stop both processes." -ForegroundColor Yellow
 
