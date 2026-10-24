@@ -38,6 +38,11 @@ errors back for up to N more attempts; `--repair-role planner` runs those attemp
 nothing. First live data (2026-10-23, hello world): run 1 took 9 chunks, run 2 took 1 chunk, but run 2's file contained
 the program twice and NASM rejected it (`label msg inconsistently redefined`); `extract_code` now drops a repeated block.
 
+The completing chunk is asked to write DECISIONS and CONTEXT lines under `[TASK_COMPLETE]`, and memory keeps them, so a
+run that finishes in one chunk still teaches the next one (#214). With one chunk the Markovian cost model cannot beat
+the standard one, so the summary prints `efficiency=too short to compare` instead of `0.0%`. Not done from #214: storing
+what the assembler or the emulator rejected as a lesson.
+
 ## Zetaris facts (optional)
 
 Zetaris must be running (the hackathon guide, Data part 1.9) and its API key created by you in the Zetaris web

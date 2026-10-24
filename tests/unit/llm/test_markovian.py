@@ -131,6 +131,31 @@ async def test_cost_model_follows_the_spec_formulas() -> None:
     assert 0 <= result.efficiency_percent <= 100
 
 
+async def test_the_completing_chunk_keeps_the_state_written_after_its_marker() -> None:
+    state = "DECISIONS: exit through sys_exit. CONTEXT: the message ends with a newline."
+    gateway = FakeGateway([f"```asm\n_start:\n```\n{COMPLETE}\n{state}"])
+    result = await run_markovian(gateway, "worker", "task", _SMALL)
+    assert result.chunks[0].marker == "complete"
+    assert result.chunks[0].state == state
+    assert result.chunks[0].carryover == "none"
+    assert result.text == "```asm\n_start:\n```"
+
+
+async def test_a_single_chunk_run_reports_too_short_to_compare_not_zero_percent() -> None:
+    result = await run_markovian(FakeGateway([f"x\n{COMPLETE}"]), "worker", "task", _SMALL)
+    assert result.markovian_cost > result.standard_cost
+    assert result.efficiency_label == "too short to compare"
+
+
+async def test_a_run_that_saves_tokens_reports_the_percentage() -> None:
+    body = "w " * 4000
+    state = "COMPLETED: a. REMAINING: b. DECISIONS: c."
+    gateway = FakeGateway([f"{body}\n{CHECKPOINT}\n{state}"] * 5 + [f"{body}\n{COMPLETE}"])
+    result = await run_markovian(gateway, "worker", "task", MarkovianConfig(8000, 128, 8))
+    assert result.efficiency_label == f"{result.efficiency_percent:.1f}%"
+    assert result.efficiency_percent > 0
+
+
 async def test_chunk_stats_keep_the_reasons_earlier_chain_entries_were_skipped() -> None:
     from barthelona.llm.types import Completion
 

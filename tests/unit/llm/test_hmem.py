@@ -72,6 +72,14 @@ def test_other_domains_rank_lower_than_the_queried_one() -> None:
     assert recall.memories[0].domain == "assembly"
 
 
+async def test_a_run_that_completes_in_one_chunk_still_writes_its_decisions() -> None:
+    state = "DECISIONS: use sys_write then sys_exit on Linux x86-64. CONTEXT: end the message with a newline."
+    result = await run_markovian(FakeGateway([f"a\n{COMPLETE}\n{state}"]), "worker", "task", _SMALL)
+    facts = [fact for chunk in result.chunks for fact in facts_from_state(chunk.state)]
+    assert len(facts) == 2
+    assert _store().ingest(facts, source="markovian:run-1", domain="assembly") == 2
+
+
 async def test_second_run_gets_the_first_runs_decisions_in_chunk_zero_only() -> None:
     store = _store()
     first = FakeGateway([f"a\n{CHECKPOINT}\n{_STATE}", f"b\n{COMPLETE}"])
