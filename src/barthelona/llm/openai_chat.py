@@ -16,10 +16,88 @@ from openai import AsyncOpenAI
 
 from barthelona.llm.backend import RawReply
 from barthelona.llm.catalog import ModelTarget
-from barthelona.llm.types import CompletionRequest, ModelCallError
+from barthelona.llm.types import CompletionRequest, FailureKind, ModelCallError
 
 ClientFactory = Callable[[ModelTarget], AsyncOpenAI]
 _NO_KEY = "not-needed"  # LM Studio and Ollama ignore the key but the SDK insists on one
+_MAX_DETAIL_CHARS = 300
+
+
+def _meterless_block(exc: openai.OpenAIError) -> dict[str, Any]:
+    """The runtime's ``meterless`` block (fix[], class, chat_carrier, routes) beside ``error`` in the body."""
+    response = getattr(exc, "response", None)
+    try:
+        block = response.json().get("meterless") if response is not None else None
+    except (ValueError, AttributeError):
+        return {}
+    return block if isinstance(block, dict) else {}
+
+
+def _own_hint(exc: openai.OpenAIError, base_url: str | None) -> str:
+    """Our hint, used only when the server sent no fix and the route did not refuse the class."""
+    if isinstance(exc, openai.APIConnectionError):
+        return (
+            f"the runtime isn't reachable at {base_url or 'its base URL'}: start Nightshift and check the URL"
+        )
+    status = getattr(exc, "status_code", None)
+    if status == 429 and getattr(exc, "code", None) == "auth_rate_limited":
+        return "repeated bad keys: fix METERLESS_RUNTIME_TOKEN, do not retry"
+    if status in (401, 403):
+        return "paste the runtime's access token from the Nightshift Console into METERLESS_RUNTIME_TOKEN"
+    return ""
+
+
+def _is_carrier_refusal(exc: openai.OpenAIError, block: dict[str, Any]) -> bool:
+    return getattr(exc, "code", None) == "class_carrier_unsupported" or block.get("chat_carrier") is False
+
+
+def _describe(exc: openai.OpenAIError, base_url: str | None = None) -> str:
+    """The server's message first, its fix[] next; our hint only without a fix or a carrier refusal."""
+    block = _meterless_block(exc)
+    body = getattr(exc, "body", None)
+    message = body.get("message") if isinstance(body, dict) else None
+    parts = [f"{type(exc).__name__}: {message or exc}"]
+    fixes = [str(item) for item in block.get("fix") or []]
+    if fixes:
+        parts.append("fix: " + "; ".join(fixes))
+    elif _is_carrier_refusal(exc, block):
+        parts.append("this route cannot carry the class; that says nothing about this machine")
+    elif hint := _own_hint(exc, base_url):
+        parts.append(hint)
+    extras = [
+        f"{name}={value}"
+        for name in ("status_code", "code", "type")
+        if (value := getattr(exc, name, None)) is not None
+    ]
+    if body and not message:
+        extras.append(f"body={str(body)[:_MAX_DETAIL_CHARS]}")
+    return " | ".join(parts) + (f" ({', '.join(extras)})" if extras else "")
+
+
+def _call_error(exc: openai.OpenAIError, base_url: str | None) -> ModelCallError:
+    block = _meterless_block(exc)
+    return ModelCallError(
+        _describe(exc, base_url),
+        _kind(exc),
+        status=getattr(exc, "status_code", None),
+        code=getattr(exc, "code", None),
+        fix=tuple(str(item) for item in block.get("fix") or []),
+        chat_carrier=block.get("chat_carrier"),
+    )
+
+
+def _kind(exc: openai.OpenAIError) -> FailureKind:
+    if isinstance(exc, openai.APITimeoutError):
+        return FailureKind.TIMEOUT
+    if isinstance(exc, openai.APIConnectionError):
+        return FailureKind.TRANSPORT
+    if isinstance(exc, openai.RateLimitError):
+        return FailureKind.RATE_LIMIT
+    if isinstance(exc, openai.AuthenticationError | openai.PermissionDeniedError):
+        return FailureKind.AUTH
+    if isinstance(exc, openai.BadRequestError | openai.UnprocessableEntityError):
+        return FailureKind.REFUSAL
+    return FailureKind.SERVER  # 5xx, other statuses and error events inside the stream
 
 
 class OpenAIChatBackend:
@@ -34,7 +112,13 @@ class OpenAIChatBackend:
         provider = target.provider
         key = self._env.get(provider.api_key_env or "") or _NO_KEY
         # SDK retries off: attempts are counted by the gateway, not multiplied by the SDK.
-        return AsyncOpenAI(base_url=provider.base_url, api_key=key, max_retries=0, timeout=provider.timeout_s)
+        return AsyncOpenAI(
+            base_url=provider.base_url,
+            api_key=key,
+            max_retries=0,
+            timeout=provider.timeout_s,
+            default_headers=provider.headers or None,
+        )
 
     def _client(self, target: ModelTarget) -> AsyncOpenAI:
         if target.provider_id not in self._clients:
@@ -42,7 +126,7 @@ class OpenAIChatBackend:
         return self._clients[target.provider_id]
 
     def unsupported(self, target: ModelTarget) -> str | None:
-        if not target.provider.local:
+        if not target.provider.local and not target.provider.plain_chat:
             return "cloud reasoning parameters are not mapped yet"
         if not target.provider.base_url:
             return "no base_url"
@@ -56,13 +140,17 @@ class OpenAIChatBackend:
             "stream": True,
             "stream_options": {"include_usage": True},
         }
-        if request.temperature is not None:
-            arguments["temperature"] = request.temperature  # local models only (checked in unsupported)
-        if request.seed is not None:
+        if target.model.extra_body:
+            arguments["extra_body"] = target.model.extra_body
+        if request.temperature is not None and target.provider.local:
+            arguments["temperature"] = request.temperature  # sampling parameters reach local models only
+        if request.seed is not None and target.provider.local:
             arguments["seed"] = request.seed
         if request.response_schema is not None:
             if target.provider.structured_output != "json_schema":
-                raise ModelCallError(f"{target.provider_id} has no json_schema structured output")
+                raise ModelCallError(
+                    f"{target.provider_id} has no json_schema structured output", FailureKind.REFUSAL
+                )
             arguments["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {"name": "response", "strict": True, "schema": request.response_schema},
@@ -75,15 +163,17 @@ class OpenAIChatBackend:
         parts: list[str] = []
         stop_reason = "unknown"
         usage = None
+        answered_by = ""
         try:
             stream = await self._client(target).chat.completions.create(**arguments)
             async for chunk in stream:
                 usage = chunk.usage or usage
+                answered_by = chunk.model or answered_by
                 for choice in chunk.choices:
                     parts.append(choice.delta.content or "")
                     stop_reason = choice.finish_reason or stop_reason
         except openai.OpenAIError as exc:
-            raise ModelCallError(f"{type(exc).__name__}: {exc}") from exc
+            raise _call_error(exc, target.provider.base_url) from exc
         details = getattr(usage, "prompt_tokens_details", None)
         return RawReply(
             text="".join(parts),
@@ -92,4 +182,5 @@ class OpenAIChatBackend:
             tokens_cached=(getattr(details, "cached_tokens", 0) or 0) if details else 0,
             stop_reason=stop_reason,
             latency_ms=round((time.monotonic() - started) * 1000),
+            answered_by=answered_by,
         )

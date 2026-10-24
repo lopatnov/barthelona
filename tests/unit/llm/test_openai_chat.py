@@ -8,7 +8,7 @@ import httpx
 import pytest
 from openai import AsyncOpenAI
 
-from barthelona.llm import ChatMessage, CompletionRequest, ModelCallError, OpenAIChatBackend
+from barthelona.llm import ChatMessage, CompletionRequest, FailureKind, ModelCallError, OpenAIChatBackend
 from barthelona.llm.catalog import ModelConfig, ModelTarget, ProviderConfig
 
 
@@ -89,6 +89,15 @@ async def test_streamed_reply_is_assembled_with_usage() -> None:
     assert "response_format" not in seen[0]
 
 
+async def test_the_model_the_server_reports_is_kept_as_answered_by() -> None:
+    def routed(request: httpx.Request) -> httpx.Response:
+        events = [{**_chunk("hi", "stop"), "model": "nvidia/nemotron-3-5-lightning-3"}]
+        return httpx.Response(200, content=_sse(*events), headers={"content-type": "text/event-stream"})
+
+    reply = await _backend(httpx.MockTransport(routed)).complete(_target(), _request())
+    assert reply.answered_by == "nvidia/nemotron-3-5-lightning-3"
+
+
 async def test_schema_becomes_a_strict_json_schema_response_format() -> None:
     seen: list[dict[str, object]] = []
     schema = {"type": "object", "properties": {"a": {"type": "integer"}}}
@@ -118,10 +127,150 @@ async def test_connection_failures_become_model_call_errors() -> None:
         await _backend(httpx.MockTransport(refuse)).complete(_target(), _request())
 
 
+@pytest.mark.parametrize(
+    ("status", "kind"),
+    [
+        (400, FailureKind.REFUSAL),
+        (401, FailureKind.AUTH),
+        (403, FailureKind.AUTH),
+        (422, FailureKind.REFUSAL),
+        (429, FailureKind.RATE_LIMIT),
+        (500, FailureKind.SERVER),
+    ],
+)
+async def test_http_status_decides_the_failure_kind(status: int, kind: FailureKind) -> None:
+    transport = httpx.MockTransport(lambda request: httpx.Response(status, json={"error": {"message": "no"}}))
+    with pytest.raises(ModelCallError) as caught:
+        await _backend(transport).complete(_target(), _request())
+    assert caught.value.kind is kind
+
+
+async def test_a_connection_failure_is_transport_and_a_timeout_is_timeout() -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused", request=request)
+
+    def stall(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("slow", request=request)
+
+    with pytest.raises(ModelCallError) as refused:
+        await _backend(httpx.MockTransport(refuse)).complete(_target(), _request())
+    with pytest.raises(ModelCallError) as stalled:
+        await _backend(httpx.MockTransport(stall)).complete(_target(), _request())
+    assert (refused.value.kind, stalled.value.kind) == (FailureKind.TRANSPORT, FailureKind.TIMEOUT)
+
+
+async def _fail_with(status: int, payload: dict[str, object]) -> ModelCallError:
+    transport = httpx.MockTransport(lambda request: httpx.Response(status, json=payload))
+    with pytest.raises(ModelCallError) as caught:
+        await _backend(transport).complete(_target(), _request())
+    return caught.value
+
+
+def _error(message: str, code: str = "x") -> dict[str, object]:
+    return {"message": message, "type": "invalid_request_error", "code": code}
+
+
+async def test_the_server_message_comes_first_and_its_fix_wins_over_our_hint() -> None:
+    payload = {
+        "error": _error("lane is loading", "class_not_ready"),
+        "meterless": {"fix": ["seat the text lane"]},
+    }
+    error = await _fail_with(503, payload)
+    assert str(error).startswith(
+        "APIStatusError: lane is loading | fix: seat the text lane"
+    ) or "lane is loading" in str(error)
+    assert str(error).index("lane is loading") < str(error).index("fix: seat the text lane")
+    assert error.fix == ("seat the text lane",) and error.status == 503 and error.code == "class_not_ready"
+    assert "access token" not in str(error)
+
+
+@pytest.mark.parametrize("status", [401, 403])
+async def test_unauthorized_adds_the_token_hint(status: int) -> None:
+    error = await _fail_with(status, {"error": _error("bad key", "invalid_api_key")})
+    assert "bad key" in str(error) and "METERLESS_RUNTIME_TOKEN" in str(error)
+    assert error.kind is FailureKind.AUTH
+
+
+async def test_repeated_bad_keys_say_do_not_retry() -> None:
+    error = await _fail_with(429, {"error": _error("too many bad keys", "auth_rate_limited")})
+    assert "do not retry" in str(error)
+
+
+async def test_a_carrier_refusal_is_never_blamed_on_the_machine_or_given_our_hint() -> None:
+    payload = {
+        "error": _error("no chat carrier", "class_carrier_unsupported"),
+        "meterless": {"chat_carrier": False},
+    }
+    error = await _fail_with(409, payload)
+    text = str(error).lower()
+    assert "no chat carrier" in text and "says nothing about this machine" in text
+    assert "can't serve" not in text and "hardware" not in text and "start nightshift" not in text
+    assert error.chat_carrier is False and error.code == "class_carrier_unsupported"
+
+
+async def test_a_network_failure_names_the_unreachable_runtime() -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused", request=request)
+
+    with pytest.raises(ModelCallError) as caught:
+        await _backend(httpx.MockTransport(refuse)).complete(_target(), _request())
+    assert "isn't reachable at http://127.0.0.1:1234/v1" in str(caught.value)
+
+
 def test_cloud_targets_are_declined_until_their_parameters_are_mapped() -> None:
     backend = OpenAIChatBackend(env={})
     assert backend.unsupported(_target(local=False)) is not None
     assert backend.unsupported(_target()) is None
+
+
+def _gateway_target() -> ModelTarget:
+    return ModelTarget(
+        key="meterless_auto",
+        provider_id="meterless",
+        provider=ProviderConfig(
+            kind="openai_chat",
+            base_url="http://127.0.0.1:8088/v1",
+            plain_chat=True,
+            headers={"meterless-app": "barthelona"},
+        ),
+        model=ModelConfig(provider="meterless", model="meterless/auto", price_class="mid", context=32768),
+    )
+
+
+def test_plain_chat_cloud_gateways_are_accepted() -> None:
+    assert OpenAIChatBackend(env={}).unsupported(_gateway_target()) is None
+
+
+async def test_sampling_parameters_never_reach_a_non_local_gateway() -> None:
+    seen: list[dict[str, object]] = []
+    await _backend(_ok(seen)).complete(_gateway_target(), _request(temperature=0.2, seed=7))
+    assert "temperature" not in seen[0]
+    assert "seed" not in seen[0]
+
+
+async def test_stream_error_events_keep_the_servers_code_and_body() -> None:
+    event = {"error": {"message": "failed after 10.7s", "type": "upstream_error", "code": "empty_response"}}
+
+    def handle(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=_sse(event), headers={"content-type": "text/event-stream"})
+
+    with pytest.raises(ModelCallError, match="empty_response") as caught:
+        await _backend(httpx.MockTransport(handle)).complete(_gateway_target(), _request())
+    assert "failed after 10.7s" in str(caught.value)
+
+
+async def test_model_extra_body_reaches_the_request() -> None:
+    target = _gateway_target()
+    thinking_off = {"chat_template_kwargs": {"enable_thinking": False}}
+    target = target.model_copy(update={"model": target.model.model_copy(update={"extra_body": thinking_off})})
+    seen: list[dict[str, object]] = []
+    await _backend(_ok(seen)).complete(target, _request())
+    assert seen[0]["chat_template_kwargs"] == {"enable_thinking": False}  # SDK merges extra_body in
+
+
+def test_provider_headers_are_sent_with_every_request() -> None:
+    client = OpenAIChatBackend(env={"METERLESS_RUNTIME_TOKEN": "t"})._default_client(_gateway_target())
+    assert client.default_headers["meterless-app"] == "barthelona"
 
 
 def test_default_client_never_retries_inside_the_sdk() -> None:

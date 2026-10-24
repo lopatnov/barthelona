@@ -43,6 +43,8 @@ class Gateway:
             return "disabled"
         if provider.api_key_env and not self._env.get(provider.api_key_env):
             return f"{provider.api_key_env} is not set"
+        if provider.api_key_env and self._env.get(provider.api_key_env) in provider.rejected_keys:
+            return f"{provider.api_key_env} holds a placeholder the server rejects"
         backend = self._backends.get(provider.kind)
         if backend is None:
             return f"no backend for {provider.kind}"
@@ -60,7 +62,7 @@ class Gateway:
             async with self._slot(target):
                 return await self._backends[target.provider.kind].complete(target, request)
         except ModelCallError as exc:
-            return f"{exc} after {time.monotonic() - started:.1f}s"
+            return f"{exc} after {time.monotonic() - started:.1f}s [{exc.kind}]"
 
     async def complete(self, role: str, request: CompletionRequest) -> Completion:
         fallbacks: list[str] = []
