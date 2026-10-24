@@ -137,6 +137,7 @@ def test_register_sends_only_create_lightning_statements() -> None:
         "SELECT 1",
         "INSERT INTO t VALUES (1)",
     ):
+        client = _client(handler)
         with pytest.raises(ZetarisError):
-            register(CONFIG, bad, _client(handler))
+            register(CONFIG, bad, client)
     assert len(seen) == 1
