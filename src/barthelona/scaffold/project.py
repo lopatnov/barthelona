@@ -23,7 +23,9 @@ REQUEST_COPY = "prompt/request.txt"
 def _model_rows(calls: Sequence[LLMCallRecord]) -> list[str]:
     totals: dict[str, list[float]] = defaultdict(lambda: [0, 0, 0, 0.0])
     for call in calls:
-        row = totals[f"{call.provider}/{call.model}"]
+        # The ledger's model id is already "<provider>/<name>" for catalog models; do not double the prefix.
+        name = call.model if call.model.startswith(f"{call.provider}/") else f"{call.provider}/{call.model}"
+        row = totals[name]
         row[0] += 1
         row[1] += call.tokens_in
         row[2] += call.tokens_out
@@ -56,6 +58,10 @@ def _readme(
     tests = "\n".join(_test_line(c) for c in cases)
     build = "\n".join(build_commands(spec))
     models = "\n".join(_model_rows(calls))
+    repeat = (
+        f"python -m barthelona runs submit @{REQUEST_COPY} "
+        f"--profile {run.profile.value} --preset {run.target.preset}"
+    )
     quoted = "\n".join(f"> {line}" if line else ">" for line in request.strip().splitlines())
     return f"""# {spec.slug}
 
@@ -101,8 +107,7 @@ Request (also in `{REQUEST_COPY}`):
 
 - Run `{run.id}`, profile `{run.profile.value}`, preset `{run.target.preset}`, policy `{run.policy_version}`.
 - Gates G1 (specification and tests) and G4 (source) were approved by a person.
-- Repeat it: `python -m barthelona runs submit @{REQUEST_COPY} --profile {run.profile.value} \
-  --preset {run.target.preset}`.
+- Repeat it: `{repeat}`.
 
 | Model | Calls | Tokens in | Tokens out | Seconds |
 | --- | ---: | ---: | ---: | ---: |
@@ -125,7 +130,8 @@ def render_project(
     module = spec.modules[0].path
     workflows = render_ci(spec, barthelona_ref)  # the ladder CI needs contracts, which this slice has none of
     workflows[".github/workflows/ci.yml"] = render_golden_ci(spec, barthelona_ref, module, GOLDEN_TESTS)
-    tests = [case.model_dump(mode="json") for case in cases]
+    # A run only reaches a green verdict after a person approved gate G1, which freezes these tests.
+    tests = [case.model_copy(update={"approved": True}).model_dump(mode="json") for case in cases]
     return {
         str(PurePosixPath(module)): source.rstrip("\n") + "\n",
         GOLDEN_TESTS: orjson.dumps(tests, option=orjson.OPT_INDENT_2).decode() + "\n",

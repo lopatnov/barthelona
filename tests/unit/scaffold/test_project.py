@@ -155,6 +155,18 @@ def test_the_ci_checks_the_golden_tests_with_the_pinned_barthelona() -> None:
     assert "contracts" not in ci
 
 
+def test_the_model_table_does_not_double_the_provider_prefix() -> None:
+    calls = [_call("meterless/auto", 10, 2, 1000)]
+    assert "| `meterless/auto` | 1 |" in _render(calls=calls)["README.md"]
+
+
+def test_the_repeat_command_is_one_line_and_the_golden_tests_are_marked_approved() -> None:
+    files = _render()
+    repeat = "python -m barthelona runs submit @prompt/request.txt --profile meterless --preset"
+    assert repeat in files["README.md"]
+    assert json.loads(files["tests/golden.json"])[0]["approved"] is True
+
+
 def test_the_same_run_data_gives_the_same_bytes() -> None:
     first, second = _render(), _render()
     assert first == second
