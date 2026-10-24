@@ -20,7 +20,7 @@ from barthelona.domain._base import (
     Text,
 )
 from barthelona.domain.enums import CompositionLevel, StopReason
-from barthelona.domain.project import TargetProfile
+from barthelona.domain.project import Slug, TargetProfile
 
 ProviderId = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,31}$")]
 
@@ -69,6 +69,7 @@ class Run(Document):
     status: RunStatus = RunStatus.QUEUED
     stop_reason: StopReason | None = None
     collect_training_data: bool = False  # pinned at run start from the setting (D-036)
+    project: Slug | None = None  # the demos/<project> folder that receives the packaged repository
 
     @model_validator(mode="after")
     def _stop_has_reason(self) -> Run:

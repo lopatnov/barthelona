@@ -20,6 +20,37 @@ from barthelona.domain import CompositionLevel, Profile, Run, RunBudget, RunMode
 from barthelona.domain.presets import builtin_presets
 from barthelona.engine.host import REQUEST_FILE, run_dir
 from barthelona.persistence import open_store
+from barthelona.ui.projects import existing_projects, project_problem
+
+
+def _project_field() -> tuple[str, list[str]]:
+    """The optional demos/<name> folder control: the typed name and the folders that are taken."""
+    taken = existing_projects()
+    name = st.text_input(
+        "Project folder (optional)",
+        placeholder="my-program",
+        help=(
+            "A new folder name under demos/ that receives the packaged repository of a green run "
+            "(source, tests, README, CI, release workflow). Leave empty to decide later."
+        ),
+    ).strip()
+    if name:
+        st.caption(f"Will be written to `demos/{name}`")
+    with st.expander(f"Existing folders in demos/ ({len(taken)}, not available)"):
+        st.write(", ".join(f"`{folder}`" for folder in taken) if taken else "none")
+    return name, taken
+
+
+def _save_run(run: Run, prompt: str) -> None:
+    """Queue the run and put its request where the worker reads it (invariant 8, host.load_request)."""
+    store = open_store(Path("var/app.sqlite"))
+    try:
+        store.create_run(run)
+        request = run_dir(Path("var/runs"), run.id) / REQUEST_FILE
+        request.parent.mkdir(parents=True, exist_ok=True)
+        request.write_text(prompt.strip(), encoding="utf-8", newline="\n")
+    finally:
+        store.close()
 
 
 def page_new_request() -> None:
@@ -71,6 +102,8 @@ def page_new_request() -> None:
             ),
         )
 
+        project_name, taken = _project_field()
+
         st.divider()
 
         # Budget controls
@@ -110,6 +143,10 @@ def page_new_request() -> None:
         if not prompt.strip():
             st.error("Prompt cannot be empty.")
             return
+        problem = project_problem(project_name, taken)
+        if problem:
+            st.error(problem)
+            return
 
         # Create the run
         run_id = f"run_{uuid4().hex[:12]}"
@@ -133,19 +170,11 @@ def page_new_request() -> None:
             budget=budget,
             composition_level=CompositionLevel.L0,
             collect_training_data=collect_training,
+            project=project_name or None,
         )
 
         try:
-            store = open_store(Path("var/app.sqlite"))
-            store.create_run(run)
-
-            # Persist the prompt where the worker expects it (invariant 8 + host.load_request)
-            runs_dir = Path("var/runs")
-            req_path = run_dir(runs_dir, run.id) / REQUEST_FILE
-            req_path.parent.mkdir(parents=True, exist_ok=True)
-            req_path.write_text(prompt.strip(), encoding="utf-8", newline="\n")
-
-            store.close()
+            _save_run(run, prompt)
 
             st.success(f"Run created: `{run_id}`")
             st.info(f"Workspace: `{workspace}`")
