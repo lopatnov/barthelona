@@ -34,7 +34,14 @@ from barthelona.domain import (
     TargetProfile,
 )
 from barthelona.engine.graph import build_graph
-from barthelona.engine.host import REQUEST_FILE, SPEC_FILE, TESTS_FILE, no_facts, services_for
+from barthelona.engine.host import (
+    REQUEST_FILE,
+    SPEC_FILE,
+    TESTS_FILE,
+    default_facts,
+    no_facts,
+    services_for,
+)
 from barthelona.engine.worker import Worker
 from barthelona.llm import FakeGateway, GatewayError
 from barthelona.llm.zetaris import ZetarisError
@@ -341,3 +348,11 @@ def test_the_worker_command_runs_what_is_queued_and_exits(tmp_path: Path) -> Non
         assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.INFRA_ERROR)
         errors = [e for e in check.events_after("r1") if e.kind is EventKind.ERROR]
         assert "FileNotFoundError" in errors[0].payload["error"]
+
+
+def test_default_facts_is_empty_without_a_key_and_swallows_a_down_zetaris(monkeypatch):
+    monkeypatch.delenv("ZETARIS_API_KEY", raising=False)
+    assert default_facts()() == ""
+    monkeypatch.setenv("ZETARIS_API_KEY", "k")
+    monkeypatch.setenv("ZETARIS_REST_URL", "http://127.0.0.1:9")
+    assert default_facts()() == ""

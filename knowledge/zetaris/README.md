@@ -13,20 +13,33 @@ Hackathon; `src/barthelona/llm/zetaris.py` is read-only by design).
 sources and still need a `docs-researcher` check against the kernel table and the psABI before anything depends
 on them (AGENTS.md "Facts").
 
-## Register the tables (an administrator, once)
+## Register the tables (once)
 
-Mount or copy the two CSV files where Zetaris can read them (`<path>` below), then run, one statement per call:
+Verified on the hackathon Docker stack (2026-10-24). The api and driver containers share the volume
+`zetaris_customer-data` at `/home/zetaris/customer-data`, so copy the files in with a relative path (an absolute
+`C:\` path makes `docker cp` read `C` as a container name), from this folder:
+
+```
+docker exec <driver> mkdir -p /home/zetaris/customer-data/shared/barthelona
+docker cp ./linux_x64_syscalls.csv <driver>:/home/zetaris/customer-data/shared/barthelona/linux_x64_syscalls.csv
+docker cp ./abi_facts.csv <driver>:/home/zetaris/customer-data/shared/barthelona/abi_facts.csv
+```
+
+Then send each statement as its own `POST <rest url>/sql-editor/sqls/run` (the API key was accepted for CREATE).
+A second run probably fails with "already exists"; check `SHOW LIGHTNING TABLES barthelona_files` first.
 
 ```sql
 CREATE LIGHTNING DATABASE barthelona_files DESCRIBE BY "Barthelona knowledge tables";
 CREATE LIGHTNING FILESTORE TABLE linux_x64_syscalls FROM barthelona_files FORMAT CSV
-  OPTIONS (path "<path>/linux_x64_syscalls.csv", header "true", delimiter ",");
+  OPTIONS (path "/home/zetaris/customer-data/shared/barthelona/linux_x64_syscalls.csv", header "true", delimiter ",");
 CREATE LIGHTNING FILESTORE TABLE abi_facts FROM barthelona_files FORMAT CSV
-  OPTIONS (path "<path>/abi_facts.csv", header "true", delimiter ",");
+  OPTIONS (path "/home/zetaris/customer-data/shared/barthelona/abi_facts.csv", header "true", delimiter ",");
 ```
 
-The exact statement forms come from the Zetaris getting-started (`docs/guides/first-dataset.md`); check them
-against your instance. Then:
+With `ZETARIS_API_KEY` set the worker reads both tables into the spec and test-author prompts by default
+(`engine/host.py` `DEFAULT_FACTS_SQL`); `--facts-sql` overrides it. A down Zetaris gives no facts, not a failed run.
+
+Check it:
 
 ```sql
 SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name IN ('write', 'exit_group');

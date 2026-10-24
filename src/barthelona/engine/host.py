@@ -28,8 +28,29 @@ def run_dir(runs_dir: Path, run_id: str) -> Path:
     return runs_dir / run_id
 
 
+DEFAULT_FACTS_SQL = (
+    "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls"
+    " UNION ALL SELECT topic, fact, '', '' FROM barthelona_files.abi_facts"
+)
+
+
 def no_facts() -> str:
     return ""
+
+
+def default_facts() -> Callable[[], str]:
+    """Knowledge-table facts when ZETARIS_API_KEY is set, none otherwise; a down Zetaris never stops a run."""
+    config = ZetarisConfig.from_env(os.environ)
+    if config is None:
+        return no_facts
+
+    def facts() -> str:
+        try:
+            return facts_block(run_sql(config, DEFAULT_FACTS_SQL, 100), DEFAULT_FACTS_SQL)
+        except ZetarisError:
+            return ""
+
+    return facts
 
 
 def zetaris_facts(sql: str) -> Callable[[], str]:
