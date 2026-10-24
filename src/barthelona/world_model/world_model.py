@@ -5,9 +5,13 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import Any, TypeVar
 
-from .ingest import IngestObservation, IngestProcessor, IngestReport, world_state_shape
+T = TypeVar("T")
+
+from .types import IngestObservation, IngestReport
+from .ingest import IngestProcessor
+from .store import world_state_shape
 from .resolve import decide, jaccard, levenshtein, name_similarity
 
 # Re-export for conformance suite
@@ -62,7 +66,7 @@ class WorldModel:
 
     # ---------------------------------------------------------------- writes
 
-    async def _enqueue(self, fn: Callable[[], Any]) -> Any:
+    async def _enqueue(self, fn: Callable[[], T]) -> T:
         """Execute a write operation with single-writer serialization."""
         async with self._write_lock:
             return fn()
@@ -538,7 +542,7 @@ class WorldModel:
 
     # ---------------------------------------------------------------- reads
 
-    def view(self, name: str):
+    def view(self, name: str) -> GraphView | FactsView | SnapshotView | TimelineView:
         """Get a view on the world state."""
         if name == "graph":
             return GraphView(self.store)

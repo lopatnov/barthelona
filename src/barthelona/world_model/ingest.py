@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from .stable_ids import entity_id_from_name, external_id, relationship_id
@@ -155,7 +156,7 @@ class IngestProcessor:
 
     def _normalize_provenance(self, source: Provenance) -> StoredProvenance:
         """Normalize provenance to stored format."""
-        at_iso = source.at.isoformat() if isinstance(source.at, str) is False else source.at
+        at_iso = source.at.isoformat() if isinstance(source.at, datetime) else source.at
         return StoredProvenance(
             kind=source.kind,
             at=at_iso,
@@ -243,7 +244,6 @@ class IngestProcessor:
                         "auto-merge",
                         "resolver",
                         f"{name} -> {other.name} ({similarity:.3f})",
-                        undefined=None,
                         run_id=None,
                         at=source.at,
                     )
@@ -256,7 +256,6 @@ class IngestProcessor:
                         "merge-proposed",
                         "resolver",
                         f"{name} ~ {other.name} ({similarity:.3f}) queued",
-                        undefined=None,
                         run_id=None,
                         at=source.at,
                     )
