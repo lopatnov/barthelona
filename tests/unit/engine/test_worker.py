@@ -89,6 +89,10 @@ def _queue(store: Store, runs_dir: Path, run_id: str = "r1") -> None:
     (runs_dir / run_id / REQUEST_FILE).write_text("Напиши hello на ассемблере.", encoding="utf-8")
 
 
+def _read_spec(runs_dir: Path, run_id: str = "r1") -> ProjectSpec:
+    return ProjectSpec.model_validate_json((runs_dir / run_id / SPEC_FILE).read_text(encoding="utf-8"))
+
+
 def _worker(
     store: Store,
     runs_dir: Path,
@@ -160,7 +164,7 @@ async def test_the_spec_is_written_for_the_gate_and_every_model_call_is_in_the_l
 ) -> None:
     _queue(store, runs_dir)
     await _worker(store, runs_dir).step()
-    spec = ProjectSpec.model_validate_json((runs_dir / "r1" / SPEC_FILE).read_text(encoding="utf-8"))
+    spec = _read_spec(runs_dir)
     assert (spec.slug, spec.request_lang, spec.target.preset) == ("hello", "ru", "linux-x64-nasm-static")
     assert spec.request_original.startswith("Напиши hello")
     assert spec.assumptions == ["Linux x64"]
