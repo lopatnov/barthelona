@@ -108,15 +108,20 @@ async def run_intake(gateway: ModelGateway, request: str, on_call: OnCall) -> In
     return await ask_json(gateway, INTAKE_ROLE, _INTAKE_PROMPT, request, Intake, on_call)
 
 
+def with_facts(prompt: str, facts: str) -> str:
+    """*prompt* followed by the knowledge-store block (already marked as untrusted data), if there is one."""
+    return f"{prompt}\n\n{facts}" if facts else prompt
+
+
 async def draft_spec(
-    gateway: ModelGateway, run: Run, request: str, intake: Intake, on_call: OnCall
+    gateway: ModelGateway, run: Run, request: str, intake: Intake, facts: str, on_call: OnCall
 ) -> ProjectSpec:
     target = run.target
     user = (
         f"Goal: {intake.goal_en}\nTarget: {target.preset} ({target.dialect.value}, {target.arch.value}, "
         f"{target.os.value}, {target.abi.value})\nEntities: {'; '.join(intake.entities) or 'none named'}"
     )
-    draft = await ask_json(gateway, SPEC_ROLE, _SPEC_PROMPT, user, SpecDraft, on_call)
+    draft = await ask_json(gateway, SPEC_ROLE, _SPEC_PROMPT, with_facts(user, facts), SpecDraft, on_call)
     return ProjectSpec(
         id=run.id,
         slug=draft.slug,

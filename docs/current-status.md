@@ -442,7 +442,10 @@ and `finalize`. The request text is read from
 `var/runs/<run_id>/request.txt`; each node is one JSON model call through the gateway with the run's profile,
 recorded in the LLM-call ledger, and a bad reply is sent back once (two bad replies stop the run as
 `max_attempts`; an exhausted chain stops it as `no_model_available`). Not built yet: G0 questions, a reference
-model and the emulator cross-check of the test examples, and Zetaris facts in the prompts. A `resume` command with `approve` or `reject` continues the run;
+model and the emulator cross-check of the test examples. `worker --facts-sql "SELECT ..."` reads one Zetaris
+statement per run (needs `ZETARIS_API_KEY`) and adds its rows to the spec and test-author prompts, marked as
+untrusted data; a failing Zetaris stops the run as `infra_error`. The tables to load are in
+`knowledge/zetaris/`. A `resume` command with `approve` or `reject` continues the run;
 `reject` and `cancel` stop it as `human_abort`; a crash is recovered from `var/checkpoints.sqlite`. `approve` stops
 the run with `infra_error` ("not built yet") until the next slices (intake and spec, architect and scaffold, the
 sprint loop) add their nodes. There is no UI page for it yet; the commands go in through the store

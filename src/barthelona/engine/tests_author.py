@@ -21,7 +21,7 @@ from barthelona.domain import (
     TestOrigin,
 )
 from barthelona.domain._base import DomainModel, ItemId, require_unique
-from barthelona.engine.spec import OnCall, ask_json
+from barthelona.engine.spec import OnCall, ask_json, with_facts
 from barthelona.llm.gateway import ModelGateway
 
 TEST_ROLE = "planner"
@@ -68,13 +68,19 @@ def problems(spec: ProjectSpec, draft: TestsDraft) -> str | None:
 
 
 async def author_tests(
-    gateway: ModelGateway, spec: ProjectSpec, on_call: OnCall
+    gateway: ModelGateway, spec: ProjectSpec, facts: str, on_call: OnCall
 ) -> tuple[ProjectSpec, list[TestCase]]:
     """The spec with each requirement linked to its tests, and the golden I/O test cases."""
     requirements = "\n".join(f"{r.id}: {r.text}" for r in spec.requirements)
     user = f"Program: {spec.summary_en}\nRequirements:\n{requirements}"
     draft = await ask_json(
-        gateway, TEST_ROLE, _PROMPT, user, TestsDraft, on_call, check=lambda d: problems(spec, d)
+        gateway,
+        TEST_ROLE,
+        _PROMPT,
+        with_facts(user, facts),
+        TestsDraft,
+        on_call,
+        check=lambda d: problems(spec, d),
     )
     cases = [
         TestCase(

@@ -12,6 +12,7 @@ thread that opened it.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from itertools import pairwise
@@ -47,12 +48,14 @@ class Services:
     load_request: Callable[[str], str]
     record_call: Callable[[str, LLMCallRecord], None]
     save_spec: Callable[[str, ProjectSpec, list[TestCase]], None]
+    facts: Callable[[], str]  # the knowledge-store block for the prompts ('' when none is configured)
 
 
 class RunState(TypedDict, total=False):
     run_id: str
     stop: str  # a StopReason value once the run must end
     intake: dict[str, Any]  # the `Intake` of the request
+    facts: str  # rows read from the knowledge store (Zetaris), marked as untrusted data
     spec: dict[str, Any]  # the `ProjectSpec` draft
     tests: list[dict[str, Any]]  # its acceptance `TestCase`s
     g1: str  # the decision made at gate G1
@@ -101,10 +104,11 @@ class _Nodes:
 
     async def intake(self, state: RunState) -> dict[str, Any]:
         run_id = state["run_id"]
+        facts = await asyncio.to_thread(self._services.facts)  # a failing store ends the run as infra_error
         result = run_intake(
             self._gateway(run_id), self._services.load_request(run_id), self._recorder(run_id)
         )
-        return await _or_stop(_update("intake", result))
+        return await _or_stop(_update("intake", result)) | {"facts": facts}
 
     async def spec(self, state: RunState) -> dict[str, Any]:
         run_id = state["run_id"]
@@ -113,6 +117,7 @@ class _Nodes:
             self._services.load_run(run_id),
             self._services.load_request(run_id),
             Intake.model_validate(state["intake"]),
+            state.get("facts", ""),
             self._recorder(run_id),
         )
         return await _or_stop(_update("spec", drafted))
@@ -120,10 +125,10 @@ class _Nodes:
     async def test_author(self, state: RunState) -> dict[str, Any]:
         run_id = state["run_id"]
         spec = ProjectSpec.model_validate(state["spec"])
-        return await _or_stop(self._author(run_id, spec))
+        return await _or_stop(self._author(run_id, spec, state.get("facts", "")))
 
-    async def _author(self, run_id: str, spec: ProjectSpec) -> dict[str, Any]:
-        linked, cases = await author_tests(self._gateway(run_id), spec, self._recorder(run_id))
+    async def _author(self, run_id: str, spec: ProjectSpec, facts: str) -> dict[str, Any]:
+        linked, cases = await author_tests(self._gateway(run_id), spec, facts, self._recorder(run_id))
         return {
             "spec": linked.model_dump(mode="json"),
             "tests": [case.model_dump(mode="json") for case in cases],
