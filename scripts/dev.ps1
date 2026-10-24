@@ -78,7 +78,7 @@ try {
             if ($__value.Length -ge 2 -and (($__value.StartsWith('"') -and $__value.EndsWith('"')) -or ($__value.StartsWith("'") -and $__value.EndsWith("'")))) {
                 $__value = $__value.Substring(1, $__value.Length - 2)
             }
-            if ($__value -and -not [Environment]::GetEnvironmentVariable($__name)) {
+            if ($__value -and $null -eq [Environment]::GetEnvironmentVariable($__name)) {
                 [Environment]::SetEnvironmentVariable($__name, $__value, 'Process')
                 $__loaded += $__name
             }
@@ -94,7 +94,7 @@ try {
     $__code = $LASTEXITCODE
     if ($null -eq $__code) { if ($?) { $__code = 0 } else { $__code = 1 } }
 } finally {
-    foreach ($__name in $__loaded) { [Environment]::SetEnvironmentVariable($__name, $null, 'Process') }
+    foreach ($__name in $__loaded) { Remove-Item -LiteralPath ('Env:' + $__name) -ErrorAction SilentlyContinue }
     $env:PATH = $__oldPath
     $env:PYTHONUTF8 = $__oldUtf8
     $env:WSL_UTF8 = $__oldWsl

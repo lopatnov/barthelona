@@ -57,7 +57,7 @@ if [[ "$load_env" = 1 ]]; then
     if [[ ${#value} -ge 2 && ( ( "${value:0:1}" = '"' && "${value: -1}" = '"' ) || ( "${value:0:1}" = "'" && "${value: -1}" = "'" ) ) ]]; then
       value="${value:1:${#value}-2}"
     fi
-    if [[ -n "$value" && -z "${!name:-}" ]]; then
+    if [[ -n "$value" && ! -v $name ]]; then
       export "$name=$value"
     fi
   done < "$env_file"
