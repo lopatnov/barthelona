@@ -10,6 +10,7 @@ from barthelona.llm.zetaris import (
     check_read_only,
     facts_block,
     probe,
+    register,
     run_sql,
 )
 
@@ -119,3 +120,23 @@ def test_facts_are_wrapped_as_untrusted_and_injection_is_refused() -> None:
     empty = run_sql(CONFIG, "SELECT 1", 1, _client(lambda r: httpx.Response(200, json={"data": []})))
     with pytest.raises(ZetarisError, match="no rows"):
         facts_block(empty, "SELECT x")
+
+
+def test_register_sends_only_create_lightning_statements() -> None:
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content)["sql"])
+        return httpx.Response(200, json={"data": []})
+
+    register(CONFIG, 'CREATE LIGHTNING DATABASE d DESCRIBE BY "x";', _client(handler))
+    assert seen == ['CREATE LIGHTNING DATABASE d DESCRIBE BY "x"']
+    for bad in (
+        "DROP TABLE x",
+        "CREATE LIGHTNING DATABASE d; DROP TABLE x",
+        "SELECT 1",
+        "INSERT INTO t VALUES (1)",
+    ):
+        with pytest.raises(ZetarisError):
+            register(CONFIG, bad, _client(handler))
+    assert len(seen) == 1
