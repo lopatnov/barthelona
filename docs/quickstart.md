@@ -2,6 +2,8 @@
 
 Status: 2026-10-24, Phase 0 plus the hackathon demo path. Check `docs/roadmap.md` for anything newer.
 
+> **Integration guides:** [`docs/meterless-guide.md`](meterless-guide.md) | [`docs/zetaris-guide.md`](zetaris-guide.md) | [`docs/hackathon-demo-guide.md`](hackathon-demo-guide.md)
+
 ## The point
 
 Barthelona exists to produce **correct** code, not code that looks right. A model proposes; tools decide
@@ -10,13 +12,13 @@ Barthelona exists to produce **correct** code, not code that looks right. A mode
 requires the exact output and exit code, so a program that assembles but prints the wrong text is rejected and the
 reason goes back to the model (D-056).
 
-| Oracle | Status |
-| --- | --- |
-| Syntax, assemble, link (V0-V2) | works: `python -m barthelona verify <workspace>` and `chunked run --assemble` (assemble only) |
-| Sandboxed run with golden input/output (V5, V6) | works in `verify` for a workspace; not used by `chunked run` |
-| Run in the emulator, compare stdout and exit code | works: `chunked run --expect-stdout ... --expect-exit ...` for single-file `_start` programs (Linux syscalls read, write, exit) |
-| Static ABI lint (V3), dynamic ABI checks (V4) | library with 100% detection on the ABI corpus (`barthelona.emulator`); not yet a ladder level |
-| Create or edit a whole project from a request (Scrum engine, UI) | not built (Phase 1) |
+| Oracle                                                           | Status                                                                                                                          |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Syntax, assemble, link (V0-V2)                                   | works: `python -m barthelona verify <workspace>` and `chunked run --assemble` (assemble only)                                   |
+| Sandboxed run with golden input/output (V5, V6)                  | works in `verify` for a workspace; not used by `chunked run`                                                                    |
+| Run in the emulator, compare stdout and exit code                | works: `chunked run --expect-stdout ... --expect-exit ...` for single-file `_start` programs (Linux syscalls read, write, exit) |
+| Static ABI lint (V3), dynamic ABI checks (V4)                    | library with 100% detection on the ABI corpus (`barthelona.emulator`); not yet a ladder level                                   |
+| Create or edit a whole project from a request (Scrum engine, UI) | not built (Phase 1)                                                                                                             |
 
 ## Install
 
@@ -37,11 +39,16 @@ Windows 11 with PowerShell is the tested host (Linux is supported by design, D-0
      (`METERLESS_BASE_URL` only if the URL differs). `.env` is gitignored; never commit it.
    - Check: `python -m barthelona meterless status` prints `online` and the `meterless/*` routes, `unauthorized` for a
      wrong token, or `offline`.
+
+   > **Full guide:** [`docs/meterless-guide.md`](meterless-guide.md) — installation, lane config, profiles, H-MEM, troubleshooting
+
 4. **Optional.**
    - LM Studio or Ollama for a local fallback model (`docs/runbook.md` section 4). Profile `meterless` ends in the
      local model, so with LM Studio running a failed cloud call can silently fall back; stop it to see real errors.
    - WSL2 + Docker, only for `verify` (V5/V6) and `probe` (`docs/runbook.md` section 2).
    - Qdrant (`docs/runbook.md` section 3) and Zetaris (`python -m barthelona zetaris status`; Docker with 8 GB RAM).
+
+   > **Full guide:** [`docs/zetaris-guide.md`](zetaris-guide.md) — installation, API key, SQL queries, `--facts-sql` injection, fact registration
 
 ## Run the hello demo
 
@@ -80,6 +87,7 @@ in chunks, NASM decides whether it is valid. You write no assembly.
 
    Say what the program must do, the platform (Linux x86-64, raw syscalls, no libc), the exact output and the exit
    code. The more concrete the task, the fewer repair rounds it needs. Keep it a prompt a person could write.
+
 2. **Run it** from the repository root, in the activated terminal, as one line. The output goes to your folder, not to
    the repository root:
 
@@ -89,7 +97,8 @@ in chunks, NASM decides whether it is valid. You write no assembly.
 
    - `@file` reads the task from the file; plain text in quotes works too.
    - `--repair-role planner` lets a deeper model do the repair rounds; `--plan-role planner` plans first.
-   - `--facts-sql "SELECT ..."` gives the first chunk rows from Zetaris (optional).
+   - `--facts-sql "SELECT ..."` gives the first chunk rows from Zetaris (required for the hackathon demo).
+
 3. **Read the result.** `assemble: pass` means NASM accepted `demos/myprog/myprog.asm`. On `assemble: fail` the file is
    not trustworthy: read the errors, then `demos/myprog/myprog.asm.raw.txt` (the model's unfiltered text), sharpen the
    task and run again. Runs that share the `--memory` file reuse what earlier passing runs learned.
@@ -108,27 +117,27 @@ behavior. Those need the Scrum engine and the emulator (Phase 1 and 2).
 
 ## Other commands
 
-| Command | What it does |
-| --- | --- |
-| `python -m barthelona version`, `schema [Document]` | version, domain JSON schemas |
-| `python -m barthelona probe` | probe the `bart-tc` container, write `config/toolchains.lock.json` (needs WSL + Docker) |
-| `python -m barthelona verify <workspace> --level V6` | run the ladder on a NASM or GAS workspace (needs WSL + Docker for V5/V6) |
-| `python -m barthelona training status` | opt-in training-data setting and counts |
-| `python -m barthelona bench ...` | benchmark models on the dev tasks |
-| `python -m barthelona meterless status` | Nightshift online/unauthorized/offline and routes |
-| `python -m barthelona zetaris status`, `zetaris sql "..."` | optional Zetaris facts store |
+| Command                                                    | What it does                                                                            |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `python -m barthelona version`, `schema [Document]`        | version, domain JSON schemas                                                            |
+| `python -m barthelona probe`                               | probe the `bart-tc` container, write `config/toolchains.lock.json` (needs WSL + Docker) |
+| `python -m barthelona verify <workspace> --level V6`       | run the ladder on a NASM or GAS workspace (needs WSL + Docker for V5/V6)                |
+| `python -m barthelona training status`                     | opt-in training-data setting and counts                                                 |
+| `python -m barthelona bench ...`                           | benchmark models on the dev tasks                                                       |
+| `python -m barthelona meterless status`                    | Nightshift online/unauthorized/offline and routes                                       |
+| `python -m barthelona zetaris status`, `zetaris sql "..."` | Zetaris facts store (hackathon requirement)                                                            |
 
 ## Troubleshooting
 
-| Symptom | Likely cause |
-| --- | --- |
-| `meterless status` says `unauthorized` | wrong or missing `METERLESS_RUNTIME_TOKEN`; your shell must have loaded `.env` |
-| `assemble: unavailable` | NASM not found: set `BARTHELONA_NASM` to `nasm.exe` |
-| A chunk fell through to `local_main` | the Meterless route failed (see the error printed with it); LM Studio answered instead. Stop LM Studio to see the real error |
-| Lane shows a timeout or "provider refused the key" | NVIDIA key rejected or unreachable; re-enter it in Nightshift |
-| Empty or truncated answers from a Nemotron reasoning model | the output budget ran out while it was thinking; raise `--chunk-tokens` |
-| Red "no lane has duty Judge or Verify" in Nightshift Lanes | add a second chat lane and set Verify on it, preferably another model family; the only race lane cannot judge itself |
-| `stop_reason=green` but `assemble: fail` | `green` is the chunk loop's own marker; the `assemble:` line is the verdict |
+| Symptom                                                    | Likely cause                                                                                                                 |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `meterless status` says `unauthorized`                     | wrong or missing `METERLESS_RUNTIME_TOKEN`; your shell must have loaded `.env`                                               |
+| `assemble: unavailable`                                    | NASM not found: set `BARTHELONA_NASM` to `nasm.exe`                                                                          |
+| A chunk fell through to `local_main`                       | the Meterless route failed (see the error printed with it); LM Studio answered instead. Stop LM Studio to see the real error |
+| Lane shows a timeout or "provider refused the key"         | NVIDIA key rejected or unreachable; re-enter it in Nightshift                                                                |
+| Empty or truncated answers from a Nemotron reasoning model | the output budget ran out while it was thinking; raise `--chunk-tokens`                                                      |
+| Red "no lane has duty Judge or Verify" in Nightshift Lanes | add a second chat lane and set Verify on it, preferably another model family; the only race lane cannot judge itself         |
+| `stop_reason=green` but `assemble: fail`                   | `green` is the chunk loop's own marker; the `assemble:` line is the verdict                                                  |
 
 ## Known limits
 
