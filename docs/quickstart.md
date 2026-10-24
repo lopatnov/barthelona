@@ -5,16 +5,17 @@ Status: 2026-10-24, Phase 0 plus the hackathon demo path. Check `docs/roadmap.md
 ## The point
 
 Barthelona exists to produce **correct** code, not code that looks right. A model proposes; tools decide
-(AGENTS.md, invariant 1). Today that decision is made by the assembler: a `chunked run --assemble` is green only if
-NASM accepts the output. It is **not yet** made by running the program: nothing in the demo path checks that the
-program prints the right text or exits with code 0. The pieces for that exist (V5/V6 run in a sandbox container and
-compare output) but are not wired into `chunked run` (issue #206).
+(AGENTS.md, invariant 1). `chunked run --assemble` is green only if NASM accepts the output. With
+`--expect-stdout` and `--expect-exit` it also **runs the program in the Unicorn emulator** (never on your PC) and
+requires the exact output and exit code, so a program that assembles but prints the wrong text is rejected and the
+reason goes back to the model (D-056).
 
 | Oracle | Status |
 | --- | --- |
 | Syntax, assemble, link (V0-V2) | works: `python -m barthelona verify <workspace>` and `chunked run --assemble` (assemble only) |
 | Sandboxed run with golden input/output (V5, V6) | works in `verify` for a workspace; not used by `chunked run` |
-| Static ABI lint (V3), Unicorn emulator (V4) | not built (Phase 2) |
+| Run in the emulator, compare stdout and exit code | works: `chunked run --expect-stdout ... --expect-exit ...` for single-file `_start` programs (Linux syscalls read, write, exit) |
+| Static ABI lint (V3), dynamic ABI checks (V4) | library with 100% detection on the ABI corpus (`barthelona.emulator`); not yet a ladder level |
 | Create or edit a whole project from a request (Scrum engine, UI) | not built (Phase 1) |
 
 ## Install
@@ -48,11 +49,13 @@ Windows 11 with PowerShell is the tested host (Linux is supported by design, D-0
 terminal, as one command (`--assemble` and `--repair 2` are options of the same line):
 
 ```powershell
-python -m barthelona chunked run @demos/hello/task.txt --profile meterless --assemble --repair 2 --memory var/hmem.sqlite --stats var/runs.sqlite --out demos/hello/hello.asm
+python -m barthelona chunked run @demos/hello/task.txt --profile meterless --assemble --repair 2 --expect-stdout "Hello, Barthelona!\n" --expect-exit 0 --memory var/hmem.sqlite --stats var/runs.sqlite --out demos/hello/hello.asm
 ```
 
 - `--assemble` runs NASM on the code (`nasm -f elf64`, never linked or run on the host); the run is green only if it
   assembles. `--repair 2` gives NASM's errors back to the model for up to two more attempts.
+- `--expect-stdout` and `--expect-exit` run the assembled program in the emulator and require that output and exit code.
+  A mismatch counts as a rejection, so `--repair` gives the reason (for example `stdout was 'Hello,'`) back to the model.
 - `--memory var/hmem.sqlite` recalls what earlier runs learned (H-MEM) and stores what a successful run learned.
   Run the command twice: the second run should recall facts and need fewer chunks.
 - `--plan-role planner` and `--review-role cheap` add a plan before and an advisory review after; the assembler stays
@@ -60,7 +63,7 @@ python -m barthelona chunked run @demos/hello/task.txt --profile meterless --ass
 - Output: `demos/hello/hello.asm` (committed only after an `assemble: pass` run), `hello.asm.raw.txt` (the model's raw
   text, gitignored). Statistics: `python -m barthelona chunked stats` (per run and per answering model).
 
-Read the result by the `assemble:` line (`pass`, `fail`, `unavailable`). The `stop_reason=green` line is the chunk
+Read the result by the `assemble:` line (`pass`, `fail`, `unavailable`); with the expectations, `pass` means it also ran correctly. The `stop_reason=green` line is the chunk
 loop's own marker, not the assembler's verdict.
 
 ## Create your own assembly program
@@ -81,7 +84,7 @@ in chunks, NASM decides whether it is valid. You write no assembly.
    the repository root:
 
    ```powershell
-   python -m barthelona chunked run @demos/myprog/task.txt --profile meterless --assemble --repair 2 --memory var/hmem.sqlite --stats var/runs.sqlite --out demos/myprog/myprog.asm
+   python -m barthelona chunked run @demos/myprog/task.txt --profile meterless --assemble --repair 2 --expect-stdout "<the exact output>\n" --expect-exit 0 --memory var/hmem.sqlite --stats var/runs.sqlite --out demos/myprog/myprog.asm
    ```
 
    - `@file` reads the task from the file; plain text in quotes works too.
@@ -134,6 +137,6 @@ behavior. Those need the Scrum engine and the emulator (Phase 1 and 2).
 - All Nightshift lanes seen so far serve NVIDIA Nemotron models; "more than one model family" still needs a lane from
   another provider.
 - Zetaris access is tested against a fake server only; registering a table of assembler facts is manual.
-- Nothing here is judged on behavior, only on whether NASM accepts it.
+- Behavior is judged only when you pass `--expect-stdout` or `--expect-exit`, and only for single-file `_start` programs that use read, write, exit and getpid; libc, threads, sockets and SIMD are not emulated.
 
 Hackathon design notes, what is ported from the Meterless engines and what is not: `docs/hackathon-demo.md`.

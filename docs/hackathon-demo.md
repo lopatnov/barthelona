@@ -84,7 +84,7 @@ One deliberate break each, run on 2026-10-23, then reverted with `git checkout`.
    It prints one row per chunk (tokens in and out, latency, serving model, marker, carryover source) and a summary
    with `peak_prompt` (stays flat), `standard_cost`, `markovian_cost` and `efficiency`.
    For the memory proof use the full command in `demos/hello/README.md` (it already has `--assemble --repair 2`,
-   `--memory` and `--stats`), run it twice, then `python -m barthelona chunked stats`.
+   `--expect-stdout`/`--expect-exit` for the emulator check, `--memory` and `--stats`), run it twice, then `python -m barthelona chunked stats`.
 5. In Nightshift's run details, confirm the Nemotron lane served the chunks.
 
 ## Honest limits

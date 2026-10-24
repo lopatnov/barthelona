@@ -67,8 +67,8 @@ python -m barthelona verify <workspace> --level V6 --dialect nasm \
 | V0 | Syntax only (`nasm -o /dev/null`, `as -o /dev/null`) | bart-tc | ✅ |
 | V1 | Assemble each module; `nm` symbol check vs registry | bart-tc | ✅ |
 | V2 | Link (`ld` or `gcc`); unresolved/duplicate symbols, entry point | bart-tc | ✅ |
-| V3 | Static ABI lint (Capstone CFG) | emulator child | ⏳ Phase 2 |
-| V4 | Unicorn unit tests + dynamic ABI checks | emulator child | ⏳ Phase 2 |
+| V3 | Static ABI lint (Capstone): GNU-stack, PIE relocations, syscall clobber, red zone | `barthelona.emulator.abi_static` | library done, 100% on the corpus; not yet a ladder level (D-056) |
+| V4 | Unicorn dynamic ABI checks: alignment, callee-saved, stack balance, direction flag | `barthelona.emulator.machine` | library done, 100% on the corpus; not yet a ladder level (D-056) |
 | V5 | C-harness tests (gcc in bart-tc, run in bart-run) | bart-run | ✅ |
 | V6 | Whole-program golden I/O (qemu-user later) | bart-run | ✅ |
 | V7 | gdb/qemu trace (after failure, for fixer) | bart-run | ⏳ Phase 2 |
@@ -215,6 +215,9 @@ python -m barthelona chunked run "Write a NASM strlen function" \
 | `--plan-role` | — | Role to write a plan first (e.g., `planner`) |
 | `--review-role` | — | Role to review output (advisory) |
 | `--stats` | — | Run statistics SQLite database |
+| `--expect-stdout`, `--expect-exit` | — | Run the assembled program in the Unicorn emulator and require this stdout and exit code (implies `--assemble`); a mismatch is repaired like an assembler error |
+| `--single-shot` | off | One completion instead of chunks, for short tasks; `--assemble`, `--repair` and the expectations still apply |
+| `--repair-role` | — | Role used for the repair attempts (for example `planner`) |
 
 **Output:** Per-chunk table (served by, answered by, tokens, latency, fallbacks), final stop reason, and if `--out` given, the extracted code block written to that file.
 

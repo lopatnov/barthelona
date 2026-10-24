@@ -62,3 +62,4 @@ Template: Context (optional), Decision, Rationale, Alternatives considered, Cons
 | [D-053](D-053-variation-points-are-registries-not-enums.md) | Variation points are registries of self-describing entries, not enums and factory chains | Proposed | amends D-045, D-046, D-047 |
 | [D-054](D-054-reference-ambition-pure-assembly-tls-and-http2-proxy.md) | The reference ambition is a pure-assembly TLS 1.3 and HTTP/2 reverse proxy | Proposed | amends D-050 |
 | [D-055](D-055-disassembly-is-a-licence-gated-input-and-aid.md) | Disassembly is a licence-gated input and aid, never an oracle | Proposed | amends D-019, D-040 |
+| [D-056](D-056-v3-v4-emulator-implementation-approach.md) | V3/V4 are a library over relocatable objects, and a behavior gate decides what a program does | Proposed | amends D-007, D-046 |
