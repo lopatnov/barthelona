@@ -186,7 +186,8 @@ models:
     strip_think: true
     enabled: false                 # dense 14B: slower; bake-off candidate only
   # Bake-off candidates (Phase 0): LM Studio ids seen by `bench models` on 2026-10-18. Not in any profile;
-  # run one with `bench run --model <key>`. Delete the losers after the model choice.
+  # run one with `bench run --model <key>`. Delete the losers after the model choice. `bake_qwen25_coder_7b` and
+  # `bake_codestral_22b` are also used by the `local-coder` profile (hackathon demo); neither emits think blocks.
   bake_qwen25_coder_7b:
     provider: lmstudio
     model: qwen2.5-coder-7b-instruct
