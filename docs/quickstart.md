@@ -18,7 +18,7 @@ reason goes back to the model (D-056).
 | Sandboxed run with golden input/output (V5, V6)                  | works in `verify` for a workspace; not used by `chunked run`                                                                    |
 | Run in the emulator, compare stdout and exit code                | works: `chunked run --expect-stdout ... --expect-exit ...` for single-file `_start` programs (Linux syscalls read, write, exit) |
 | Static ABI lint (V3), dynamic ABI checks (V4)                    | library with 100% detection on the ABI corpus (`barthelona.emulator`); not yet a ladder level                                   |
-| Create or edit a whole project from a request (Scrum engine, UI) | partly: a UI walking skeleton is merged (#251); creating a single-module program through `worker` and `runs ...` is in open PR #253; multi-module sprints are not built |
+| Create or edit a whole project from a request (Scrum engine, UI) | partly: a UI walking skeleton (#251) and a create flow for single-module programs through `worker` and `runs ...` (#253) are merged; multi-module sprints are not built |
 
 ## Install
 

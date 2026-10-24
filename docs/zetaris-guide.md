@@ -210,7 +210,7 @@ What exists (verified on the local hackathon stack, build 2.4.3):
 The exact commands (copy the CSVs into the volume that the Zetaris api and driver containers share, with relative
 paths because an absolute `C:\` path breaks `docker cp`; then `CREATE LIGHTNING DATABASE` and
 `CREATE LIGHTNING FILESTORE TABLE ... FORMAT CSV OPTIONS (path "...", header "true", delimiter ",")`) are in
-[`knowledge/zetaris/README.md`](../knowledge/zetaris/README.md) and in section 1.7 of
+[`knowledge/zetaris/README.md`](../knowledge/zetaris/README.md) and in section 1.3 of
 [`hackathon-demo-guide.md`](hackathon-demo-guide.md). The path in the `OPTIONS` is a path **inside the Zetaris
 containers** (`/home/zetaris/customer-data/shared/barthelona/...`), not a Windows path. The API key was accepted for
 `CREATE` over the REST endpoint; each statement is sent on its own, and a repeated `CREATE` answers "already exists".
