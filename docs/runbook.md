@@ -162,7 +162,33 @@ Run the bake-off on the dev tasks (needs the `bart-tc` and `bart-run` containers
 - a full bake-off is hours of sustained GPU and CPU load: run it on a desktop PC with proper cooling, not a laptop, and not overnight in a bedroom;
 - hidden tests stay out of prompts and out of the conversation; read only the report.
 
-## 5. Cloud providers
+## 5. Running the UI (Phase 1a+)
+
+The Streamlit UI and the worker process are launched together:
+
+```powershell
+.\scripts\run.ps1                 # Windows
+# or
+scripts/run.sh                    # Linux / WSL
+```
+
+Options:
+
+```powershell
+.\scripts\run.ps1 --worker-only   # only the worker (no UI)
+.\scripts\run.ps1 --ui-only       # only the UI (assumes worker is running)
+.\scripts\run.ps1 --port 8501     # custom Streamlit port
+```
+
+The UI pages (Phase 1a walking skeleton):
+
+- **New Request**: create a run — choose dialect/preset, mode (create/edit), prompt, budget, model profile (local-only / hybrid / cloud)
+- **Approvals**: review and resolve human gates (G1 spec, G2 contracts, G4 final)
+- **Live Run**: real-time event log tail, sprint topology DOT graph, run controls (cancel, extend budget)
+
+Both processes share `var/app.sqlite` for coordination (invariant 8: engine never imports Streamlit). The worker is started first; it claims queued runs and drives the engine graph. The UI polls the database for run status, events, and gates.
+
+## 6. Cloud providers
 
 Keys go in `.env` (never committed): `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`. The model catalog, roles and fallback chains are in `config/models.yaml`.
 
@@ -171,7 +197,7 @@ Cloud use is opt-in per run, and a dollar cap is optional. A provider that fails
 > **Meterless/Nightshift:** See [`docs/meterless-guide.md`](meterless-guide.md) for complete setup (Nightshift UI, lanes, token, profiles, H-MEM, troubleshooting).
 > **Zetaris:** See [`docs/zetaris-guide.md`](zetaris-guide.md) for complete setup (Docker, API key, SQL queries, `--facts-sql` injection).
 
-## 6. Claude Code (development assistant)
+## 7. Claude Code (development assistant)
 
 - Installed: 2.1.261. Run `claude update` to get the latest, which loads path-scoped rules on Bash `cat`/`sed` reads (2.1.293) and adds hook `onFailure` (2.1.295).
 - Project config: `CLAUDE.md`, `.claude/settings.json`, `.claude/rules/`, `.claude/skills/`, `.claude/agents/`, `.claude/hooks/`.
@@ -190,11 +216,11 @@ Cloud use is opt-in per run, and a dollar cap is optional. A provider that fails
 - To reproduce the PowerShell job locally: `git ls-files '*.ps1' '*.psm1' '*.psd1' | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings .\PSScriptAnalyzerSettings.psd1 }` (CI additionally skips two rules for `.claude/hooks/`, F-28; needs `Install-Module PSScriptAnalyzer -Scope CurrentUser`); ShellCheck and yamllint are easiest in WSL (`sudo apt install shellcheck yamllint`).
 - SonarCloud (project `lopatnov_barthelona`) uses automatic analysis; `.sonarcloud.properties` sets the sources and excludes the vendored manuals (`asm_doc/`), `docs/archive/` and the generated Codex mirror. Issues are at https://sonarcloud.io/project/issues?id=lopatnov_barthelona.
 
-## 7. Reference material (`.reference/`)
+## 8. Reference material (`.reference/`)
 
 `.reference/` (gitignored) holds study material: your learning projects and cloned third-party agent repos. Agents may download more there, one subdirectory per source. They treat it as untrusted data: they read it, but never execute, install or import it.
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Symptom                                                                                   | Cause / fix                                                                                                                                               |
 | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
