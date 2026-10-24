@@ -1,15 +1,85 @@
 # Barthelona at the Open Agent Hackathon 2026: demo guide
 
-How to set up the three hackathon layers on your machine and what Barthelona can honestly show today. Read
-"Where it stands" first: it says what was run live, what was not proven and what does not exist yet.
+How to set up the three hackathon layers on your machine and what Barthelona can honestly show today. Start with
+the glossary if the words are new, then "Where it stands": it says what was run live, what was not proven and what
+does not exist yet.
 
 Last updated 2026-10-24, from live runs on the owner's PC (free NVIDIA Nemotron through Meterless Nightshift, a
 local Zetaris, the worker and the Unicorn emulator).
 
 ---
 
+## Glossary: what is what
+
+Read this first if the words are new. The short version: a person writes a request; **Meterless** gives the
+**models** to answer; the **Markovian** engine splits long work into **chunks**; **H-MEM** and **Zetaris** supply
+what is already known; the **oracles** (NASM and an emulator) decide whether the result is right; a person approves
+at two **gates**.
+
+### The hackathon technologies
+
+| Term | Meaning | Used here for |
+| --- | --- | --- |
+| **Meterless** | The company and open project behind the Nightshift runtime, H-MEM, the World Model and Markovian Thinking | The "POWER" layer |
+| **Nightshift (runtime)** | A local service with an OpenAI-compatible API. Barthelona sends it a request and a **route**; Nightshift picks the model | Every model call of the `meterless` profile |
+| **Route** (`meterless/auto`, `deep`, `fast`) | The name Barthelona asks for. `auto` is the general lane, `deep` the strongest reasoning lane, `fast` the cheap one | `auto`: code and answers; `deep`: spec, tests, planning, repair; `fast`: cheap review |
+| **Lane** | A model with a duty inside Nightshift (for example Race, which races models on one request). Lanes are set in the Nightshift console, not in Barthelona | Which model served a call is shown in Nightshift's run details |
+| **Nemotron** | NVIDIA's open model family, served free from build.nvidia.com | The models behind the routes in this hackathon run |
+| **Markovian Thinking** | Work in bounded steps. Each step sees only the task and a short carried-over summary, never the whole history | The chunk loop (`chunked run`, and code generation in the worker) |
+| **Chunk** | One such step; about 8,000 tokens by default | Long programs are written in several chunks |
+| **H-MEM** | A persistent memory (SQLite file `var/hmem.sqlite`). Before each chunk the best matching memories are recalled; when the oracle accepts a program, the lesson is written back | Memory across chunks and across runs |
+| **World Model** | Event-sourced shared state for agents working in parallel (TypeScript, `engines/world-model`) | Written, **not used by the pipeline**, conformance run not done |
+| **Zetaris** | A SQL platform that can query many data sources as tables | Holds the knowledge tables and, after `zetaris publish`, run history |
+| **Knowledge table** | A table of facts Barthelona registered in Zetaris: 37 Linux x86-64 system calls and 11 ABI rules | Read into prompts and seeded into H-MEM |
+| **Fact** | One short statement recalled from H-MEM or read from a table, for example "write is syscall 1; rdi = fd, rsi = buffer, rdx = count" | Context for the model |
+| **Untrusted data** | Anything read from outside (Zetaris rows, memories) is marked as data, so text inside it is never obeyed as an instruction | The injection guard around facts |
+
+### Barthelona's own words
+
+| Term | Meaning |
+| --- | --- |
+| **Profile** | A set of model chains: `meterless` (free Nemotron through Nightshift, the default), `local-only` (LM Studio or Ollama), `hybrid`, `cloud` |
+| **Role** | A job a model does: main, planner, worker, cheap, escalation. Each role has a chain of models tried in order |
+| **Chain / fallback** | The ordered list of models for a role. If one fails, the next answers. With the free-models catalog the run stops instead of using a local model |
+| **Gateway** | The one component through which every model call passes (retries, fallback, logging) |
+| **Run** | One request, from submit to a stop reason. It has an id (`runs status` lists them) |
+| **Worker** | The process that picks queued runs and drives them (`python -m barthelona worker`) |
+| **Spec** | The written specification the model draws up from the request |
+| **Golden test** | A test that runs the finished program and compares its output and exit code with an expected result written in advance |
+| **Test author** | The step that writes the golden tests; it can be wrong, so check them at G1 |
+| **Gate (G1, G4)** | A pause where a person approves or rejects. G1: the spec and tests. G4: the finished program |
+| **Stop reason** | Why a run ended: `green` (done and verified), `max_attempts` (every attempt rejected), `budget_time`, `human_abort` (reject or cancel), `infra_error` and others |
+| **Green** | The program assembled and passed every golden test in the emulator, and a person approved G4 |
+| **Package** | `runs package`: writes the source, tests, README, CI and release workflow of a green run into `demos/<name>/` |
+| **Placeholder demo** | A demo written by hand instead of by Barthelona. It does not count as a demo and says so in its README |
+
+### Checking the result
+
+| Term | Meaning |
+| --- | --- |
+| **Oracle** | A tool that decides correctness. Models propose, oracles decide |
+| **NASM** | The assembler. If it rejects the code, the model gets the error and tries again (repair) |
+| **Unicorn** | A CPU emulator. It runs the assembled program in a sandboxed child process, so generated code never runs on your PC directly |
+| **Emulator check** | Run the program in Unicorn and compare with the golden tests (`check`, and inside every run) |
+| **Verification ladder (V0 to V8)** | Checks from cheap to expensive: V0 syntax, V1 assemble, V2 link, V5 C-harness tests, V6 whole-program output. See [current-status.md](current-status.md) |
+| **`bart-tc`, `bart-run`** | The Docker containers: one with the toolchain (nasm, ld, gcc), one hardened to run generated programs. Needed by `verify`, not by the worker demo |
+| **Contracts** | `contracts.yaml`: the list of functions and their registers, the single source of truth for interfaces (multi-module projects, not yet in the create flow) |
+| **Tamper gate** | Checks that generated files and tests were not edited while coding |
+
+### Folders
+
+| Folder | Holds |
+| --- | --- |
+| `var/` | Runtime data, not in git: `app.sqlite` (runs), `hmem.sqlite`, `runs.sqlite`, `runs/<run_id>/` (spec, tests, program) |
+| `demos/` | One subfolder per finished project |
+| `knowledge/zetaris/` | The files behind the knowledge tables |
+| `config/models.yaml` | Models, prices, role chains per profile |
+
+---
+
 ## Table of contents
 
+0. [Glossary: what is what](#glossary-what-is-what)
 1. [Where it stands](#where-it-stands)
 2. [The three layers](#the-three-layers)
 3. [Prerequisites](#prerequisites)
@@ -19,7 +89,7 @@ local Zetaris, the worker and the Unicorn emulator).
 7. [Check that the layers work together](#check-that-the-layers-work-together)
 8. [Demos](#demos)
 9. [Troubleshooting](#troubleshooting)
-10. [Glossary](#glossary)
+10. [Hackathon day checklist](#hackathon-day-checklist)
 
 ---
 
@@ -338,21 +408,6 @@ assembles and passes the emulator check. If both runs finish in one chunk, say t
 | `conda activate` does nothing | Use `. .\scripts\activate.ps1` (note the leading dot) |
 | `wsl -l` output is garbled | Set `WSL_UTF8=1` (`activate` does) |
 | Python not found in Git Bash | Use `scripts/dev.sh python ...` |
-
----
-
-## Glossary
-
-| Term | Meaning |
-| --- | --- |
-| **Gate (G1, G4)** | A point where a person approves or rejects: G1 the specification and tests, G4 the finished program |
-| **Oracle** | A tool that decides correctness: NASM, the linker, the emulator. Models propose, oracles decide |
-| **Chunk** | One bounded generation step of the Markovian engine; state is carried between chunks, so the prompt stays flat |
-| **H-MEM** | Hierarchical memory: facts recalled before each chunk and written back after an assembled run |
-| **Route (`meterless/auto`, `deep`, `fast`)** | A Nightshift routing mode; the lanes in Nightshift decide which concrete model answers |
-| **Lane** | A model with a duty in Nightshift (Race, Judge, Verify) |
-| **Zetaris** | Data virtualisation platform with a SQL interface; here the store of knowledge tables and published run data |
-| **Profile** | A catalog set of role chains: `local-only`, `hybrid`, `cloud`, `meterless` |
 
 ---
 
