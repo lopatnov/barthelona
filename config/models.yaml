@@ -477,6 +477,12 @@ profiles:
     worker: [local_main]
     cheap: [local_main]
     escalation: [local_main]
+  local-coder:                     # three local families: Qwen coder writes, Codestral plans and repairs, Liquid reviews
+    main: [bake_qwen25_coder_7b, local_main]
+    planner: [bake_codestral_22b, local_main]
+    worker: [bake_qwen25_coder_7b, local_main]
+    cheap: [local_main]
+    escalation: [bake_codestral_22b, local_main]
   meterless:                       # Nightshift first, one role per routing class, the local model last
     main: [meterless_auto, local_main]
     planner: [meterless_deep, meterless_auto, local_main]
