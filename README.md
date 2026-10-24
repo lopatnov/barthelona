@@ -21,7 +21,7 @@ Models are pluggable:
 **Barthelona cannot create or edit projects yet.** The agent engine (the Meta-Agentic Scrum loop, the UI and the model-driven pipeline) does not exist; the description above is the design, not today's behavior.
 
 - **Current phase:** Phase 0, foundations and the deterministic spine (last updated 2026-10-18). Done: design docs, agent configuration, environment scripts, domain models, the SQLite store, executors, NASM/GAS adapters, the verification ladder (`python -m barthelona verify`), the model gateway, the bench library and the ABI mutation corpus. Still open: the bake-off and local-model choice, Docker image digests, and the Phase 0 review. Next is Phase 1 (an end-to-end run from the UI).
-- **What you can try today:** the CLI (`python -m barthelona version | schema | probe | verify | training status`) and the demo below.
+- **What you can try today:** the CLI (`python -m barthelona version | schema | probe | verify | training status | chunked | meterless | zetaris`), the hello demo and the placeholder demo below. What works, what to install and how to run it: [`docs/quickstart.md`](docs/quickstart.md). The goal is code that is **correct**, as the oracles decide; today the demo path checks only that it assembles, not that it behaves.
 - **Demo caveat:** `demos/simplest-demo` is a **placeholder, not a valid demo**. Claude wrote its sources, contract and test generators by hand because the engine does not exist yet; Barthelona only verifies it. Its scoring method is not documented, so its correctness is unproven. Real demos must be produced by Barthelona (mostly with local models) from a human-style prompt.
 - **Where to look:** phases and exit criteria in `docs/roadmap.md` (its "Current status" line is the source of truth). When a phase changes, update this section and that line together.
 
@@ -40,6 +40,7 @@ Git Bash: `scripts/create_env.sh`, then `source scripts/activate.sh`. WSL2 (Ubun
 
 | Document | Contents |
 | --- | --- |
+| `docs/quickstart.md` | What works today, what to install, how to run the hello demo, troubleshooting |
 | `docs/architecture.md` | The design: Scrum mapping, AI-composed sprint graphs, verification ladder, sandbox, knowledge, model routing and resilience, UI |
 | `docs/adr/` | Architecture decision records D-001 to D-035 |
 | `docs/roadmap.md` | Phases, exit criteria, open decisions |
