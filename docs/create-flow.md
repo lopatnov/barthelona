@@ -23,11 +23,14 @@ only the variables already set in the shell. Secrets come only from environment 
 | Command | What it does | Flags |
 | --- | --- | --- |
 | `worker` | Claims queued runs, runs them to the next gate, continues them after a decision | `--db`, `--checkpoints`, `--runs`, `--catalog`, `--facts-sql`, `--memory`, `--poll`, `--once`, `--trace-reasoning` |
-| `runs submit REQUEST` | Queues a create-mode run (`@file` reads the request from a file) | `--profile`, `--preset`, `--wall-s`, `--tokens`, `--db`, `--runs` |
+| `runs submit REQUEST` | Queues a create-mode run (`@file` reads the request from a file) | `--profile`, `--preset`, `--wall-s`, `--tokens`, `--project`, `--db`, `--runs` |
 | `runs status [RUN_ID]` | Lists runs, or shows one run's state, open gates and last events | `--db`, `--runs` |
 | `runs decide RUN_ID DECISION` | Answers the open gate (`approve` or `reject`) | `--db` |
 | `runs package RUN_ID` | Writes the repository files of a green single-module run | `--out` and `--barthelona-ref` (required), `--force`, `--db`, `--runs` |
 | `check SOURCE` | Assembles with NASM and runs the golden tests in the emulator; exit 1 unless all pass | `--tests` (default `tests/golden.json`) |
+
+`--project NAME` records `demos/NAME` as the run's project folder (a lowercase slug); the New Request page has
+the same choice as a list. The run's own files stay in `--runs`; only `runs package` writes into a folder.
 
 Defaults: `--db var/app.sqlite`, `--runs var/runs`, `--checkpoints var/checkpoints.sqlite`,
 `--catalog config/models.yaml`, `--profile meterless`, `--preset linux-x64-nasm-static`, `--wall-s 3600`,

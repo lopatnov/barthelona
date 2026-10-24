@@ -24,6 +24,7 @@ from barthelona.domain import (
     RunBudget,
     RunCommand,
     RunMode,
+    project_workspace,
 )
 from barthelona.domain.presets import builtin_presets
 from barthelona.engine.graph import SOURCE_FILE
@@ -47,6 +48,9 @@ def submit(
     preset: Annotated[str, typer.Option(help="Target preset.")] = "linux-x64-nasm-static",
     wall_s: Annotated[float, typer.Option(min=1, help="Wall-clock limit in seconds.")] = 3600,
     tokens: Annotated[int, typer.Option(min=1, help="Token limit.")] = 400_000,
+    project: Annotated[
+        str | None, typer.Option(help="Name of the demos/ subfolder the project is for (a lowercase slug).")
+    ] = None,
     db: Annotated[Path, _DB] = _DEFAULT_DB,
     runs: Annotated[Path, _RUNS] = Path("var/runs"),
 ) -> None:
@@ -55,12 +59,16 @@ def submit(
     if target is None:
         known = ", ".join(p.preset for p in builtin_presets())
         raise typer.BadParameter(f"unknown preset {preset!r}; choose one of: {known}")
+    try:
+        workspace = project_workspace(project) if project else None
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
     text = Path(request[1:]).read_text(encoding="utf-8") if request.startswith("@") else request
     run_id = f"run-{datetime.now(UTC):%Y%m%d-%H%M%S}-{uuid4().hex[:4]}"
     run = Run(
         id=run_id,
         mode=RunMode.CREATE,
-        workspace=f"workspaces/{run_id}",
+        workspace=workspace or f"workspaces/{run_id}",
         target=target,
         profile=profile,
         policy_version="v1",

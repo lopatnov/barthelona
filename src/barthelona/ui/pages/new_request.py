@@ -12,20 +12,17 @@ Phase 1a fields:
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from uuid import uuid4
 
 import streamlit as st
 
-from barthelona.domain import CompositionLevel, Profile, Run, RunBudget, RunMode
+from barthelona.domain import DEMOS_DIR, CompositionLevel, Profile, Run, RunBudget, RunMode, project_workspace
 from barthelona.domain.presets import builtin_presets
 from barthelona.engine.host import REQUEST_FILE, run_dir
 from barthelona.persistence import open_store
 
-DEMOS_DIR = "demos"
 NEW_FOLDER = "+ New folder..."
-FOLDER_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,40}")
 
 
 def _demo_folders() -> list[str]:
@@ -53,8 +50,10 @@ def _form_problem(prompt: str, folder: str) -> str | None:
     """What is wrong with the submitted form, or None when it can become a run."""
     if not prompt.strip():
         return "Prompt cannot be empty."
-    if not FOLDER_NAME.fullmatch(folder):
-        return "Folder name: lowercase letters, digits and dashes, starting with a letter or digit."
+    try:
+        project_workspace(folder)
+    except ValueError as exc:
+        return f"Folder name: {exc}"
     return None
 
 
@@ -163,7 +162,7 @@ def page_new_request() -> None:
         run = Run(
             id=run_id,
             mode=mode,
-            workspace=f"{DEMOS_DIR}/{folder}",
+            workspace=project_workspace(folder),
             target=preset,
             profile=profile,
             policy_version="v1",  # Will be loaded from policies/v1/ later
