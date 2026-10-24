@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import closing
 from dataclasses import replace
@@ -44,6 +45,7 @@ from barthelona.engine.host import (
 )
 from barthelona.engine.worker import Worker
 from barthelona.llm import FakeGateway, GatewayError
+from barthelona.llm.markovian import COMPLETE
 from barthelona.llm.zetaris import ZetarisError
 from barthelona.persistence import Store, connect, migrate
 
@@ -157,18 +159,61 @@ async def test_rejecting_the_gate_stops_the_run_as_a_human_abort(store: Store, r
     ]
 
 
-async def test_approving_stops_with_an_infra_error_until_the_rest_of_the_flow_exists(
+needs_nasm = pytest.mark.skipif(
+    shutil.which("nasm") is None, reason="nasm is not installed on this host; CI installs it"
+)
+_HELLO = (
+    '```asm\nsection .data\nmsg db "hello", 10\nlen equ $ - msg\nsection .text\nglobal _start\n_start:\n'
+    "    mov rax, 1\n    mov rdi, 1\n    mov rsi, msg\n    mov rdx, len\n    syscall\n"
+    f"    mov rax, 60\n    xor rdi, rdi\n    syscall\n```\n{COMPLETE}"
+)
+
+
+@needs_nasm
+async def test_approving_g1_writes_the_source_and_parks_at_g4_then_the_run_is_green(
     store: Store, runs_dir: Path
 ) -> None:
     _queue(store, runs_dir)
-    worker = _worker(store, runs_dir)
+    worker = _worker(store, runs_dir, replies=[*REPLIES, _HELLO])
+    await worker.step()
+    _decide(store, "approve")
+    await worker.step()
+    [gate] = store.pending_gates("r1")
+    assert (gate.gate_id, gate.kind.value, gate.payload) == ("r1-G4", "G4", {"source_file": "main.asm"})
+    assert "mov rax, 60" in (runs_dir / "r1" / "main.asm").read_text(encoding="utf-8")
+    _decide(store, "approve")
+    await worker.step()
+    run = store.get_run("r1")
+    assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.GREEN)
+
+
+@needs_nasm
+async def test_rejecting_g4_stops_the_run_as_a_human_abort(store: Store, runs_dir: Path) -> None:
+    _queue(store, runs_dir)
+    worker = _worker(store, runs_dir, replies=[*REPLIES, _HELLO])
+    await worker.step()
+    _decide(store, "approve")
+    await worker.step()
+    _decide(store, "reject")
+    await worker.step()
+    assert store.get_run("r1").stop_reason is StopReason.HUMAN_ABORT
+
+
+@needs_nasm
+async def test_a_program_the_oracle_rejects_never_reaches_g4(store: Store, runs_dir: Path) -> None:
+    _queue(store, runs_dir)
+    worker = _worker(
+        store,
+        runs_dir,
+        replies=[*REPLIES, _HELLO.replace("hello", "howdy")] + [_HELLO.replace("hello", "howdy")] * 5,
+    )
     await worker.step()
     _decide(store, "approve")
     await worker.step()
     run = store.get_run("r1")
-    assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.INFRA_ERROR)
-    errors = [e for e in store.events_after("r1") if e.kind is EventKind.ERROR]
-    assert "not built yet" in errors[0].payload["error"]
+    assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.MAX_ATTEMPTS)
+    assert store.pending_gates("r1") == []
+    assert not (runs_dir / "r1" / "main.asm").exists()
 
 
 async def test_the_spec_is_written_for_the_gate_and_every_model_call_is_in_the_ledger(

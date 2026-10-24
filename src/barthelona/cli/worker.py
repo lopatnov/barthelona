@@ -16,6 +16,7 @@ from barthelona.engine.host import default_facts, services_for, zetaris_facts
 from barthelona.engine.worker import Worker
 from barthelona.llm import CatalogError, Gateway, OpenAIChatBackend, load_catalog
 from barthelona.llm.gateway import ModelGateway
+from barthelona.llm.hmem import HMem
 from barthelona.llm.zetaris import ZetarisError
 from barthelona.persistence import open_store
 
@@ -28,6 +29,7 @@ async def _run(
     runs: Path,
     catalog_path: Path,
     facts_sql: str | None,
+    memory: Path,
     poll: float,
     once: bool,
 ) -> None:
@@ -39,10 +41,11 @@ async def _run(
         return Gateway(catalog, backends, profile=run.profile.value)
 
     store = open_store(db)
+    hmem = HMem(memory)
     checkpoints.parent.mkdir(parents=True, exist_ok=True)
     try:
         async with AsyncSqliteSaver.from_conn_string(str(checkpoints)) as saver:
-            worker = Worker(store, build_graph(services_for(store, runs, gateway_for, facts), saver))
+            worker = Worker(store, build_graph(services_for(store, runs, gateway_for, facts, hmem), saver))
             if once:
                 await worker.recover()
                 while await worker.step():
@@ -50,6 +53,7 @@ async def _run(
             else:
                 await worker.serve(poll)
     finally:
+        hmem.close()
         store.close()
 
 
@@ -70,6 +74,10 @@ def worker_command(
             "(default with ZETARIS_API_KEY: the Barthelona knowledge tables).",
         ),
     ] = None,
+    memory: Annotated[
+        Path | None,
+        typer.Option(help="H-MEM store recalled in every chunk (default: hmem.sqlite next to --db)."),
+    ] = None,
     poll: Annotated[float, typer.Option(min=0.1, help="Seconds between polls when idle.")] = 1.0,
     once: Annotated[
         bool, typer.Option("--once", help="Run what is queued, then exit (for tests and CI).")
@@ -77,7 +85,18 @@ def worker_command(
 ) -> None:
     """Claim queued runs, run them to their next human gate and continue them when the UI resumes them."""
     try:
-        asyncio.run(_run(db, checkpoints, runs, catalog_path, facts_sql, poll, once))
+        asyncio.run(
+            _run(
+                db,
+                checkpoints,
+                runs,
+                catalog_path,
+                facts_sql,
+                memory or db.parent / "hmem.sqlite",
+                poll,
+                once,
+            )
+        )
     except (CatalogError, ZetarisError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     except KeyboardInterrupt:
