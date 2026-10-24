@@ -431,16 +431,18 @@ _Last updated: 2026-10-24. This document reflects the actual runnable state of t
 
 ---
 
-## 5. The Worker (Phase 1a, slices 1-2)
+## 5. The Worker (Phase 1a, slices 1-3)
 
 `python -m barthelona worker [--once]` claims queued runs from `var/app.sqlite`, runs the outer run graph and
 parks each run at gate G1. The graph so far is `preflight` (unsupported presets stop the run as
-`unsupported_target`), `intake` (language, English goal, entities), `spec` (a `ProjectSpec` written to
-`var/runs/<run_id>/spec.json`), the G1 gate and `finalize`. The request text is read from
+`unsupported_target`), `intake` (language, English goal, entities), `spec` (a `ProjectSpec` draft),
+`test_author` (golden-I/O acceptance tests; the model is told which requirement is uncovered),
+`validate_spec` (every requirement has a test; writes `var/runs/<run_id>/spec.json` and `tests.json`), the G1 gate
+and `finalize`. The request text is read from
 `var/runs/<run_id>/request.txt`; each node is one JSON model call through the gateway with the run's profile,
 recorded in the LLM-call ledger, and a bad reply is sent back once (two bad replies stop the run as
-`max_attempts`; an exhausted chain stops it as `no_model_available`). The acceptance-test author and the
-spec validation come in the next slice. A `resume` command with `approve` or `reject` continues the run;
+`max_attempts`; an exhausted chain stops it as `no_model_available`). Not built yet: G0 questions, a reference
+model and the emulator cross-check of the test examples, and Zetaris facts in the prompts. A `resume` command with `approve` or `reject` continues the run;
 `reject` and `cancel` stop it as `human_abort`; a crash is recovered from `var/checkpoints.sqlite`. `approve` stops
 the run with `infra_error` ("not built yet") until the next slices (intake and spec, architect and scaffold, the
 sprint loop) add their nodes. There is no UI page for it yet; the commands go in through the store

@@ -73,9 +73,16 @@ def _json_object(text: str) -> object:
     return orjson.loads(text[start : end + 1])
 
 
-async def _ask[Model: DomainModel](
-    gateway: ModelGateway, role: str, system: str, user: str, model: type[Model], on_call: OnCall
+async def ask_json[Model: DomainModel](
+    gateway: ModelGateway,
+    role: str,
+    system: str,
+    user: str,
+    model: type[Model],
+    on_call: OnCall,
+    check: Callable[[Model], str | None] | None = None,
 ) -> Model:
+    """One small JSON artifact; *check* names what is wrong with a valid one (sent back like an error)."""
     messages = [ChatMessage(role="system", content=system), ChatMessage(role="user", content=user)]
     problem = ""
     for _ in range(ATTEMPTS):
@@ -84,20 +91,21 @@ async def _ask[Model: DomainModel](
         )
         on_call(completion.record)
         try:
-            return model.model_validate(_json_object(completion.text))
+            value = model.model_validate(_json_object(completion.text))
+            problem = (check(value) if check else None) or ""
+            if not problem:
+                return value
         except (ValueError, ValidationError) as exc:  # orjson's decode error is a ValueError
             problem = str(exc)[:600]
-            messages += [
-                ChatMessage(role="assistant", content=completion.text),
-                ChatMessage(
-                    role="user", content=f"That reply is unusable: {problem}\nAnswer again, JSON only."
-                ),
-            ]
+        messages += [
+            ChatMessage(role="assistant", content=completion.text),
+            ChatMessage(role="user", content=f"That reply is unusable: {problem}\nAnswer again, JSON only."),
+        ]
     raise SpecError(f"{role} gave no valid {model.__name__} in {ATTEMPTS} tries: {problem}")
 
 
 async def run_intake(gateway: ModelGateway, request: str, on_call: OnCall) -> Intake:
-    return await _ask(gateway, INTAKE_ROLE, _INTAKE_PROMPT, request, Intake, on_call)
+    return await ask_json(gateway, INTAKE_ROLE, _INTAKE_PROMPT, request, Intake, on_call)
 
 
 async def draft_spec(
@@ -108,7 +116,7 @@ async def draft_spec(
         f"Goal: {intake.goal_en}\nTarget: {target.preset} ({target.dialect.value}, {target.arch.value}, "
         f"{target.os.value}, {target.abi.value})\nEntities: {'; '.join(intake.entities) or 'none named'}"
     )
-    draft = await _ask(gateway, SPEC_ROLE, _SPEC_PROMPT, user, SpecDraft, on_call)
+    draft = await ask_json(gateway, SPEC_ROLE, _SPEC_PROMPT, user, SpecDraft, on_call)
     return ProjectSpec(
         id=run.id,
         slug=draft.slug,

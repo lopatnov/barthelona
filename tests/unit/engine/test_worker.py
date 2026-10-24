@@ -8,6 +8,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
+import orjson
 import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
@@ -33,7 +34,7 @@ from barthelona.domain import (
     TargetProfile,
 )
 from barthelona.engine.graph import build_graph
-from barthelona.engine.host import REQUEST_FILE, SPEC_FILE, services_for
+from barthelona.engine.host import REQUEST_FILE, SPEC_FILE, TESTS_FILE, services_for
 from barthelona.engine.worker import Worker
 from barthelona.llm import FakeGateway, GatewayError
 from barthelona.persistence import Store, connect, migrate
@@ -46,7 +47,8 @@ SPEC = (
     ' "requirements": [{"id": "R1", "text": "Writes hello and a newline to stdout."}],'
     ' "modules": [{"path": "src/hello.asm", "purpose": "entry", "exports": ["_start"]}]}'
 )
-REPLIES = [INTAKE, SPEC]
+TESTS = '{"tests": [{"id": "T1", "requirement_ids": ["R1"], "stdout": "hello\\n", "exit_code": 0}]}'
+REPLIES = [INTAKE, SPEC, TESTS]
 
 
 def _run(run_id: str = "r1") -> Run:
@@ -124,7 +126,7 @@ async def test_a_queued_run_stops_at_gate_g1_with_the_gate_open(store: Store, ru
     assert store.get_run("r1").status is RunStatus.WAITING_GATE
     [gate] = store.pending_gates("r1")
     assert (gate.gate_id, gate.kind.value, gate.options) == ("r1-G1", "G1", ["approve", "reject"])
-    assert _kinds(store) == [EventKind.NODE_END] * 3 + [EventKind.GATE_REQUESTED]
+    assert _kinds(store) == [EventKind.NODE_END] * 5 + [EventKind.GATE_REQUESTED]
     assert await worker.step() is False  # nothing to do until the UI answers
 
 
@@ -168,15 +170,18 @@ async def test_the_spec_is_written_for_the_gate_and_every_model_call_is_in_the_l
     assert (spec.slug, spec.request_lang, spec.target.preset) == ("hello", "ru", "linux-x64-nasm-static")
     assert spec.request_original.startswith("Напиши hello")
     assert spec.assumptions == ["Linux x64"]
-    assert [call.tokens_out for call in store.llm_calls("r1")] == [len(INTAKE.split()), len(SPEC.split())]
+    assert [call.tokens_out for call in store.llm_calls("r1")] == [len(r.split()) for r in REPLIES]
+    assert spec.requirements[0].test_ids == ["T1"]
+    tests = orjson.loads((runs_dir / "r1" / TESTS_FILE).read_bytes())
+    assert [(t["id"], t["kind"], t["expect"]["stdout"]) for t in tests] == [("T1", "io_golden", "hello\n")]
 
 
 async def test_a_reply_that_is_not_json_is_sent_back_once(store: Store, runs_dir: Path) -> None:
     _queue(store, runs_dir)
-    replies: list[str | Exception] = ["I cannot say.", f"```json\n{INTAKE}\n```", SPEC]
+    replies: list[str | Exception] = ["I cannot say.", f"```json\n{INTAKE}\n```", SPEC, TESTS]
     await _worker(store, runs_dir, replies=replies).step()
     assert store.get_run("r1").status is RunStatus.WAITING_GATE
-    assert len(store.llm_calls("r1")) == 3
+    assert len(store.llm_calls("r1")) == 4
 
 
 async def test_two_unusable_replies_stop_the_run_as_max_attempts(store: Store, runs_dir: Path) -> None:
@@ -185,6 +190,22 @@ async def test_two_unusable_replies_stop_the_run_as_max_attempts(store: Store, r
     run = store.get_run("r1")
     assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.MAX_ATTEMPTS)
     assert store.pending_gates("r1") == []
+
+
+async def test_tests_that_leave_a_requirement_uncovered_are_sent_back(store: Store, runs_dir: Path) -> None:
+    _queue(store, runs_dir)
+    uncovered = TESTS.replace('"R1"', '"R9"')
+    await _worker(store, runs_dir, replies=[INTAKE, SPEC, uncovered, TESTS]).step()
+    assert store.get_run("r1").status is RunStatus.WAITING_GATE
+    assert len(store.llm_calls("r1")) == 4
+
+
+async def test_two_test_drafts_that_miss_a_requirement_stop_the_run(store: Store, runs_dir: Path) -> None:
+    _queue(store, runs_dir)
+    uncovered = TESTS.replace('"R1"', '"R9"')
+    await _worker(store, runs_dir, replies=[INTAKE, SPEC, uncovered, uncovered]).step()
+    assert store.get_run("r1").stop_reason is StopReason.MAX_ATTEMPTS
+    assert not (runs_dir / "r1" / SPEC_FILE).exists()
 
 
 async def test_a_chain_with_no_usable_model_stops_the_run_as_no_model_available(
