@@ -2,7 +2,7 @@
 
 This document describes the **actual, runnable capabilities** of barthelona as of Phase 0. The engine (Meta-Agentic Scrum loop, AI-composed sprint graphs, Streamlit UI) does **not exist yet** — those are Phase 1 deliverables. What follows is the deterministic spine: toolchains, verification, model gateway, and CLI tools that work **without any LLM**.
 
-> **Integration guides:** [`docs/meterless-guide.md`](meterless-guide.md) | [`docs/zetaris-guide.md`](zetaris-guide.md)
+> **Integration guides:** [`docs/meterless-guide.md`](meterless-guide.md) | [`docs/zetaris-guide.md`](zetaris-guide.md) | [`docs/hackathon-demo-guide.md`](hackathon-demo-guide.md)
 
 ---
 

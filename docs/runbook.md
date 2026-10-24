@@ -2,7 +2,7 @@
 
 Setting up and operating the barthelona development environment on this machine (Windows 11 + WSL2 Ubuntu 26.04).
 
-> **Integration guides:** [`docs/meterless-guide.md`](meterless-guide.md) | [`docs/zetaris-guide.md`](zetaris-guide.md)
+> **Integration guides:** [`docs/meterless-guide.md`](meterless-guide.md) | [`docs/zetaris-guide.md`](zetaris-guide.md) | [`docs/hackathon-demo-guide.md`](hackathon-demo-guide.md)
 
 ## 1. Python environment (Windows, conda)
 

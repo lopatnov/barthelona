@@ -2,7 +2,7 @@
 
 Status: 2026-10-24, Phase 0 plus the hackathon demo path. Check `docs/roadmap.md` for anything newer.
 
-> **New integration guides:** [`docs/meterless-guide.md`](meterless-guide.md) | [`docs/zetaris-guide.md`](zetaris-guide.md)
+> **Integration guides:** [`docs/meterless-guide.md`](meterless-guide.md) | [`docs/zetaris-guide.md`](zetaris-guide.md) | [`docs/hackathon-demo-guide.md`](hackathon-demo-guide.md)
 
 ## The point
 
