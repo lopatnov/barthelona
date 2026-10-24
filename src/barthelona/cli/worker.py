@@ -12,7 +12,7 @@ from rich.console import Console
 
 from barthelona.domain import Run
 from barthelona.engine.graph import build_graph
-from barthelona.engine.host import no_facts, services_for, zetaris_facts
+from barthelona.engine.host import default_facts, services_for, zetaris_facts
 from barthelona.engine.worker import Worker
 from barthelona.llm import CatalogError, Gateway, OpenAIChatBackend, load_catalog
 from barthelona.llm.gateway import ModelGateway
@@ -32,7 +32,7 @@ async def _run(
     once: bool,
 ) -> None:
     catalog = load_catalog(catalog_path)
-    facts = zetaris_facts(facts_sql) if facts_sql else no_facts
+    facts = zetaris_facts(facts_sql) if facts_sql else default_facts()
     backends = {"openai_chat": OpenAIChatBackend()}
 
     def gateway_for(run: Run) -> ModelGateway:
@@ -66,7 +66,8 @@ def worker_command(
         str | None,
         typer.Option(
             "--facts-sql",
-            help="One read-only Zetaris statement; its rows go into the spec and test-author prompts.",
+            help="One read-only Zetaris statement for the spec and test-author prompts "
+            "(default with ZETARIS_API_KEY: the Barthelona knowledge tables).",
         ),
     ] = None,
     poll: Annotated[float, typer.Option(min=0.1, help="Seconds between polls when idle.")] = 1.0,
