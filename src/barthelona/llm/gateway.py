@@ -1,7 +1,8 @@
 """The model gateway: role router over the catalog's chains (docs/architecture.md §16.1).
 
 This first slice walks a chain in order, skips entries that cannot be used and falls through to the next
-model when a call fails. Circuit breakers, retries, the cost ledger and the affinity scheduler come later.
+model when a call fails. A transient failure is repeated on the same entry first, a bounded number of times
+(#255). Circuit breakers, the cost ledger and the affinity scheduler come later.
 """
 
 from __future__ import annotations
@@ -9,12 +10,17 @@ from __future__ import annotations
 import asyncio
 import os
 import time
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Protocol
 
 from barthelona.llm.backend import Backend, RawReply, build_completion
 from barthelona.llm.catalog import Catalog, ModelTarget
-from barthelona.llm.types import Completion, CompletionRequest, GatewayError, ModelCallError
+from barthelona.llm.types import Completion, CompletionRequest, FailureKind, GatewayError, ModelCallError
+
+# Seconds to wait before each repeat of a failed call on the same chain entry; the length is the retry bound.
+RETRY_DELAYS = (2.0, 6.0)
+# Failures that can pass by themselves. An auth, refusal or bad-reply failure repeats identically.
+_TRANSIENT = frozenset({FailureKind.SERVER, FailureKind.RATE_LIMIT, FailureKind.TRANSPORT})
 
 
 class ModelGateway(Protocol):
@@ -30,12 +36,16 @@ class Gateway:
         backends: Mapping[str, Backend],
         profile: str | None = None,
         env: Mapping[str, str] | None = None,
+        retry_delays: tuple[float, ...] = RETRY_DELAYS,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ) -> None:
         self._catalog = catalog
         self._backends = backends
         self._profile = profile
         self._env = os.environ if env is None else env
         self._slots: dict[str, asyncio.Semaphore] = {}
+        self._retry_delays = retry_delays
+        self._sleep = sleep
 
     def _unusable(self, target: ModelTarget) -> str | None:
         provider = target.provider
@@ -55,14 +65,23 @@ class Gateway:
             self._slots[target.provider_id] = asyncio.Semaphore(target.provider.max_concurrency)
         return self._slots[target.provider_id]
 
-    async def _call(self, target: ModelTarget, request: CompletionRequest) -> RawReply | str:
-        """The backend's reply, or the reason this entry failed."""
+    async def _call(
+        self, target: ModelTarget, request: CompletionRequest
+    ) -> tuple[RawReply | str, list[str]]:
+        """The backend's reply or the reason this entry failed, with a note for each repeated call."""
         started = time.monotonic()
-        try:
-            async with self._slot(target):
-                return await self._backends[target.provider.kind].complete(target, request)
-        except ModelCallError as exc:
-            return f"{exc} after {time.monotonic() - started:.1f}s [{exc.kind}]"
+        notes: list[str] = []
+        for delay in (*self._retry_delays, None):
+            try:
+                async with self._slot(target):
+                    return await self._backends[target.provider.kind].complete(target, request), notes
+            except ModelCallError as exc:
+                reason = f"{exc} after {time.monotonic() - started:.1f}s [{exc.kind}]"
+                if delay is None or exc.kind not in _TRANSIENT:
+                    return reason, notes
+                notes.append(f"{target.key}: retry in {delay:g}s: {reason}")
+                await self._sleep(delay)
+        raise AssertionError("unreachable: the last delay is None")  # pragma: no cover
 
     async def complete(self, role: str, request: CompletionRequest) -> Completion:
         fallbacks: list[str] = []
@@ -70,7 +89,8 @@ class Gateway:
             if (reason := self._unusable(target)) is not None:
                 fallbacks.append(f"{target.key}: {reason}")
                 continue
-            outcome = await self._call(target, request)
+            outcome, notes = await self._call(target, request)
+            fallbacks.extend(notes)
             if isinstance(outcome, str):
                 fallbacks.append(f"{target.key}: {outcome}")
                 continue
