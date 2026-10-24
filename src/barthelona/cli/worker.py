@@ -42,6 +42,7 @@ async def _run(
     checkpoints.parent.mkdir(parents=True, exist_ok=True)
     try:
         async with AsyncSqliteSaver.from_conn_string(str(checkpoints)) as saver:
+            # services_for now handles default_facts internally with error emission
             worker = Worker(store, build_graph(services_for(store, runs, gateway_for, facts), saver))
             if once:
                 await worker.recover()

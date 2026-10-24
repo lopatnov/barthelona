@@ -162,6 +162,32 @@ Run the bake-off on the dev tasks (needs the `bart-tc` and `bart-run` containers
 - a full bake-off is hours of sustained GPU and CPU load: run it on a desktop PC with proper cooling, not a laptop, and not overnight in a bedroom;
 - hidden tests stay out of prompts and out of the conversation; read only the report.
 
+## 4a. Running the UI (Phase 1a+)
+
+The Streamlit UI and the worker process are launched together:
+
+```powershell
+.\scripts\run.ps1                 # Windows
+# or
+scripts/run.sh                    # Linux / WSL
+```
+
+Options:
+
+```powershell
+.\scripts\run.ps1 --worker-only   # only the worker (no UI)
+.\scripts\run.ps1 --ui-only       # only the UI (assumes worker is running)
+.\scripts\run.ps1 --port 8501     # custom Streamlit port
+```
+
+The UI pages (Phase 1a walking skeleton):
+
+- **New Request**: create a run — choose dialect/preset, mode (create/edit), prompt, budget, model profile (local-only / hybrid / cloud)
+- **Approvals**: review and resolve human gates (G1 spec, G2 contracts, G4 final)
+- **Live Run**: real-time event log tail, sprint topology DOT graph, run controls (cancel, extend budget)
+
+Both processes share `var/app.sqlite` for coordination (invariant 8: engine never imports Streamlit). The worker is started first; it claims queued runs and drives the engine graph. The UI polls the database for run status, events, and gates.
+
 ## 5. Cloud providers
 
 Keys go in `.env` (never committed): `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`. The model catalog, roles and fallback chains are in `config/models.yaml`.

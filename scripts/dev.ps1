@@ -19,6 +19,9 @@
     .\scripts\dev.ps1 python scripts/sync_agent_configs.py --check
     .\scripts\dev.ps1 -LoadEnv python -m barthelona zetaris status
 #>
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+
 $__argv = @($args)
 $__loadEnv = $false
 if ($__argv.Count -gt 0 -and $__argv[0] -eq '-LoadEnv') {
@@ -35,8 +38,8 @@ if ($env:CONDA_PREFIX -and (Split-Path -Leaf $env:CONDA_PREFIX) -eq 'barthelona'
 if (-not $__bartPrefix -and $env:BARTHELONA_ENV_PREFIX) { $__bartPrefix = $env:BARTHELONA_ENV_PREFIX }
 if (-not $__bartPrefix) {
     foreach ($__c in @((Join-Path $env:USERPROFILE 'miniconda3\envs\barthelona'),
-                       (Join-Path $env:USERPROFILE 'anaconda3\envs\barthelona'),
-                       (Join-Path $env:ProgramData 'miniconda3\envs\barthelona'))) {
+            (Join-Path $env:USERPROFILE 'anaconda3\envs\barthelona'),
+            (Join-Path $env:ProgramData 'miniconda3\envs\barthelona'))) {
         if (Test-Path (Join-Path $__c 'python.exe')) { $__bartPrefix = $__c; break }
     }
 }
@@ -46,7 +49,8 @@ if (-not $__bartPrefix) {
         try {
             $__json = & $__conda.Source env list --json | Out-String | ConvertFrom-Json
             $__bartPrefix = @($__json.envs | Where-Object { (Split-Path -Leaf $_) -eq 'barthelona' })[0]
-        } catch {
+        }
+        catch {
             # Fall through to the "env not found" message below, but say why the lookup failed.
             [Console]::Error.WriteLine("conda env list failed: $($_.Exception.Message)")
         }
@@ -93,7 +97,8 @@ try {
     & $__exe @__rest
     $__code = $LASTEXITCODE
     if ($null -eq $__code) { if ($?) { $__code = 0 } else { $__code = 1 } }
-} finally {
+}
+finally {
     foreach ($__name in $__loaded) { Remove-Item -LiteralPath ('Env:' + $__name) -ErrorAction SilentlyContinue }
     $env:PATH = $__oldPath
     $env:PYTHONUTF8 = $__oldUtf8
