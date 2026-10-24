@@ -17,6 +17,7 @@ from barthelona.engine.worker import Worker
 from barthelona.llm import CatalogError, Gateway, OpenAIChatBackend, load_catalog
 from barthelona.llm.gateway import ModelGateway
 from barthelona.llm.hmem import HMem
+from barthelona.llm.trace import ReasoningLog
 from barthelona.llm.zetaris import ZetarisError
 from barthelona.persistence import open_store
 
@@ -32,13 +33,14 @@ async def _run(
     memory: Path,
     poll: float,
     once: bool,
+    trace: ReasoningLog | None,
 ) -> None:
     catalog = load_catalog(catalog_path)
     facts = zetaris_facts(facts_sql) if facts_sql else None  # None: services_for uses the default facts
     backends = {"openai_chat": OpenAIChatBackend()}
 
     def gateway_for(run: Run) -> ModelGateway:
-        return Gateway(catalog, backends, profile=run.profile.value)
+        return Gateway(catalog, backends, profile=run.profile.value, trace=trace)
 
     store = open_store(db)
     hmem = HMem(memory)
@@ -82,6 +84,14 @@ def worker_command(
     once: Annotated[
         bool, typer.Option("--once", help="Run what is queued, then exit (for tests and CI).")
     ] = False,
+    trace_reasoning: Annotated[
+        str | None,
+        typer.Option(
+            "--trace-reasoning",
+            help="Append every model's reasoning and answer to this file ('-' prints to stderr). Off by "
+            "default: the log holds the request text.",
+        ),
+    ] = None,
 ) -> None:
     """Claim queued runs, run them to their next human gate and continue them when the UI resumes them."""
     try:
@@ -95,6 +105,7 @@ def worker_command(
                 memory or db.parent / "hmem.sqlite",
                 poll,
                 once,
+                ReasoningLog(trace_reasoning) if trace_reasoning else None,
             )
         )
     except (CatalogError, ZetarisError) as exc:

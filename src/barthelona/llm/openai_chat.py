@@ -171,6 +171,7 @@ class OpenAIChatBackend:
         arguments = self._arguments(target, request)
         started = time.monotonic()
         parts: list[str] = []
+        thoughts: list[str] = []
         stop_reason = "unknown"
         usage = None
         answered_by = ""
@@ -181,6 +182,12 @@ class OpenAIChatBackend:
                 answered_by = chunk.model or answered_by
                 for choice in chunk.choices:
                     parts.append(choice.delta.content or "")
+                    # Servers that separate reasoning send it as an extra delta field, under either name.
+                    thoughts.append(
+                        getattr(choice.delta, "reasoning_content", None)
+                        or getattr(choice.delta, "reasoning", None)
+                        or ""
+                    )
                     stop_reason = choice.finish_reason or stop_reason
         except openai.OpenAIError as exc:
             raise _call_error(exc, target.provider.base_url) from exc
@@ -193,4 +200,5 @@ class OpenAIChatBackend:
             stop_reason=stop_reason,
             latency_ms=round((time.monotonic() - started) * 1000),
             answered_by=answered_by,
+            reasoning="".join(thoughts),
         )

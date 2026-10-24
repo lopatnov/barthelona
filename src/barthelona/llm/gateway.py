@@ -42,7 +42,9 @@ class Gateway:
         retry_delays: tuple[float, ...] = RETRY_DELAYS,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         jitter: Callable[[float], float] = lambda cap: random.uniform(0, cap),  # noqa: S311  # backoff, not security
+        trace: Callable[[str, Completion], None] | None = None,
     ) -> None:
+        self._trace = trace  # the optional reasoning log, called once per answered request
         self._catalog = catalog
         self._backends = backends
         self._profile = profile
@@ -102,5 +104,8 @@ class Gateway:
             if isinstance(outcome, str):
                 fallbacks.append(f"{target.key}: {outcome}")
                 continue
-            return build_completion(target, request, outcome, tuple(fallbacks))
+            done = build_completion(target, request, outcome, tuple(fallbacks))
+            if self._trace is not None:
+                self._trace(role, done)
+            return done
         raise GatewayError(f"no model in the {role!r} chain could answer: " + "; ".join(fallbacks))

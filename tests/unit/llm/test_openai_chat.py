@@ -89,6 +89,24 @@ async def test_streamed_reply_is_assembled_with_usage() -> None:
     assert "response_format" not in seen[0]
 
 
+@pytest.mark.parametrize("field", ["reasoning_content", "reasoning"])
+async def test_a_separate_reasoning_stream_is_collected_under_either_field_name(field: str) -> None:
+    def thinking(request: httpx.Request) -> httpx.Response:
+        first = {
+            **_chunk(None),
+            "choices": [{"index": 0, "delta": {field: "step one, "}, "finish_reason": None}],
+        }
+        second = {
+            **_chunk(None),
+            "choices": [{"index": 0, "delta": {field: "step two"}, "finish_reason": None}],
+        }
+        events = (first, second, _chunk("answer", "stop"))
+        return httpx.Response(200, content=_sse(*events), headers={"content-type": "text/event-stream"})
+
+    reply = await _backend(httpx.MockTransport(thinking)).complete(_target(), _request())
+    assert (reply.text, reply.reasoning) == ("answer", "step one, step two")
+
+
 async def test_the_model_the_server_reports_is_kept_as_answered_by() -> None:
     def routed(request: httpx.Request) -> httpx.Response:
         events = [{**_chunk("hi", "stop"), "model": "nvidia/nemotron-3-5-lightning-3"}]

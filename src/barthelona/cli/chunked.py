@@ -29,6 +29,7 @@ from barthelona.llm import (
 )
 from barthelona.llm.hmem import RECALL_TOP_N, HMem, chunk_recall, facts_from_state
 from barthelona.llm.runlog import RunLog
+from barthelona.llm.trace import ReasoningLog
 from barthelona.llm.zetaris import ZetarisConfig, ZetarisError, facts_block, run_sql
 from barthelona.verification.asm_gate import AssembleResult
 from barthelona.verification.behavior_gate import Expectation
@@ -202,6 +203,13 @@ def run(
     catalog_path: Annotated[Path, typer.Option("--catalog", help="Model catalog.")] = Path(
         "config/models.yaml"
     ),
+    trace_reasoning: Annotated[
+        str | None,
+        typer.Option(
+            "--trace-reasoning",
+            help="Append every model's reasoning and answer to this file ('-' prints to stderr).",
+        ),
+    ] = None,
 ) -> None:
     """Run TASK in chunks (or single-shot); print tokens and latency; exit non-zero unless completed."""
     try:
@@ -214,7 +222,8 @@ def run(
     expect = _expectation(expect_stdout, expect_exit)
     assemble = assemble or expect is not None
     code = code or assemble
-    gateway = Gateway(catalog, {"openai_chat": OpenAIChatBackend()}, profile=profile)
+    trace = ReasoningLog(trace_reasoning) if trace_reasoning else None
+    gateway = Gateway(catalog, {"openai_chat": OpenAIChatBackend()}, profile=profile, trace=trace)
     store = HMem(memory) if memory is not None else None
     recall = store.query(task, domain=domain, top_n=RECALL_TOP_N) if store else None
     recalled = len(recall.memories) if recall else 0
