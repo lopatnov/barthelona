@@ -3,6 +3,7 @@
 - Status: Proposed
 - Date: 2026-10-17
 - Amends: D-007
+- Amended by: D-056
 
 ## Context
 

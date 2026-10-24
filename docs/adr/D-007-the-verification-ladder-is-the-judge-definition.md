@@ -2,10 +2,12 @@
 
 - Status: Proposed
 - Date: 2026-10-13
+- Amended by: D-056
 
 ## Decision
 
 Ladder:
+
 - V0 syntax
 - V1 assemble + nm vs registry
 - V2 link
