@@ -18,9 +18,6 @@
     The worker and Streamlit communicate via SQLite (invariant 8: engine never imports Streamlit).
 #>
 
-$ErrorActionPreference = 'Stop'
-Set-StrictMode -Version Latest
-
 param(
     [string]$DbPath = "var/app.sqlite",
     [string]$CheckpointsPath = "var/checkpoints.sqlite",
@@ -32,6 +29,9 @@ param(
     [switch]$UiOnly,
     [int]$StreamlitPort = 8501
 )
+
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
 
 # Guard inactive process IDs before strict mode can complain
 $workerProcess = $null
