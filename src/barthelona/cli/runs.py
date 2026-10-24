@@ -34,6 +34,7 @@ _out = Console(soft_wrap=True, highlight=False)
 
 _DB = typer.Option("--db", help="The app database.")
 _RUNS = typer.Option("--runs", help="The per-run files folder.")
+_DEFAULT_DB = Path("var/app.sqlite")
 
 
 @runs_app.command("submit")
@@ -43,7 +44,7 @@ def submit(
     preset: Annotated[str, typer.Option(help="Target preset.")] = "linux-x64-nasm-static",
     wall_s: Annotated[float, typer.Option(min=1, help="Wall-clock limit in seconds.")] = 3600,
     tokens: Annotated[int, typer.Option(min=1, help="Token limit.")] = 400_000,
-    db: Annotated[Path, _DB] = Path("var/app.sqlite"),
+    db: Annotated[Path, _DB] = _DEFAULT_DB,
     runs: Annotated[Path, _RUNS] = Path("var/runs"),
 ) -> None:
     """Queue a create-mode run; the worker picks it up and parks it at gate G1."""
@@ -73,7 +74,7 @@ def submit(
 @runs_app.command("status")
 def status(
     run_id: Annotated[str | None, typer.Argument(help="A run id; without it, every run is listed.")] = None,
-    db: Annotated[Path, _DB] = Path("var/app.sqlite"),
+    db: Annotated[Path, _DB] = _DEFAULT_DB,
     runs: Annotated[Path, _RUNS] = Path("var/runs"),
 ) -> None:
     """Show a run's state, its open gates and its last events, or list all runs."""
@@ -103,7 +104,7 @@ def status(
 def decide(
     run_id: Annotated[str, typer.Argument(help="The run id.")],
     decision: Annotated[str, typer.Argument(help="One of the open gate's options, e.g. approve or reject.")],
-    db: Annotated[Path, _DB] = Path("var/app.sqlite"),
+    db: Annotated[Path, _DB] = _DEFAULT_DB,
 ) -> None:
     """Answer the run's one open gate; the worker continues the run."""
     with closing(open_store(db)) as store:
