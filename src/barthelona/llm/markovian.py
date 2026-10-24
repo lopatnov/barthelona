@@ -294,7 +294,9 @@ async def run_markovian(
     carryover = ""
     for index in range(config.max_chunks):
         try:
-            context = memory_context if index == 0 else (recall(carryover) if recall else "")
+            context = memory_context
+            if index > 0:
+                context = recall(carryover) if recall else ""
             completion = await gateway.complete(role, _request(task, carryover, index, config, context))
         except GatewayError:
             return MarkovianResult(

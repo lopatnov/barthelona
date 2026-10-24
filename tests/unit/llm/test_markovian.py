@@ -242,7 +242,8 @@ async def test_recall_gives_every_later_chunk_a_fresh_memory_block() -> None:
 
     result = await run_markovian(gateway, "worker", "task", _SMALL, "[MEMORY CONTEXT] first", recall)
     assert len(result.chunks) == 2
-    assert len(seen) == 1 and "write syscall" in seen[0]  # asked once, for chunk 2, with the carryover
+    assert len(seen) == 1  # asked once, for chunk 2
+    assert "write syscall" in seen[0]  # with the carryover
     assert _user_text(gateway, 0).startswith("[MEMORY CONTEXT] first")
     assert _user_text(gateway, 1).startswith("[MEMORY CONTEXT] for 1")
 
