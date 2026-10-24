@@ -121,6 +121,18 @@ in chunks, NASM decides whether it is valid. You write no assembly.
 Not possible yet: several modules, other dialects (GAS, FASM), editing an existing project, or a pass that proves
 behavior. Those need the Scrum engine and the emulator (Phase 1 and 2).
 
+## Troubleshooting
+
+| Symptom | Likely cause |
+| --- | --- |
+| `meterless status` says `unauthorized` | `METERLESS_RUNTIME_TOKEN` missing or wrong; your terminal must have loaded `.env` (`. .\scripts\activate.ps1`) |
+| `assemble: unavailable` | NASM not found: set `BARTHELONA_NASM` (or `NASM_PATH`) to `nasm.exe` |
+| A chunk "fell through" to `local_main` | the Meterless route failed (the error is printed with it) and LM Studio answered instead; stop LM Studio to see the real error |
+| A Nightshift lane shows a timeout or "provider refused the key" | NVIDIA key rejected or unreachable: re-enter it in Nightshift (Setup, Providers) and check the lane card |
+| Empty or cut-off answers from a Nemotron reasoning model | the output budget ran out while the model was thinking: raise `--chunk-tokens` |
+| Red "no lane has duty Judge or Verify" in Lanes | add a second chat lane and set Verify on it, preferably another model family; the only race lane cannot judge itself |
+| `stop_reason=green` but `assemble: fail` | `green` is the chunk loop's own marker; the `assemble:` line is the verdict |
+
 ## Known limits
 
 - Small tasks are a poor fit for chunking: the model restates the whole program in every chunk, which led to the
