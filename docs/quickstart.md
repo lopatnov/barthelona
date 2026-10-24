@@ -18,7 +18,7 @@ reason goes back to the model (D-056).
 | Sandboxed run with golden input/output (V5, V6)                  | works in `verify` for a workspace; not used by `chunked run`                                                                    |
 | Run in the emulator, compare stdout and exit code                | works: `chunked run --expect-stdout ... --expect-exit ...` for single-file `_start` programs (Linux syscalls read, write, exit) |
 | Static ABI lint (V3), dynamic ABI checks (V4)                    | library with 100% detection on the ABI corpus (`barthelona.emulator`); not yet a ladder level                                   |
-| Create or edit a whole project from a request (Scrum engine, UI) | not built (Phase 1)                                                                                                             |
+| Create or edit a whole project from a request (Scrum engine, UI) | partly: a UI walking skeleton (#251) and a create flow for single-module programs through `worker` and `runs ...` (#253) are merged; multi-module sprints are not built |
 
 ## Install
 
@@ -33,8 +33,9 @@ Windows 11 with PowerShell is the tested host (Linux is supported by design, D-0
    - Install the Nightshift app from https://meterless.ai and start it. It serves an OpenAI-compatible endpoint at
      `http://127.0.0.1:8088/v1`.
    - In Nightshift: Setup, Providers: add your NVIDIA key (free endpoint). The key lives only there, never in `.env`.
-   - NIGHT, LANES: add at least a Race lane (for example `nemotron-3.5-lightning-30b-a3b`) and, to clear the red
-     warning, a Judge or Verify lane on a different model. A model never grades its own answers.
+   - NIGHT, LANES: add at least a Race lane with a Nemotron model (the dev PC's lane answered with
+     `nvidia/nemotron-3-ultra-550b-a55b`; follow Nightshift's own model list, an earlier id here was not re-checked) and, to
+     clear the red warning, a Judge or Verify lane on a different model. A model never grades its own answers.
    - Copy the runtime token from the Nightshift Console into `.env` as `METERLESS_RUNTIME_TOKEN`
      (`METERLESS_BASE_URL` only if the URL differs). `.env` is gitignored; never commit it.
    - Check: `python -m barthelona meterless status` prints `online` and the `meterless/*` routes, `unauthorized` for a
@@ -132,9 +133,9 @@ The UI provides three pages (Phase 1a walking skeleton):
 Options:
 
 ```powershell
-.\scripts\run.ps1 --worker-only   # only the worker (no UI)
-.\scripts\run.ps1 --ui-only       # only the UI (assumes worker is running)
-.\scripts\run.ps1 --port 8501     # custom Streamlit port
+.\scripts\run.ps1 -WorkerOnly            # only the worker (no UI)
+.\scripts\run.ps1 -UiOnly                # only the UI (assumes worker is running)
+.\scripts\run.ps1 -StreamlitPort 8502    # custom Streamlit port (default 8501)
 ```
 
 ## Other commands
