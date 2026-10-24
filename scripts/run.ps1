@@ -38,7 +38,7 @@ if (-not (Test-Path $envScript)) {
     exit 1
 }
 
-function Start-Worker {
+function Invoke-Worker {
     param(
         [string]$Db,
         [string]$Checkpoints,
@@ -49,7 +49,7 @@ function Start-Worker {
         [switch]$Once
     )
 
-    $args = @(
+    $cmdArgs = @(
         "python", "-m", "barthelona", "worker",
         "--db", $Db,
         "--checkpoints", $Checkpoints,
@@ -57,27 +57,27 @@ function Start-Worker {
         "--catalog", $Catalog,
         "--poll", $Poll
     )
-    if ($Facts) { $args += "--facts-sql", $Facts }
-    if ($Once) { $args += "--once" }
+    if ($Facts) { $cmdArgs += "--facts-sql", $Facts }
+    if ($Once) { $cmdArgs += "--once" }
 
-    Write-Host "Starting worker: $($args -join ' ')" -ForegroundColor Cyan
-    return Start-Process powershell -ArgumentList "-NoExit", "-Command", "$env:PYTHONPATH='src'; $($args -join ' ')" -PassThru
+    Write-Host "Starting worker: $($cmdArgs -join ' ')" -ForegroundColor Cyan
+    return Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$env:PYTHONPATH='src'; $($cmdArgs -join ' ')" -PassThru
 }
 
-function Start-Ui {
+function Invoke-Ui {
     param(
         [int]$Port
     )
 
-    $args = @(
+    $cmdArgs = @(
         "streamlit", "run", "src/barthelona/ui/app.py",
         "--server.port", $Port,
         "--server.headless", "true",
         "--browser.gatherUsageStats", "false"
     )
 
-    Write-Host "Starting Streamlit UI: $($args -join ' ')" -ForegroundColor Green
-    return Start-Process powershell -ArgumentList "-NoExit", "-Command", "$env:PYTHONPATH='src'; $($args -join ' ')" -PassThru
+    Write-Host "Starting Streamlit UI: $($cmdArgs -join ' ')" -ForegroundColor Green
+    return Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$env:PYTHONPATH='src'; $($cmdArgs -join ' ')" -PassThru
 }
 
 # Create required directories
@@ -88,12 +88,12 @@ $uiProcess = $null
 
 try {
     if (-not $UiOnly) {
-        $workerProcess = Start-Worker -Db $DbPath -Checkpoints $CheckpointsPath -Runs $RunsPath -Catalog $CatalogPath -Facts $FactsSql -Poll $PollInterval
+        $workerProcess = Invoke-Worker -Db $DbPath -Checkpoints $CheckpointsPath -Runs $RunsPath -Catalog $CatalogPath -Facts $FactsSql -Poll $PollInterval
         Start-Sleep -Seconds 2  # Give worker time to start
     }
 
     if (-not $WorkerOnly) {
-        $uiProcess = Start-Ui -Port $StreamlitPort
+        $uiProcess = Invoke-Ui -Port $StreamlitPort
     }
 
     Write-Host ""

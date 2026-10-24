@@ -16,7 +16,7 @@ from uuid import uuid4
 
 import streamlit as st
 
-from barthelona.domain import CompositionLevel, Profile, Run, RunBudget, RunMode, TargetProfile
+from barthelona.domain import CompositionLevel, Profile, Run, RunBudget, RunMode
 from barthelona.domain.presets import builtin_presets
 from barthelona.persistence import open_store
 

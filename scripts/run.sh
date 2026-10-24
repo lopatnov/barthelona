@@ -54,10 +54,12 @@ PIDS=()
 
 cleanup() {
     echo "Stopping processes..." >&2
-    [[ -n "$WORKER_PID" ]] && kill "$WORKER_PID" 2>/dev/null || true
-    [[ -n "$UI_PID" ]] && kill "$UI_PID" 2>/dev/null || true
-    wait "$WORKER_PID" 2>/dev/null || true
-    wait "$UI_PID" 2>/dev/null || true
+    for pid in "${PIDS[@]}"; do
+        kill "$pid" 2>/dev/null || true
+    done
+    for pid in "${PIDS[@]}"; do
+        wait "$pid" 2>/dev/null || true
+    done
     echo "Stopped." >&2
 }
 
