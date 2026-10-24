@@ -180,6 +180,9 @@ def run(
     plan_role: Annotated[
         str | None, typer.Option(help="Role that writes a short plan first (e.g. planner).")
     ] = None,
+    repair_role: Annotated[
+        str | None, typer.Option(help="Role for the repair attempts (e.g. planner); default: --role.")
+    ] = None,
     review_role: Annotated[
         str | None, typer.Option(help="Role that reviews the output afterwards (e.g. cheap); advisory.")
     ] = None,
@@ -208,7 +211,11 @@ def run(
     chunk_task = f"{task}\n\nPlan from the planner (follow it):\n{plan}" if plan else task
 
     def attempt(task_text: str, number: int) -> tuple[MarkovianResult, str]:
-        result = asyncio.run(run_markovian(gateway, role, task_text, config, memory_context))
+        result = asyncio.run(
+            run_markovian(
+                gateway, (repair_role or role) if number else role, task_text, config, memory_context
+            )
+        )
         _record_stats(stats, result, task, profile, recalled, number)
         _report(result)
         return result, _answer_text(result, code, out)

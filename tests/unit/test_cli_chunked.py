@@ -125,6 +125,17 @@ def test_repair_feeds_nasm_errors_back_and_green_needs_the_second_attempt_to_ass
     log.close()
 
 
+def test_repair_attempts_can_use_a_stronger_role(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeGateway([f"```asm\nbad\n```\n{COMPLETE}", f"```asm\ngood\n```\n{COMPLETE}"])
+    monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
+    _stub_assemble(monkeypatch, AssembleResult("fail", ("line 1: bad",)), AssembleResult("pass"))
+    result = runner.invoke(
+        app, ["chunked", "run", "t", "--assemble", "--repair", "1", "--repair-role", "planner"]
+    )
+    assert result.exit_code == 0, result.output
+    assert [role for role, _ in fake.calls] == ["worker", "planner"]
+
+
 def test_a_later_chunk_that_restates_the_program_with_changes_does_not_sink_the_run(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
