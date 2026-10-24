@@ -37,6 +37,8 @@ Run `python -m barthelona --help` for the full list. Key commands:
 | `zetaris sql`               | Run read-only SQL against Zetaris                              | ✅                        |
 | `worker`                    | Run queued runs to gate G1, then codegen and gate G4           | ✅ (needs model endpoint) |
 | `runs submit/status/decide` | Queue a run, watch it, answer its gates without the UI         | ✅                        |
+| `runs package`              | Write source, golden tests, README, CI, release of a green run | ✅ (single module, NASM)  |
+| `check`                     | Assemble a NASM file and run its golden tests in the emulator  | ✅ (needs nasm)           |
 | `chunked run`               | Run a long task through the model gateway as Markovian chunks  | ✅ (needs model endpoint) |
 | `chunked stats`             | Show run statistics from SQLite DB                             | ✅                        |
 | `run.ps1` / `run.sh`        | Launch worker + Streamlit UI (Phase 1a walking skeleton)       | ✅                        |

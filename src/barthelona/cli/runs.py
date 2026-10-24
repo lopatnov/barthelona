@@ -15,6 +15,7 @@ from uuid import uuid4
 import typer
 from rich.console import Console
 
+from barthelona.cli.package import package_command
 from barthelona.domain import (
     CommandKind,
     GateDecision,
@@ -31,6 +32,8 @@ from barthelona.persistence import open_store
 
 runs_app = typer.Typer(help="Queue runs and answer their gates (the UI does the same).", no_args_is_help=True)
 _out = Console(soft_wrap=True, highlight=False)
+
+runs_app.command("package")(package_command)
 
 _DB = typer.Option("--db", help="The app database.")
 _RUNS = typer.Option("--runs", help="The per-run files folder.")
