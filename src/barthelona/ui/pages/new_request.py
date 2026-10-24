@@ -4,7 +4,7 @@ Phase 1a fields:
 - Mode: create / edit
 - Dialect/preset picker (built-in list)
 - Prompt textarea (Russian/English/Ukrainian)
-- Profile: local-only / hybrid / cloud
+- Profile: meterless (default) / local-only / hybrid / cloud
 - Budget controls (wall time, tokens, optional USD cap)
 - Collect training data checkbox (D-036)
 """
@@ -49,8 +49,9 @@ def page_new_request() -> None:
         with col2:
             profile = st.radio(
                 "Model Profile",
-                [Profile.LOCAL_ONLY, Profile.HYBRID, Profile.CLOUD],
+                [Profile.METERLESS, Profile.LOCAL_ONLY, Profile.HYBRID, Profile.CLOUD],
                 format_func=lambda p: {
+                    Profile.METERLESS: "🌙 Meterless (Nightshift: NVIDIA Nemotron lanes)",
                     Profile.LOCAL_ONLY: "🏠 Local only (LM Studio / Ollama)",
                     Profile.HYBRID: "🔀 Hybrid (cloud with local fallback)",
                     Profile.CLOUD: "☁️ Cloud (Anthropic, OpenAI, Gemini, DeepSeek)",
