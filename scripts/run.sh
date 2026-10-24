@@ -50,16 +50,17 @@ mkdir -p var var/runs workspaces
 
 WORKER_PID=""
 UI_PID=""
-PIDS=()
 
 cleanup() {
     echo "Stopping processes..." >&2
-    for pid in "${PIDS[@]}"; do
-        kill "$pid" 2>/dev/null || true
-    done
-    for pid in "${PIDS[@]}"; do
-        wait "$pid" 2>/dev/null || true
-    done
+    if [[ -n "$WORKER_PID" ]] && kill -0 "$WORKER_PID" 2>/dev/null; then
+        kill "$WORKER_PID" 2>/dev/null || true
+        wait "$WORKER_PID" 2>/dev/null || true
+    fi
+    if [[ -n "$UI_PID" ]] && kill -0 "$UI_PID" 2>/dev/null; then
+        kill "$UI_PID" 2>/dev/null || true
+        wait "$UI_PID" 2>/dev/null || true
+    fi
     echo "Stopped." >&2
 }
 
@@ -79,7 +80,6 @@ start_worker() {
     echo "Starting worker: ${args[*]}" >&2
     PYTHONPATH=src "$ENV_SCRIPT" "${args[@]}" &
     WORKER_PID=$!
-    PIDS+=("$WORKER_PID")
 }
 
 start_ui() {
@@ -93,7 +93,6 @@ start_ui() {
     echo "Starting Streamlit UI: ${args[*]}" >&2
     PYTHONPATH=src "$ENV_SCRIPT" "${args[@]}" &
     UI_PID=$!
-    PIDS+=("$UI_PID")
 }
 
 if [[ "$UI_ONLY" != true ]]; then
@@ -112,4 +111,23 @@ echo "  Streamlit: $UI_PID on http://127.0.0.1:$STREAMLIT_PORT" >&2
 echo ""
 echo "Press Ctrl+C to stop both processes." >&2
 
-wait "${PIDS[@]}"
+# Wait for both processes, detect which exits first
+if [[ -n "$WORKER_PID" && -n "$UI_PID" ]]; then
+    # Both running, wait for first to exit
+    while kill -0 "$WORKER_PID" 2>/dev/null && kill -0 "$UI_PID" 2>/dev/null; do
+        sleep 1
+    done
+    # One has exited, stop the other
+    if kill -0 "$WORKER_PID" 2>/dev/null; then
+        kill "$WORKER_PID" 2>/dev/null || true
+        wait "$WORKER_PID" 2>/dev/null || true
+    fi
+    if kill -0 "$UI_PID" 2>/dev/null; then
+        kill "$UI_PID" 2>/dev/null || true
+        wait "$UI_PID" 2>/dev/null || true
+    fi
+elif [[ -n "$WORKER_PID" ]]; then
+    wait "$WORKER_PID"
+elif [[ -n "$UI_PID" ]]; then
+    wait "$UI_PID"
+fi

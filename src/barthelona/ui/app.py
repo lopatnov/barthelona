@@ -25,29 +25,24 @@ def main() -> None:
         initial_sidebar_state="expanded",
     )
 
-    st.sidebar.title("barthelona")
-    st.sidebar.caption("Meta-Agentic Scrum for Assembly")
-
-    # Page routing
-    page = st.sidebar.radio(
-        "Navigation",
-        ["New Request", "Approvals", "Live Run"],
-        index=0,
-        key="page_selector",
-    )
-
     # Initialize session state for run tracking
     if "active_run_id" not in st.session_state:
         st.session_state.active_run_id = None
     if "event_poll_interval" not in st.session_state:
         st.session_state.event_poll_interval = 1.0  # seconds
 
-    if page == "New Request":
-        page_new_request()
-    elif page == "Approvals":
-        page_approvals()
-    elif page == "Live Run":
-        page_live_run()
+    # Define pages using st.Page for proper multipage navigation
+    pages = {
+        "Navigation": [
+            st.Page(page_new_request, title="New Request", icon="📝"),
+            st.Page(page_approvals, title="Approvals", icon="✅"),
+            st.Page(page_live_run, title="Live Run", icon="📊"),
+        ]
+    }
+
+    # Configure navigation
+    pg = st.navigation(pages)
+    pg.run()
 
 
 if __name__ == "__main__":

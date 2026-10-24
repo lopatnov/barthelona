@@ -42,11 +42,11 @@ def _render_gate_request(store: Store, gate: Any, run: Any) -> bool:
 
         # Render payload based on gate kind
         if kind == GateKind.G1_SPEC:
-            _render_g1_spec(gate, run)
+            _render_g1_spec(gate)
         elif kind == GateKind.G2_CONTRACTS:
-            _render_g2_contracts(gate, run)
+            _render_g2_contracts(gate)
         elif kind == GateKind.G4_FINAL:
-            _render_g4_final(gate, run)
+            _render_g4_final(gate)
         else:
             st.json(gate.payload)
 
@@ -87,7 +87,7 @@ def _render_gate_request(store: Store, gate: Any, run: Any) -> bool:
     return False
 
 
-def _render_g1_spec(gate: Any, run: Any) -> None:
+def _render_g1_spec(gate: Any) -> None:
     """Render G1 spec approval payload."""
     payload = gate.payload
 
@@ -125,7 +125,7 @@ def _render_g1_spec(gate: Any, run: Any) -> None:
                     st.text(str(value))
 
 
-def _render_g2_contracts(gate: Any, run: Any) -> None:
+def _render_g2_contracts(gate: Any) -> None:
     """Render G2 contracts approval payload."""
     payload = gate.payload
 
@@ -155,7 +155,12 @@ def _render_verification_report(report: dict[str, Any]) -> None:
     for level, result in report.items():
         if isinstance(result, dict):
             status = result.get("status", "unknown")
-            icon = "✅" if status == "pass" else "❌" if status == "fail" else "⚪"
+            if status == "pass":
+                icon = "✅"
+            elif status == "fail":
+                icon = "❌"
+            else:
+                icon = "⚪"
             st.write(f"{icon} **{level}**: {status}")
             if "details" in result:
                 with st.expander(f"{level} details"):
@@ -175,7 +180,7 @@ def _render_other_artifacts(payload: dict[str, Any], exclude_keys: set[str]) -> 
                     st.text(str(value))
 
 
-def _render_g4_final(gate: Any, run: Any) -> None:
+def _render_g4_final(gate: Any) -> None:
     """Render G4 final acceptance payload."""
     payload = gate.payload
 
@@ -205,6 +210,19 @@ def page_approvals() -> None:
 
     store = open_store(Path("var/app.sqlite"))
 
+    # Auto-refresh controls (moved before early return)
+    st.sidebar.divider()
+    if st.sidebar.button("🔄 Refresh Now"):
+        st.rerun()
+
+    auto_refresh = st.sidebar.checkbox("Auto-refresh (2s)", value=False)
+    if auto_refresh:
+        st.sidebar.caption("Refreshing every 2 seconds...")
+        import time
+
+        time.sleep(2)
+        st.rerun()
+
     try:
         # Get all runs that are waiting at a gate
         runs = store.list_runs(RunStatus.WAITING_GATE)
@@ -230,19 +248,6 @@ def page_approvals() -> None:
         st.error(f"Error loading approvals: {e}")
     finally:
         store.close()
-
-    # Auto-refresh
-    st.sidebar.divider()
-    if st.sidebar.button("🔄 Refresh Now"):
-        st.rerun()
-
-    auto_refresh = st.sidebar.checkbox("Auto-refresh (2s)", value=False)
-    if auto_refresh:
-        st.sidebar.caption("Refreshing every 2 seconds...")
-        import time
-
-        time.sleep(2)
-        st.rerun()
 
 
 if __name__ == "__main__":

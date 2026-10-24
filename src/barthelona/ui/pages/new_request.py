@@ -18,6 +18,7 @@ import streamlit as st
 
 from barthelona.domain import CompositionLevel, Profile, Run, RunBudget, RunMode
 from barthelona.domain.presets import builtin_presets
+from barthelona.engine.host import REQUEST_FILE, run_dir
 from barthelona.persistence import open_store
 
 
@@ -136,15 +137,22 @@ def page_new_request() -> None:
         try:
             store = open_store(Path("var/app.sqlite"))
             store.create_run(run)
+
+            # Persist the prompt where the worker expects it (invariant 8 + host.load_request)
+            runs_dir = Path("var/runs")
+            req_path = run_dir(runs_dir, run.id) / REQUEST_FILE
+            req_path.parent.mkdir(parents=True, exist_ok=True)
+            req_path.write_text(prompt.strip(), encoding="utf-8", newline="\n")
+
             store.close()
 
             st.success(f"Run created: `{run_id}`")
             st.info(f"Workspace: `{workspace}`")
             st.info("Switch to the **Approvals** page to review gates, or **Live Run** to watch execution.")
 
-            # Offer to switch pages
-            if st.button("Go to Approvals →"):
-                st.session_state.page_selector = "Approvals"
+            # Offer to switch pages - use query params or callback
+            if st.button("Go to Approvals →", key="goto_approvals"):
+                st.query_params["page"] = "Approvals"
                 st.rerun()
 
         except Exception as e:

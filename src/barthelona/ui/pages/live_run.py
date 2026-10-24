@@ -137,9 +137,8 @@ def _render_run_controls(run_id: str, run: Any, store: Store) -> None:
 
 
 def _get_active_runs(store: Store) -> list[Any]:
-    """Get all non-stopped runs."""
-    runs = store.list_runs()
-    return [r for r in runs if r.status != RunStatus.STOPPED]
+    """Get all runs including stopped ones for inspection."""
+    return store.list_runs()
 
 
 def _render_run_header(run: Any) -> None:
@@ -174,20 +173,31 @@ def _render_event_log(run: Any, store: Store) -> None:
         if st.button("🔄 Refresh Now"):
             st.rerun()
 
-    # Session state for last seen sequence
-    state_key = f"last_seq_{run.id}"
-    if state_key not in st.session_state:
-        st.session_state[state_key] = -1
+    # Session state for event history and last seen sequence
+    history_key = f"event_history_{run.id}"
+    seq_key = f"last_seq_{run.id}"
+    
+    if history_key not in st.session_state:
+        st.session_state[history_key] = []
+    if seq_key not in st.session_state:
+        st.session_state[seq_key] = -1
 
     # Fetch new events
-    events = store.events_after(run.id, after_seq=st.session_state[state_key], limit=100)
+    events = store.events_after(run.id, after_seq=st.session_state[seq_key], limit=100)
 
     if events:
-        st.session_state[state_key] = events[-1].seq
+        st.session_state[seq_key] = events[-1].seq
+        # Prepend new events to history (oldest first for display)
+        for event in events:
+            st.session_state[history_key].insert(0, event)
+        # Keep bounded history (last 500 events)
+        if len(st.session_state[history_key]) > 500:
+            st.session_state[history_key] = st.session_state[history_key][:500]
 
-    # Display events (newest first)
-    if events:
-        for event in reversed(events):
+    # Display accumulated event history (newest first)
+    history = st.session_state[history_key]
+    if history:
+        for event in history:
             st.markdown(_format_event(event))
     else:
         st.caption("No events yet...")

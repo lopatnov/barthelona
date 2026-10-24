@@ -1,4 +1,4 @@
-<#>
+<#
 .SYNOPSIS
     Launches the barthelona worker and Streamlit UI.
 
@@ -9,11 +9,17 @@
 
 .EXAMPLE
     .\scripts\run.ps1
+    .\scripts\run.ps1 -WorkerOnly
+    .\scripts\run.ps1 -UiOnly
+    .\scripts\run.ps1 -StreamlitPort 8502
 
 .NOTES
     Requires the conda environment 'barthelona' to be created (scripts/create_env.ps1).
     The worker and Streamlit communicate via SQLite (invariant 8: engine never imports Streamlit).
 #>
+
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
 
 param(
     [string]$DbPath = "var/app.sqlite",
@@ -27,6 +33,10 @@ param(
     [int]$StreamlitPort = 8501
 )
 
+# Guard inactive process IDs before strict mode can complain
+$workerProcess = $null
+$uiProcess = $null
+
 # Ensure we run from the repo root
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $repoRoot
@@ -39,6 +49,7 @@ if (-not (Test-Path $envScript)) {
 }
 
 function Invoke-Worker {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [string]$Db,
         [string]$Checkpoints,
@@ -60,11 +71,15 @@ function Invoke-Worker {
     if ($Facts) { $cmdArgs += "--facts-sql", $Facts }
     if ($Once) { $cmdArgs += "--once" }
 
-    Write-Host "Starting worker: $($cmdArgs -join ' ')" -ForegroundColor Cyan
-    return Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$env:PYTHONPATH='src'; $($cmdArgs -join ' ')" -PassThru
+    if ($PSCmdlet.ShouldProcess("worker process", "Start worker")) {
+        Write-Host "Starting worker: $($cmdArgs -join ' ')" -ForegroundColor Cyan
+        $scriptBlock = [scriptblock]::Create("& `"$envScript`" " + ($cmdArgs | ForEach-Object { [System.Management.Automation.CodeGenerator]::EncodeScriptBlockParameter($_) }) -join " ")
+        return Start-Process powershell -ArgumentList "-Command", $scriptBlock -PassThru
+    }
 }
 
 function Invoke-Ui {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [int]$Port
     )
@@ -76,15 +91,15 @@ function Invoke-Ui {
         "--browser.gatherUsageStats", "false"
     )
 
-    Write-Host "Starting Streamlit UI: $($cmdArgs -join ' ')" -ForegroundColor Green
-    return Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$env:PYTHONPATH='src'; $($cmdArgs -join ' ')" -PassThru
+    if ($PSCmdlet.ShouldProcess("Streamlit UI process", "Start Streamlit UI")) {
+        Write-Host "Starting Streamlit UI: $($cmdArgs -join ' ')" -ForegroundColor Green
+        $scriptBlock = [scriptblock]::Create("& `"$envScript`" " + ($cmdArgs | ForEach-Object { [System.Management.Automation.CodeGenerator]::EncodeScriptBlockParameter($_) }) -join " ")
+        return Start-Process powershell -ArgumentList "-Command", $scriptBlock -PassThru
+    }
 }
 
 # Create required directories
 $null = New-Item -ItemType Directory -Force -Path "var", "var/runs", "workspaces"
-
-$workerProcess = $null
-$uiProcess = $null
 
 try {
     if (-not $UiOnly) {
@@ -103,15 +118,27 @@ try {
     Write-Host ""
     Write-Host "Press Ctrl+C to stop both processes." -ForegroundColor Yellow
 
-    # Wait for both processes
+    # Wait for both processes, detect which exits first
     $processes = @()
     if ($workerProcess) { $processes += $workerProcess }
     if ($uiProcess) { $processes += $uiProcess }
 
-    Wait-Process -Id $processes.Id -ErrorAction SilentlyContinue
+    if ($processes.Count -gt 0) {
+        $exited = Wait-Process -Id $processes.Id -ErrorAction SilentlyContinue -PassThru
+        # Stop the remaining process
+        foreach ($p in $processes) {
+            if (-not $p.HasExited) {
+                Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            }
+        }
+        if ($exited.ExitCode -ne 0) {
+            exit $exited.ExitCode
+        }
+    }
 }
 catch {
     Write-Error "Error: $_"
+    exit 1
 }
 finally {
     Write-Host "Stopping processes..." -ForegroundColor Yellow
