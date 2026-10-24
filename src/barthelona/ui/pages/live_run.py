@@ -176,7 +176,7 @@ def _render_event_log(run: Any, store: Store) -> None:
     # Session state for event history and last seen sequence
     history_key = f"event_history_{run.id}"
     seq_key = f"last_seq_{run.id}"
-    
+
     if history_key not in st.session_state:
         st.session_state[history_key] = []
     if seq_key not in st.session_state:

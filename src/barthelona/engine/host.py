@@ -92,15 +92,17 @@ def services_for(
         (folder / TESTS_FILE).write_bytes(orjson.dumps(tests, option=orjson.OPT_INDENT_2) + b"\n")
 
     def emit_zetaris_error(run_id: str, message: str) -> None:
-        store.append_events([
-            RunEvent(
-                run_id=run_id,
-                seq=store.next_seq(run_id),
-                ts=datetime.now(UTC),
-                kind=EventKind.ERROR,
-                payload={"message": message},
-            )
-        ])
+        store.append_events(
+            [
+                RunEvent(
+                    run_id=run_id,
+                    seq=store.next_seq(run_id),
+                    ts=datetime.now(UTC),
+                    kind=EventKind.ERROR,
+                    payload={"message": message},
+                )
+            ]
+        )
 
     if facts is None:
         facts = default_facts(emit_event=emit_zetaris_error)
