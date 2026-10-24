@@ -52,8 +52,7 @@ python -m barthelona probe --output config/toolchains.lock.json --transport auto
 **Prerequisites:**
 
 - Docker running in WSL (Windows) or on Linux host
-- `bart-tc` container built: `docker build -t bart-tc docker/toolchain`
-- `bart-tc` container running: `docker run -d --name bart-tc bart-tc sleep infinity`
+- `bart-tc` and `bart-run` images built and `bart-tc` running: one command, `scripts/setup-toolchain.sh` (Windows: `wsl -d Ubuntu -e bash scripts/setup-toolchain.sh`), see `docs/runbook.md` section 2.3
 
 ### 2.2 `verify` — Verification Ladder
 
@@ -286,10 +285,8 @@ Each has:
 **Run with Docker (Linux host or WSL):**
 
 ```bash
-# Build and start containers
-docker build -t bart-tc docker/toolchain
-docker build -t bart-run docker/runner
-docker run -d --name bart-tc bart-tc sleep infinity
+# Build the images and start bart-tc (idempotent; Windows: wsl -d Ubuntu -e bash scripts/setup-toolchain.sh)
+scripts/setup-toolchain.sh
 
 # Run verification
 python -m barthelona verify tests/projects/nasm-triple --level V6 --dialect nasm \
@@ -392,15 +389,13 @@ barthelona/
 1. **Run the probe** to lock toolchain versions:
 
    ```bash
-   docker build -t bart-tc docker/toolchain
-   docker run -d --name bart-tc bart-tc sleep infinity
+   scripts/setup-toolchain.sh   # Windows: wsl -d Ubuntu -e bash scripts/setup-toolchain.sh
    python -m barthelona probe
    ```
 
 2. **Run the verification ladder** on the test projects:
 
    ```bash
-   docker build -t bart-run docker/runner
    python -m barthelona verify tests/projects/nasm-triple --level V6 --dialect nasm \
      --contracts tests/projects/nasm-triple/contracts.yaml \
      --tests tests/projects/nasm-triple/tests.yaml

@@ -38,7 +38,7 @@ _SYSTEM = (
     "Never repeat work that the state summary says is done.\n"
     "Put all code in fenced blocks (three backticks). Text outside the fences is commentary and is dropped."
 )
-_FENCE = re.compile(r"^```([^\n]*)\n(.*?)^```[ \t]*$", re.DOTALL | re.MULTILINE)
+_FENCE_LINE = re.compile(r"^```([^`]*)$")
 _SHELL_TAGS = frozenset({"bash", "sh", "shell", "console", "text", "output", "powershell", "cmd", "make"})
 
 
@@ -60,28 +60,60 @@ def _normalized_lines(block: str) -> list[str]:
     return [line for line in stripped if line]
 
 
+def _fenced_blocks(text: str) -> list[tuple[str, str]]:
+    """(tag, body) of every fenced block. A block the model never closed ends where the next one opens
+    (seen live: ```asm three times in a row, only the last two closed) or at the end of the text."""
+    blocks: list[tuple[str, str]] = []
+    tag = ""
+    body: list[str] | None = None
+    for line in text.splitlines():
+        fence = _FENCE_LINE.match(line.rstrip())
+        if body is None:
+            if fence:
+                tag, body = fence.group(1).strip(), []
+        elif fence and not fence.group(1).strip():
+            blocks.append((tag, "\n".join(body)))
+            body = None
+        elif fence:
+            blocks.append((tag, "\n".join(body)))
+            tag, body = fence.group(1).strip(), []
+        else:
+            body.append(line)
+    if body is not None:
+        blocks.append((tag, "\n".join(body)))
+    return blocks
+
+
 def source_blocks(text: str) -> list[str]:
     """Every fenced block of *text* that is source: not a shell command or program output, repeats kept."""
     return [
-        match.group(2).rstrip("\n")
-        for match in _FENCE.finditer(text)
-        if match.group(1).strip().lower() not in _SHELL_TAGS and not _runs_only_build_tools(match.group(2))
+        body.rstrip("\n")
+        for tag, body in _fenced_blocks(text)
+        if body.strip() and tag.lower() not in _SHELL_TAGS and not _runs_only_build_tools(body)
     ]
+
+
+def _is_prefix(shorter: list[str], longer: list[str]) -> bool:
+    return _MIN_REPEAT_LINES <= len(shorter) < len(longer) and longer[: len(shorter)] == shorter
 
 
 def extract_code(text: str) -> str:
     """The source blocks of *text*, joined.
 
-    A block whose every code line already appeared in an earlier block is the model repeating the program
-    (seen live: the whole file emitted twice, the second copy without comments); it is dropped.
+    A block that is only the start of a later block is a restart or a cut-off copy of it and is dropped; so is
+    a block whose every code line already appeared in an earlier block (the whole file emitted twice, the
+    second copy without comments).
     """
+    candidates = source_blocks(text)
+    lines = [_normalized_lines(block) for block in candidates]
     blocks: list[str] = []
     seen: set[str] = set()
-    for block in source_blocks(text):
-        lines = _normalized_lines(block)
-        if len(lines) >= _MIN_REPEAT_LINES and seen.issuperset(lines):
+    for index, block in enumerate(candidates):
+        if any(_is_prefix(lines[index], later) for later in lines[index + 1 :]):
             continue
-        seen.update(lines)
+        if len(lines[index]) >= _MIN_REPEAT_LINES and seen.issuperset(lines[index]):
+            continue
+        seen.update(lines[index])
         blocks.append(block)
     return "\n".join(blocks)
 

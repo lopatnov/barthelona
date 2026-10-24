@@ -63,6 +63,46 @@ python -m barthelona chunked run @demos/hello/task.txt --profile meterless --ass
 Read the result by the `assemble:` line (`pass`, `fail`, `unavailable`). The `stop_reason=green` line is the chunk
 loop's own marker, not the assembler's verdict.
 
+## Create your own assembly program
+
+Today a program is one NASM file (x86-64 Linux, `nasm -f elf64`). You describe it in a text file, Barthelona writes it
+in chunks, NASM decides whether it is valid. You write no assembly.
+
+1. **Write the task as plain text**, the way you would brief a colleague. Copy `demos/hello/task.txt` as a start:
+
+   ```powershell
+   mkdir demos\myprog
+   copy demos\hello\task.txt demos\myprog\task.txt
+   ```
+
+   Say what the program must do, the platform (Linux x86-64, raw syscalls, no libc), the exact output and the exit
+   code. The more concrete the task, the fewer repair rounds it needs. Keep it a prompt a person could write.
+2. **Run it** from the repository root, in the activated terminal, as one line. The output goes to your folder, not to
+   the repository root:
+
+   ```powershell
+   python -m barthelona chunked run @demos/myprog/task.txt --profile meterless --assemble --repair 2 --memory var/hmem.sqlite --stats var/runs.sqlite --out demos/myprog/myprog.asm
+   ```
+
+   - `@file` reads the task from the file; plain text in quotes works too.
+   - `--repair-role planner` lets a deeper model do the repair rounds; `--plan-role planner` plans first.
+   - `--facts-sql "SELECT ..."` gives the first chunk rows from Zetaris (optional).
+3. **Read the result.** `assemble: pass` means NASM accepted `demos/myprog/myprog.asm`. On `assemble: fail` the file is
+   not trustworthy: read the errors, then `demos/myprog/myprog.asm.raw.txt` (the model's unfiltered text), sharpen the
+   task and run again. Runs that share the `--memory` file reuse what earlier passing runs learned.
+4. **Look at the numbers:** `python -m barthelona chunked stats` shows per model the chunks, tokens and time.
+5. **Try the program yourself, outside Barthelona.** It was only assembled, never run. On Linux or in WSL:
+
+   ```bash
+   nasm -f elf64 demos/myprog/myprog.asm -o /tmp/myprog.o && ld /tmp/myprog.o -o /tmp/myprog && /tmp/myprog; echo $?
+   ```
+
+   Run only code you have read. The product never runs generated code on the host (invariant 2); this check is yours.
+   The sandboxed run (V5/V6) is the part still to be wired into `chunked run`.
+
+Not possible yet: several modules, other dialects (GAS, FASM), editing an existing project, or a pass that proves
+behavior. Those need the Scrum engine and the emulator (Phase 1 and 2).
+
 ## Other commands
 
 | Command | What it does |
@@ -84,5 +124,14 @@ loop's own marker, not the assembler's verdict.
 | A chunk fell through to `local_main` | the Meterless route failed (see the error printed with it); LM Studio answered instead |
 | Lane shows a timeout or "provider refused the key" | NVIDIA key rejected or unreachable; re-enter it in Nightshift |
 | Empty or truncated answers from a Nemotron reasoning model | the output budget ran out while it was thinking; raise `--chunk-tokens` |
+
+## Known limits
+
+- Small tasks are a poor fit for chunking: the model restates the whole program in every chunk, which caused the
+  duplicate-label and unclosed-fence failures fixed in #224 and #228. Longer tasks show the effect better.
+- All Nightshift lanes seen so far serve NVIDIA Nemotron models; "more than one model family" still needs a lane from
+  another provider.
+- Zetaris access is tested against a fake server only; registering a table of assembler facts is manual.
+- Nothing here is judged on behavior, only on whether NASM accepts it.
 
 Hackathon design notes, what is ported from the Meterless engines and what is not: `docs/hackathon-demo.md`.
