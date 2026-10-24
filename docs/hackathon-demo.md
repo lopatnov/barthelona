@@ -47,8 +47,8 @@ what the assembler or the emulator rejected as a lesson.
 
 ## Zetaris facts
 
-Zetaris must be running (the hackathon guide, Data part 1.9) and its API key created by you in the Zetaris web
-interface. Put `ZETARIS_API_KEY` (and `ZETARIS_REST_URL`, `ZETARIS_ORG_ID` if they differ from
+Zetaris must be running (the hackathon guide, [Layer 1](hackathon-demo-guide.md#layer-1-data--zetaris)) and its API
+key created by you in the Zetaris web interface. Put `ZETARIS_API_KEY` (and `ZETARIS_REST_URL`, `ZETARIS_ORG_ID` if they differ from
 `http://localhost:8888/api/v1.0` and `1`) in `.env`. Then:
 
 - `python -m barthelona zetaris status` runs `SELECT 1` and prints `online`, `unauthorized`, `offline` or `unconfigured`.
@@ -58,9 +58,20 @@ interface. Put `ZETARIS_API_KEY` (and `ZETARIS_REST_URL`, `ZETARIS_ORG_ID` if th
   untrusted-data block (the injection guard can refuse them). A missing key or a failing Zetaris stops the run; it is
   never skipped silently.
 
-The request follows the guide (`POST /sql-editor/sqls/run`, bearer key, `X-Org-ID`, `X-Request-ID`). It was tested
-against a fake HTTP transport only: it has not run against a real Zetaris yet. Registering a table of assembler
-facts (for example Linux x86-64 syscall numbers) in Zetaris is still manual.
+The request follows the guide (`POST /sql-editor/sqls/run`, bearer key, `X-Org-ID`, `X-Request-ID`). Unit tests use
+a fake HTTP transport; on 2026-10-24 it also ran against the owner's local Zetaris, with two knowledge tables
+registered from `knowledge/zetaris/` (steps in its README; the numbers still need a documentation check). The worker
+reads both tables into its prompts by default when `ZETARIS_API_KEY` is set; with the default statement a down
+Zetaris gives a run without facts, with an explicit `--facts-sql` it stops the run. `zetaris seed` and `zetaris publish` are described in
+[zetaris-engines.md](zetaris-engines.md).
+
+## Status on 2026-10-24
+
+The create flow through the worker reached `green` on free Nemotron for the hello and digits tasks, and `runs package`
+produced a project with README, CI and release workflow from one of them. The compounding claim above is **not**
+proven: those tasks fit in one chunk, and the multi-chunk task (FizzBuzz) has not passed yet (#246). The English
+temperament demo stopped at gate G1 on wrong golden tests (#259). The full account is in the
+[demo guide](hackathon-demo-guide.md#where-it-stands).
 
 ## Tests that can fail (Meterless prompt "Prove each test can fail")
 

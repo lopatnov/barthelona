@@ -455,13 +455,16 @@ recorded in the LLM-call ledger, and a bad reply is sent back once (two bad repl
 `max_attempts`; an exhausted chain stops it as `no_model_available`). Not built yet: G0 questions, a reference
 model and the emulator cross-check of the test examples. `worker --facts-sql "SELECT ..."` reads one Zetaris
 statement per run (needs `ZETARIS_API_KEY`) and adds its rows to the spec and test-author prompts, marked as
-untrusted data; a failing Zetaris stops the run as `infra_error`. The tables to load are in
-`knowledge/zetaris/`. A `resume` command with `approve` or `reject` continues the run;
+untrusted data; a failing Zetaris stops the run as `infra_error` (without `--facts-sql` the worker reads the
+knowledge tables by default and a down Zetaris just gives no facts). The tables to load are in
+`knowledge/zetaris/`. `runs decide <run_id> approve|reject` (or the UI's Approvals page) continues the run;
 `reject` and `cancel` stop it as `human_abort`; a crash is recovered from `var/checkpoints.sqlite`. `approve` at G1 starts
 `codegen`: the Markovian chunk loop (Zetaris facts and an H-MEM recall in every chunk; `worker --memory`, default
 `hmem.sqlite` next to `--db`) writes one NASM file from the spec, then NASM assembles it and the Unicorn
 emulator runs every golden test. A rejected program is sent back with the checker's report up to twice; an
 accepted one is saved as `var/runs/<run_id>/main.asm`, written to H-MEM and shown at gate G4, and `approve` there
 ends the run as `green`. If the oracle rejects every attempt the run stops as `max_attempts` and never reaches G4.
-This is the single-module slice: no architect, contracts or sprint loop yet, so results are ABI-unverified. There is no UI page for it yet; the commands go in through the store
-(`Store.enqueue_command`).
+This is the single-module slice: no architect, contracts or sprint loop yet, so results are ABI-unverified. Runs are
+queued and answered with `runs submit/status/decide/package` ([create-flow.md](create-flow.md)) or in the Streamlit UI.
+Live evidence and what is not proven yet (compounding, the temperament demo) are in the
+[hackathon demo guide](hackathon-demo-guide.md#where-it-stands).
