@@ -2,6 +2,8 @@
 
 This document describes the **actual, runnable capabilities** of barthelona as of Phase 0. The engine (Meta-Agentic Scrum loop, AI-composed sprint graphs, Streamlit UI) does **not exist yet** — those are Phase 1 deliverables. What follows is the deterministic spine: toolchains, verification, model gateway, and CLI tools that work **without any LLM**.
 
+> **Integration guides:** [`docs/meterless-guide.md`](meterless-guide.md) | [`docs/zetaris-guide.md`](zetaris-guide.md)
+
 ---
 
 ## 1. Quick Start (Windows PowerShell)
@@ -92,6 +94,8 @@ python -m barthelona meterless status --url http://127.0.0.1:8088/v1
 # or set METERLESS_BASE_URL and METERLESS_RUNTIME_TOKEN in .env
 ```
 
+> **Full guide:** [`docs/meterless-guide.md`](meterless-guide.md) — installation, lane config, profiles, H-MEM, troubleshooting
+
 **What it does:**
 
 - Calls `GET /v1/models` with the `METERLESS_RUNTIME_TOKEN` (Bearer auth)
@@ -158,6 +162,8 @@ python -m barthelona zetaris status
 python -m barthelona zetaris sql "SELECT * FROM my_table LIMIT 10"
 # or: zetaris sql --limit 100 "WITH cte AS (...) SELECT * FROM cte"
 ```
+
+> **Full guide:** [`docs/zetaris-guide.md`](zetaris-guide.md) — installation, API key, SQL queries, `--facts-sql` injection, fact registration
 
 **Environment variables:**
 | Variable | Default | Required |

@@ -2,6 +2,8 @@
 
 Setting up and operating the barthelona development environment on this machine (Windows 11 + WSL2 Ubuntu 26.04).
 
+> **Integration guides:** [`docs/meterless-guide.md`](meterless-guide.md) | [`docs/zetaris-guide.md`](zetaris-guide.md)
+
 ## 1. Python environment (Windows, conda)
 
 Conda supplies only Python 3.13 and pip; every package comes from a hash-locked file (`docs/adr/D-031`).
@@ -12,6 +14,7 @@ Conda supplies only Python 3.13 and pip; every package comes from a hash-locked 
 ```
 
 Options:
+
 - `.\scripts\create_env.ps1 -Deps runtime`: runtime packages only. Updates make the env match the lock exactly (`scripts/prune_env.py` removes packages that are not in it). `-Recreate` refuses to run while the env is active in that shell.
 - `.\scripts\create_env.ps1 -Recreate`: rebuild from scratch.
 - `.\scripts\lock.ps1`: re-lock after editing dependencies in `pyproject.toml`. Pins are kept unless you pass `-Upgrade` or `-UpgradePackage name1,name2`. It also writes `requirements/pyproject-deps.sha256`, a fingerprint of the dependency declaration. The doctor, the SessionStart hook and a unit test use it to detect a forgotten re-lock.
@@ -19,6 +22,7 @@ Options:
 - Git Bash: `scripts/create_env.sh` and `source scripts/activate.sh`.
 
 `activate.ps1`:
+
 - sets `PYTHONUTF8=1`, `WSL_UTF8=1` and `BARTHELONA_HOME`;
 - sets defaults for `LMSTUDIO_BASE_URL`, `OLLAMA_BASE_URL` and `QDRANT_URL`;
 - loads `KEY=VALUE` lines from `.env`. It prints key names only, never values.
@@ -32,6 +36,7 @@ Copy `.env.example` to `.env` and fill in only the keys you want to use. If Powe
 ### 1.1 Linux host (D-049)
 
 The engine runs on Linux as well as Windows; Linux is the reference host and CI uses it. What works today and what is planned:
+
 - Today: `scripts/create_env.sh`, `source scripts/activate.sh` and `scripts/dev.sh <cmd>` do what the PowerShell scripts do. Docker must be installed and your user allowed to run it. Build the toolchain images as in §2.3 on the host itself; there is no WSL layer.
 - Planned (Phase 1a, D-043): a local executor transport that talks to Docker directly, so a Linux host needs no WSL agent. Until it lands, a Linux host can run the unit tests, lint and type checks, but not the `wsl`-marked integration tests or `verify`.
 - The Windows/WSL rules in §2 and §8 apply only to a Windows host.
@@ -61,6 +66,7 @@ sudo apt-get update && sudo apt-get install -y nasm yasm fasm gdb
 ```
 
 Later phases may need: `gdb-multiarch libc6-dev-i386 lib32gcc-15-dev mingw-w64 lld llvm binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu binutils-riscv64-linux-gnu gcc-riscv64-linux-gnu qemu-user qemu-system-x86`.
+
 - Do **not** install `gcc-multilib`: it conflicts with the cross compilers.
 - Do **not** install `qemu-user-binfmt`: it makes foreign binaries run silently.
 
@@ -106,8 +112,10 @@ docker run -d --name qdrant-db --restart unless-stopped --network <same-network-
 Keep the same container name and network, so `mcp-server-qdrant` keeps working.
 
 **Availability.** Observed 2026-10-13: the WSL VM shuts down shortly after the last WSL process exits, and both Qdrant containers restart on every VM boot. `qdrant-db` then reloads its collections from `/mnt/c` (the log warns "Unrecognized filesystem - cannot guarantee data safety"), and port 6333 refuses connections for tens of seconds.
+
 - Why: `docker compose up -d` returns, and docker running under systemd does not count as activity. WSL stops an idle distro after `[general] instanceIdleTimeout` (default 15 s) and then the VM after `[wsl2] vmIdleTimeout` (default 60 s), per https://learn.microsoft.com/en-us/windows/wsl/wsl-config (checked 2026-10-13, WSL 3.0.3). Containers come back on the next boot (`restart: unless-stopped`, docker enabled in systemd), but only after something boots the VM.
 - Recommended (owner action, roadmap decision 3): keep WSL always on and cap its memory in `%UserProfile%\.wslconfig`, then run `wsl --shutdown` once:
+
   ```ini
   [general]
   instanceIdleTimeout=-1   # never stop the distro when idle
@@ -116,6 +124,7 @@ Keep the same container name and network, so `mcp-server-qdrant` keeps working.
   memory=8GB               # leave RAM for LM Studio models on Windows
   processors=8
   ```
+
 - Without it: keep a WSL terminal open, or start the VM on demand (`wsl -d Ubuntu -e true`; Qdrant answers after a few seconds). From Phase 1, `scripts/run.ps1` and the long-lived WSL agent keep the VM up while the app runs.
 - The named-volume migration of `qdrant-db` above also makes its startup faster.
 
@@ -124,11 +133,13 @@ Keep the same container name and network, so `mcp-server-qdrant` keeps working.
 The server runs at `http://127.0.0.1:1234/v1`.
 
 For the Phase 0 bake-off, download these in the LM Studio UI or with `lms get`, confirming the exact catalog identifiers in LM Studio:
+
 - Qwen3-Coder-30B-A3B (Q4, about 17–19 GB);
 - gpt-oss-20b;
 - optionally Qwen3.6-35B-A3B (about 20 GB).
 
 Load the chosen model with:
+
 - a fixed context of 16384 (at most 32768);
 - q8_0 KV-cache quantization, if offered.
 
@@ -137,11 +148,13 @@ Keep only one large model loaded at a time.
 ### 4.1 Models on other PCs (D-049, D-052)
 
 LM Studio and Ollama may run on other PCs, so the engine host and the models need not share a machine:
+
 - On the model PC, enable the server's network listening (LM Studio: "Serve on Local Network"; Ollama: `OLLAMA_HOST=0.0.0.0`) and allow the port in that PC's firewall. Only do this on a trusted LAN; neither server authenticates by default.
 - Today, point the single local endpoint at it with `LMSTUDIO_BASE_URL=http://<lan-ip>:1234/v1` (use the IP address, not `localhost`); `config/models.yaml` also has a `LAN_LMSTUDIO_BASE_URL` entry for a second LM Studio. `python -m barthelona bench models` shows whether it answers and what it serves.
 - Planned: several endpoints at once as `endpoints[]` in `config/models.yaml` (Phase 1a loader, Phase 1b scheduler). Each PC is calibrated once for prompt and decode speed and context (D-052), and the scheduler uses those numbers to place work. Until then, one endpoint at a time.
 
 Run the bake-off on the dev tasks (needs the `bart-tc` and `bart-run` containers, as for `verify`):
+
 - run `python -m barthelona bench models` to see what each local endpoint serves (it reports a stopped LM Studio server as `down`; `bench run` also stops before any task when the endpoint is down or does not serve the model);
 - add the candidate to `config/models.yaml` as a local model, then `python -m barthelona bench run --model <catalog key> --seeds 3`;
 - the results append to `var/bench/results.jsonl`; `python -m barthelona bench report var/bench/results.jsonl` prints pass@1 with its interval, first try, attempts, tok/s, seed noise and the paired `fix` vs `single` comparison, one table per model (`--model <key>` shows one; a rerun row replaces the earlier row of the same model, arm, task and seed);
@@ -154,6 +167,9 @@ Run the bake-off on the dev tasks (needs the `bart-tc` and `bart-run` containers
 Keys go in `.env` (never committed): `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`. The model catalog, roles and fallback chains are in `config/models.yaml`.
 
 Cloud use is opt-in per run, and a dollar cap is optional. A provider that fails or runs out of credit is skipped automatically, and the run continues on the next model in the chain, ending with the local model (`docs/architecture.md` §16.6).
+
+> **Meterless/Nightshift:** See [`docs/meterless-guide.md`](meterless-guide.md) for complete setup (Nightshift UI, lanes, token, profiles, H-MEM, troubleshooting).
+> **Zetaris:** See [`docs/zetaris-guide.md`](zetaris-guide.md) for complete setup (Docker, API key, SQL queries, `--facts-sql` injection).
 
 ## 6. Claude Code (development assistant)
 
@@ -180,17 +196,17 @@ Cloud use is opt-in per run, and a dollar cap is optional. A provider that fails
 
 ## 8. Troubleshooting
 
-| Symptom | Cause / fix |
-| --- | --- |
-| `conda activate` does nothing in a new PowerShell | Dot-source the script: `. .\scripts\activate.ps1` (note the leading dot) |
-| `pip ... THESE PACKAGES DO NOT MATCH THE HASHES` | The lock is stale for this platform; run `.\scripts\lock.ps1`, then `create_env.ps1` |
-| Qdrant or Qdrant MCP `ECONNREFUSED` | The WSL VM is stopped; start it (`wsl -d Ubuntu -e true`) |
-| `probe`, `verify` or `bench run` says a container is not running or an image is not built | Run `scripts/setup-toolchain.sh` (§2.3) |
-| `wsl -l` output looks garbled | Set `WSL_UTF8=1` (activate does this) |
-| Assembler errors only in WSL, not on Windows | CRLF line endings; `.gitattributes` forces LF for sources, so re-checkout the files |
-| `python3` in Git Bash prints "Python was not found" | It is the Windows Store alias; use `scripts/dev.sh python` (or `python` in an activated terminal) |
-| A `/tmp/...` path written inside Python code is not found | Windows Python reads `/tmp/x` as `C:\tmp\x`; Git Bash converts it only when it is a separate argument. Use the session scratchpad or a repo-relative path |
-| A `-v /abs:/abs` or `/path` argument arrives mangled in WSL or docker | Git Bash path conversion for native programs; pass one quoted `bash -lc '...'` string, prefix `MSYS_NO_PATHCONV=1`, or use PowerShell |
-| `git add a b` staged nothing | One missing path aborts the whole add (`fatal: pathspec ... did not match any files`); check `git status --porcelain` |
-| Output keeps appearing after a background task was stopped | Child processes (`python`, `pytest`, `docker`) survive; find them with `Get-CimInstance Win32_Process` filtered on `CommandLine` and stop them |
-| An agent's `ruff`/`pytest` call says the command is not found | Agent shells start without the env; use `.\scripts\dev.ps1 <cmd>` / `scripts/dev.sh <cmd>` |
+| Symptom                                                                                   | Cause / fix                                                                                                                                               |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `conda activate` does nothing in a new PowerShell                                         | Dot-source the script: `. .\scripts\activate.ps1` (note the leading dot)                                                                                  |
+| `pip ... THESE PACKAGES DO NOT MATCH THE HASHES`                                          | The lock is stale for this platform; run `.\scripts\lock.ps1`, then `create_env.ps1`                                                                      |
+| Qdrant or Qdrant MCP `ECONNREFUSED`                                                       | The WSL VM is stopped; start it (`wsl -d Ubuntu -e true`)                                                                                                 |
+| `probe`, `verify` or `bench run` says a container is not running or an image is not built | Run `scripts/setup-toolchain.sh` (§2.3)                                                                                                                   |
+| `wsl -l` output looks garbled                                                             | Set `WSL_UTF8=1` (activate does this)                                                                                                                     |
+| Assembler errors only in WSL, not on Windows                                              | CRLF line endings; `.gitattributes` forces LF for sources, so re-checkout the files                                                                       |
+| `python3` in Git Bash prints "Python was not found"                                       | It is the Windows Store alias; use `scripts/dev.sh python` (or `python` in an activated terminal)                                                         |
+| A `/tmp/...` path written inside Python code is not found                                 | Windows Python reads `/tmp/x` as `C:\tmp\x`; Git Bash converts it only when it is a separate argument. Use the session scratchpad or a repo-relative path |
+| A `-v /abs:/abs` or `/path` argument arrives mangled in WSL or docker                     | Git Bash path conversion for native programs; pass one quoted `bash -lc '...'` string, prefix `MSYS_NO_PATHCONV=1`, or use PowerShell                     |
+| `git add a b` staged nothing                                                              | One missing path aborts the whole add (`fatal: pathspec ... did not match any files`); check `git status --porcelain`                                     |
+| Output keeps appearing after a background task was stopped                                | Child processes (`python`, `pytest`, `docker`) survive; find them with `Get-CimInstance Win32_Process` filtered on `CommandLine` and stop them            |
+| An agent's `ruff`/`pytest` call says the command is not found                             | Agent shells start without the env; use `.\scripts\dev.ps1 <cmd>` / `scripts/dev.sh <cmd>`                                                                |

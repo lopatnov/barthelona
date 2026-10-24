@@ -11,6 +11,9 @@ A local-first agentic system that creates or edits **multi-file assembly project
   - [Guides & References](#guides--references)
   - [Architecture Decision Records (ADRs)](#architecture-decision-records-adrs)
   - [Configuration & Source Code](#configuration--source-code)
+- [Integration Guides](#integration-guides)
+  - [Meterless (Nightshift) Guide](#meterless-nightshift-guide)
+  - [Zetaris Guide](#zetaris-guide)
 - [Demo](#demo)
 - [License](#license)
 
@@ -82,6 +85,8 @@ See [`docs/runbook.md`](docs/runbook.md) for detailed installation, WSL configur
 
 - **[`docs/current-status.md`](docs/current-status.md)** — **Comprehensive technical reference** (actual runnable capabilities): detailed CLI commands, verification ladder V0–V8, model gateway, Meterless/Zetaris integration, chunked runs, training data, test projects, code generation, what doesn't work yet, directory layout, next steps for contributors
 - **[`docs/quickstart.md`](docs/quickstart.md)** — **Concise getting-started guide**: installation, running the hello demo, creating your own assembly program, troubleshooting, known limits
+- **[`docs/meterless-guide.md`](docs/meterless-guide.md)** — **Complete Meterless/Nightshift guide**: installation, Nightshift UI setup, lane configuration, profiles, H-MEM, troubleshooting
+- **[`docs/zetaris-guide.md`](docs/zetaris-guide.md)** — **Complete Zetaris guide**: installation, API key setup, SQL queries, `--facts-sql` injection, fact registration, troubleshooting
 - **[`docs/architecture.md`](docs/architecture.md)** — The design: Scrum mapping, AI-composed sprint graphs, verification ladder, sandbox, knowledge, model routing and resilience, UI
 - **[`docs/roadmap.md`](docs/roadmap.md)** — Phases, exit criteria, open decisions
 - **[`docs/runbook.md`](docs/runbook.md)** — Environment setup and troubleshooting
@@ -113,6 +118,33 @@ The [`docs/adr/`](docs/adr/) directory contains all architecture decisions (D-00
 - **[`AGENTS.md`](AGENTS.md)**, **[`CLAUDE.md`](CLAUDE.md)**, **[`.claude/`](.claude/)** — Instructions and configuration for coding agents (Claude Code; Codex via a generated mirror)
 - **[`config/models.yaml`](config/models.yaml)** — Model catalog, role chains, budgets, resilience
 - **[`src/barthelona/`](src/barthelona/)** — Source code: CLI, domain, executors, toolchains, verification, contracts, LLM gateway, persistence, training
+
+## Integration Guides
+
+### Meterless (Nightshift) Guide
+
+[`docs/meterless-guide.md`](docs/meterless-guide.md) — Complete step-by-step guide for Meterless Nightshift:
+
+- **Installation & Nightshift UI setup** — download, providers, lanes, runtime token
+- **Barthelona configuration** — `config/models.yaml` provider/models/role chains explained
+- **Profiles & role chains** — `meterless`, `local-only`, `hybrid`, `cloud`; when to use each
+- **Running tasks** — `chunked run` flags, `--assemble`, `--repair`, `--expect-stdout`, `--memory`, `--plan-role`
+- **H-MEM memory** — how recall/write works, running the memory proof (demos/hello)
+- **Troubleshooting** — unauthorized, unavailable, fallback to local, lane warnings, thinking budget
+- **Advanced** — LAN deployment, custom models, timeouts, disabling thinking
+
+### Zetaris Guide
+
+[`docs/zetaris-guide.md`](docs/zetaris-guide.md) — Complete step-by-step guide for Zetaris:
+
+- **Installation** — Docker, existing instance
+- **Setup** — API key creation, connection details
+- **Barthelona configuration** — `.env` variables
+- **Verification** — `zetaris status`, `zetaris sql` test queries
+- **Using with `chunked run`** — `--facts-sql` injection, how facts enter chunk 1
+- **Registering assembler facts** — intended schema, manual registration, future automation
+- **Troubleshooting** — unauthorized, offline, unconfigured, query errors, injection guard
+- **Advanced** — combining with H-MEM, different profiles, programmatic Python access
 
 ## Demo
 
