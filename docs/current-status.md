@@ -295,7 +295,8 @@ the checker, not demos of the builder.
 | `gas-triple` | GAS Intel syntax | `main.s`, `io.s`, `math.s` |
 
 Each folder has `contracts.yaml` (the functions and their registers and stack rules) and `tests.yaml` (V5 harness
-calls and V6 whole-program output). They target **Linux x86-64**. Docker runs on Linux natively or inside WSL2 on
+calls and V6 whole-program output). The `gen/` folder next to them is generated from
+`contracts.yaml` (section 6) and committed; `verify --contracts` stops at the tamper gate if it is missing or edited. They target **Linux x86-64**. Docker runs on Linux natively or inside WSL2 on
 Windows, so the same command works on both hosts (see 2.2 for the OS rules).
 
 NASM:
