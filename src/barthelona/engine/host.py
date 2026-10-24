@@ -29,8 +29,8 @@ def run_dir(runs_dir: Path, run_id: str) -> Path:
 
 
 DEFAULT_FACTS_SQL = (
-    "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls"
-    " UNION ALL SELECT topic, fact, '', '' FROM barthelona_files.abi_facts"
+    "SELECT number, name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls"
+    " UNION ALL SELECT topic, fact, '', '', '' FROM barthelona_files.abi_facts"
 )
 
 

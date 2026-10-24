@@ -9,7 +9,9 @@ from typing import Annotated
 import typer
 from rich.console import Console
 
+from barthelona.llm.hmem import HMem
 from barthelona.llm.zetaris import DEFAULT_LIMIT, ZetarisConfig, ZetarisError, probe, run_sql
+from barthelona.llm.zetaris_memory import seed_hmem
 from barthelona.llm.zetaris_publish import (
     DATABASE,
     copy_into_container,
@@ -75,3 +77,24 @@ def publish(
         f"published {len(files)} tables to {DATABASE}; newly registered: {', '.join(created) or 'none'}",
         markup=False,
     )
+
+
+@zetaris_app.command("seed")
+def seed(
+    memory: Annotated[Path, typer.Option(help="H-MEM database to seed.")] = Path("var/hmem.sqlite"),
+    domain: Annotated[str, typer.Option(help="H-MEM domain of the seeded facts.")] = "assembly",
+) -> None:
+    """Turn the registered knowledge tables into H-MEM memories, so chunked runs recall them per task."""
+    config = ZetarisConfig.from_env(os.environ)
+    if config is None:
+        _out.print("unconfigured: set ZETARIS_API_KEY", markup=False)
+        raise typer.Exit(1)
+    store = HMem(memory)
+    try:
+        written = seed_hmem(config, store, domain)
+        _out.print(f"seeded {written} new facts; H-MEM now holds {store.count()}", markup=False)
+    except ZetarisError as exc:
+        _out.print(str(exc), markup=False)
+        raise typer.Exit(1) from exc
+    finally:
+        store.close()
