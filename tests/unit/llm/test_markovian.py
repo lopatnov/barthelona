@@ -227,3 +227,28 @@ def test_a_block_left_open_at_the_end_of_the_text_is_kept() -> None:
 def test_a_stray_fence_before_a_tagged_block_does_not_hide_it() -> None:
     text = "```\n```asm\nsection .text\n_start:\n    ret\n```"
     assert extract_code(text) == "section .text\n_start:\n    ret"
+
+
+_STATE = "COMPLETED: wrote the write syscall. REMAINING: exit. DECISIONS: none"
+
+
+async def test_recall_gives_every_later_chunk_a_fresh_memory_block() -> None:
+    seen: list[str] = []
+    gateway = FakeGateway([f"a\n{CHECKPOINT}\n{_STATE}", f"b\n{COMPLETE}"])
+
+    def recall(state: str) -> str:
+        seen.append(state)
+        return f"[MEMORY CONTEXT] for {len(seen)}"
+
+    result = await run_markovian(gateway, "worker", "task", _SMALL, "[MEMORY CONTEXT] first", recall)
+    assert len(result.chunks) == 2
+    assert len(seen) == 1 and "write syscall" in seen[0]  # asked once, for chunk 2, with the carryover
+    assert _user_text(gateway, 0).startswith("[MEMORY CONTEXT] first")
+    assert _user_text(gateway, 1).startswith("[MEMORY CONTEXT] for 1")
+
+
+async def test_without_recall_later_chunks_get_no_memory_block() -> None:
+    gateway = FakeGateway([f"a\n{CHECKPOINT}\n{_STATE}", f"b\n{COMPLETE}"])
+    await run_markovian(gateway, "worker", "task", _SMALL, "[MEMORY CONTEXT] first")
+    assert "[MEMORY CONTEXT]" in _user_text(gateway, 0)
+    assert "[MEMORY CONTEXT]" not in _user_text(gateway, 1)
