@@ -10,7 +10,6 @@ schema (roadmap Phase 1b).
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable
 from typing import Annotated
 
@@ -27,8 +26,6 @@ INTAKE_ROLE = "main"
 SPEC_ROLE = "planner"
 
 OnCall = Callable[[LLMCallRecord], None]
-
-_FENCE = re.compile(r"^```[a-z]*\s*|\s*```$", re.MULTILINE)
 
 _INTAKE_PROMPT = """You prepare a request for an assembly-language project.
 The request may be in any language. Answer with ONE JSON object and nothing else:
@@ -70,11 +67,10 @@ class SpecDraft(DomainModel):
 
 
 def _json_object(text: str) -> object:
-    body = _FENCE.sub("", text.strip())
-    start, end = body.find("{"), body.rfind("}")
+    start, end = text.find("{"), text.rfind("}")  # also skips a code fence around the object
     if start < 0 or end < start:
         raise ValueError("the reply holds no JSON object")
-    return orjson.loads(body[start : end + 1])
+    return orjson.loads(text[start : end + 1])
 
 
 async def _ask[Model: DomainModel](
