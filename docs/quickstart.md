@@ -121,9 +121,11 @@ behavior. Those need the Scrum engine and the emulator (Phase 1 and 2).
 | --- | --- |
 | `meterless status` says `unauthorized` | wrong or missing `METERLESS_RUNTIME_TOKEN`; your shell must have loaded `.env` |
 | `assemble: unavailable` | NASM not found: set `BARTHELONA_NASM` to `nasm.exe` |
-| A chunk fell through to `local_main` | the Meterless route failed (see the error printed with it); LM Studio answered instead |
+| A chunk fell through to `local_main` | the Meterless route failed (see the error printed with it); LM Studio answered instead. Stop LM Studio to see the real error |
 | Lane shows a timeout or "provider refused the key" | NVIDIA key rejected or unreachable; re-enter it in Nightshift |
 | Empty or truncated answers from a Nemotron reasoning model | the output budget ran out while it was thinking; raise `--chunk-tokens` |
+| Red "no lane has duty Judge or Verify" in Nightshift Lanes | add a second chat lane and set Verify on it, preferably another model family; the only race lane cannot judge itself |
+| `stop_reason=green` but `assemble: fail` | `green` is the chunk loop's own marker; the `assemble:` line is the verdict |
 
 ## Known limits
 
