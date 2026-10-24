@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated
 
@@ -99,6 +100,13 @@ def _side_call(gateway: Gateway, role: str | None, label: str, instruction: str,
         markup=False,
     )
     return done.text.strip()
+
+
+def _chunk_recall(store: HMem | None, task: str, domain: str) -> Callable[[str], str] | None:
+    """Per-chunk H-MEM recall for the run's state so far, so no chunk after the first runs without memory."""
+    if store is None:
+        return None
+    return lambda state: store.query(f"{task}\n{state}", domain=domain, top_n=RECALL_TOP_N).context
 
 
 def _remember(store: HMem, result: MarkovianResult, recalled: int, domain: str, verdict: str) -> None:
@@ -225,12 +233,16 @@ def run(
     plan = _side_call(gateway, plan_role, "plan", _PLAN, task)
     chunk_task = f"{task}\n\nPlan from the planner (follow it):\n{plan}" if plan else task
 
+    chunk_recall = _chunk_recall(store, task, domain)
+
     def attempt(task_text: str, number: int) -> tuple[MarkovianResult, str]:
         attempt_role = (repair_role or role) if number else role
         if single_shot:
             result = asyncio.run(run_single_shot(gateway, attempt_role, task_text, memory_context))
         else:
-            result = asyncio.run(run_markovian(gateway, attempt_role, task_text, config, memory_context))
+            result = asyncio.run(
+                run_markovian(gateway, attempt_role, task_text, config, memory_context, chunk_recall)
+            )
         _record_stats(stats, result, task, profile, recalled, number)
         _report(result)
         return result, _answer_text(result, code, out)
