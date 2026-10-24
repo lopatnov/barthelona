@@ -216,7 +216,10 @@ def run(
         _record_stats(stats, result, task, profile, recalled, 0)
         _report(result)
         text = _answer_text(result, code, out)
-        gate = None
+        if assemble:
+            text, gate = _assemble(result, text, nasm)
+        else:
+            gate = None
     else:
         def attempt(task_text: str, number: int) -> tuple[MarkovianResult, str]:
             result = asyncio.run(run_markovian(gateway, role, task_text, config, memory_context))
