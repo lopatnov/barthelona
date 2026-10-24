@@ -1,0 +1,38 @@
+number,name,arg1,arg2,arg3,arg4,arg5,arg6,note
+0,read,rdi=fd,rsi=buf,rdx=count,,,,returns bytes read or -errno in rax
+1,write,rdi=fd,rsi=buf,rdx=count,,,,returns bytes written or -errno in rax
+2,open,rdi=pathname,rsi=flags,rdx=mode,,,,prefer openat
+3,close,rdi=fd,,,,,,
+8,lseek,rdi=fd,rsi=offset,rdx=whence,,,,
+9,mmap,rdi=addr,rsi=length,rdx=prot,r10=flags,r8=fd,r9=offset,fourth argument is r10 not rcx
+10,mprotect,rdi=addr,rsi=len,rdx=prot,,,,
+11,munmap,rdi=addr,rsi=length,,,,,
+12,brk,rdi=addr,,,,,,
+16,ioctl,rdi=fd,rsi=request,rdx=argp,,,,
+22,pipe,rdi=pipefd,,,,,,
+32,dup,rdi=oldfd,,,,,,
+33,dup2,rdi=oldfd,rsi=newfd,,,,,
+35,nanosleep,rdi=req,rsi=rem,,,,,
+39,getpid,,,,,,,
+41,socket,rdi=domain,rsi=type,rdx=protocol,,,,
+42,connect,rdi=sockfd,rsi=addr,rdx=addrlen,,,,
+43,accept,rdi=sockfd,rsi=addr,rdx=addrlen,,,,
+49,bind,rdi=sockfd,rsi=addr,rdx=addrlen,,,,
+50,listen,rdi=sockfd,rsi=backlog,,,,,
+56,clone,rdi=flags,rsi=stack,rdx=parent_tid,r10=child_tid,r8=tls,,
+57,fork,,,,,,,
+59,execve,rdi=pathname,rsi=argv,rdx=envp,,,,
+60,exit,rdi=status,,,,,,never returns; the exit code is the low 8 bits of status
+61,wait4,rdi=pid,rsi=wstatus,rdx=options,r10=rusage,,,
+62,kill,rdi=pid,rsi=sig,,,,,
+63,uname,rdi=buf,,,,,,
+72,fcntl,rdi=fd,rsi=cmd,rdx=arg,,,,
+79,getcwd,rdi=buf,rsi=size,,,,,
+80,chdir,rdi=path,,,,,,
+83,mkdir,rdi=pathname,rsi=mode,,,,,
+87,unlink,rdi=pathname,,,,,,
+96,gettimeofday,rdi=tv,rsi=tz,,,,,
+102,getuid,,,,,,,
+228,clock_gettime,rdi=clockid,rsi=tp,,,,,
+231,exit_group,rdi=status,,,,,,ends all threads; what a static program should use to exit
+257,openat,rdi=dirfd,rsi=pathname,rdx=flags,r10=mode,,,

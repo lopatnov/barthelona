@@ -1,0 +1,12 @@
+topic,fact
+syscall_instruction,"x86-64 Linux: number in rax, arguments in rdi rsi rdx r10 r8 r9, instruction `syscall`"
+syscall_return,"rax holds the result; values from -4095 to -1 are -errno"
+syscall_clobbers,"`syscall` destroys rcx and r11; all other registers are preserved"
+sysv_arguments,"SysV AMD64 function call: integer or pointer arguments in rdi rsi rdx rcx r8 r9, then the stack"
+sysv_return,"SysV AMD64: integer result in rax (rdx for the second half of a 128-bit value)"
+sysv_callee_saved,"SysV AMD64 callee-saved: rbx rbp r12 r13 r14 r15 (and rsp)"
+sysv_caller_saved,"SysV AMD64 caller-saved: rax rcx rdx rsi rdi r8 r9 r10 r11 and all vector registers"
+sysv_stack_alignment,"rsp is 16-byte aligned immediately before a `call` (so rsp+8 is 16-byte aligned at function entry)"
+sysv_red_zone,"128 bytes below rsp are usable by a leaf function without adjusting rsp"
+static_entry,"A static NASM program starts at _start with no return address: it must end with the exit or exit_group syscall"
+nasm_elf64,"nasm -f elf64 prog.asm && ld -o prog prog.o builds a static Linux x86-64 executable"
