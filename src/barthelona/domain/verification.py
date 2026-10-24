@@ -49,6 +49,7 @@ class Expectation(DomainModel):
     regs: dict[str, TestValue] = Field(default_factory=dict)
     mem: dict[str, TestValue] = Field(default_factory=dict)  # symbol or address expression -> bytes
     stdout: str | None = None
+    stdout_contains: list[ShortText] = Field(default_factory=list, max_length=16)  # texts stdout must hold
     exit_code: int | None = None
 
 

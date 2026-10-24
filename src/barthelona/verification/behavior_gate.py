@@ -18,11 +18,15 @@ _SHOWN = 200
 
 @dataclass(frozen=True)
 class Expectation:
-    """What a correct program does; ``stdout`` None means the output is not checked."""
+    """What a correct program does; ``stdout`` None means the output is not checked exactly.
+
+    ``contains`` are texts the output must hold, for programs whose other output is free.
+    """
 
     stdout: bytes | None = None
     exit_code: int = 0
     stdin: bytes = b""
+    contains: tuple[bytes, ...] = ()
 
 
 def _shown(data: bytes) -> str:
@@ -50,6 +54,11 @@ def check_behavior(source: str, expect: Expectation, nasm: str | None = None) ->
     problems = []
     if expect.stdout is not None and run.stdout != expect.stdout:
         problems.append(f"stdout was {_shown(run.stdout)}, expected {_shown(expect.stdout)}")
+    problems += [
+        f"stdout does not contain {_shown(text)}; it was {_shown(run.stdout)}"
+        for text in expect.contains
+        if text not in run.stdout
+    ]
     if run.exit_code != expect.exit_code:
         problems.append(f"exit code was {run.exit_code}, expected {expect.exit_code}")
     return AssembleResult("fail", tuple(problems)) if problems else AssembleResult("pass")

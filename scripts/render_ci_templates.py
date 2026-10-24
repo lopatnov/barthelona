@@ -10,7 +10,7 @@ from pathlib import Path
 
 from barthelona.domain.enums import ABI, OS, Arch, Dialect, Linker, ObjFormat, RunEnv
 from barthelona.domain.project import ModuleSpec, ProjectSpec, TargetProfile
-from barthelona.scaffold import render_ci
+from barthelona.scaffold import render_ci, render_golden_ci
 
 SAMPLE_REF = "0" * 40
 
@@ -46,6 +46,10 @@ def main(out_dir: Path) -> None:
             target = out_dir / str(dialect) / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(text, encoding="utf-8", newline="\n")
+    golden = out_dir / "nasm-golden" / ".github" / "workflows" / "ci.yml"
+    golden.parent.mkdir(parents=True, exist_ok=True)
+    text = render_golden_ci(sample_project(Dialect.NASM), SAMPLE_REF, "src/main.asm", "tests/golden.json")
+    golden.write_text(text, encoding="utf-8", newline="\n")
 
 
 if __name__ == "__main__":

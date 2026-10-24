@@ -72,6 +72,29 @@ def render_ci(
     return {out: _render(family, name, values) for name, out in _TEMPLATE_OUTPUTS.items()}
 
 
+def build_commands(project: ProjectSpec) -> list[str]:
+    """The shell lines that assemble and link the project, as the release workflow runs them."""
+    ci_family(project.target)
+    return _linux_x64_values(project, "0" * 40, ())["BUILD_COMMANDS"].split("\n")
+
+
+def render_golden_ci(project: ProjectSpec, barthelona_ref: str, source: str, tests: str) -> str:
+    """The ``ci.yml`` of a single-module project: assemble it and run its golden tests in the emulator."""
+    ci_family(project.target)
+    if project.target.dialect is not Dialect.NASM:
+        raise UnsupportedCiTarget(f"the golden CI runs NASM sources only, not {project.target.dialect}")
+    if not _COMMIT_SHA.match(barthelona_ref):
+        raise UnsupportedCiTarget(f"barthelona_ref must be a full commit sha, got {barthelona_ref!r}")
+    values = {
+        "SLUG": project.slug,
+        "BARTHELONA_REF": barthelona_ref,
+        "SOURCE": shlex.quote(source),
+        "TESTS": shlex.quote(tests),
+    }
+    _reject_expression_injection(values)
+    return _render(LINUX_X64, "ci-golden.yml", values)
+
+
 def _linux_x64_values(project: ProjectSpec, ref: str, required_levels: tuple[str, ...]) -> Mapping[str, str]:
     target = project.target
     modules = [PurePosixPath(m.path) for m in project.modules]

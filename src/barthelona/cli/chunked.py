@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import os
 import time
-from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated
 
@@ -28,8 +27,9 @@ from barthelona.llm import (
     run_markovian,
     run_single_shot,
 )
-from barthelona.llm.hmem import HMem, facts_from_state
+from barthelona.llm.hmem import RECALL_TOP_N, HMem, chunk_recall, facts_from_state
 from barthelona.llm.runlog import RunLog
+from barthelona.llm.trace import ReasoningLog
 from barthelona.llm.zetaris import ZetarisConfig, ZetarisError, facts_block, run_sql
 from barthelona.verification.asm_gate import AssembleResult
 from barthelona.verification.behavior_gate import Expectation
@@ -68,9 +68,6 @@ def _table(result: MarkovianResult) -> Table:
     return table
 
 
-# Zetaris-seeded memory is many short facts (one per syscall): recall more than the spec default of 5.
-RECALL_TOP_N = 8
-
 _PLAN = "Write a short numbered plan (at most 8 steps, under 200 words) for the task. No code."
 _REVIEW = (
     "Review this output against the task. List concrete problems (wrong syntax, missing parts, wrong "
@@ -100,13 +97,6 @@ def _side_call(gateway: Gateway, role: str | None, label: str, instruction: str,
         markup=False,
     )
     return done.text.strip()
-
-
-def _chunk_recall(store: HMem | None, task: str, domain: str) -> Callable[[str], str] | None:
-    """Per-chunk H-MEM recall for the run's state so far, so no chunk after the first runs without memory."""
-    if store is None:
-        return None
-    return lambda state: store.query(f"{task}\n{state}", domain=domain, top_n=RECALL_TOP_N).context
 
 
 def _remember(store: HMem, result: MarkovianResult, recalled: int, domain: str, verdict: str) -> None:
@@ -213,6 +203,13 @@ def run(
     catalog_path: Annotated[Path, typer.Option("--catalog", help="Model catalog.")] = Path(
         "config/models.yaml"
     ),
+    trace_reasoning: Annotated[
+        str | None,
+        typer.Option(
+            "--trace-reasoning",
+            help="Append every model's reasoning and answer to this file ('-' prints to stderr).",
+        ),
+    ] = None,
 ) -> None:
     """Run TASK in chunks (or single-shot); print tokens and latency; exit non-zero unless completed."""
     try:
@@ -225,7 +222,8 @@ def run(
     expect = _expectation(expect_stdout, expect_exit)
     assemble = assemble or expect is not None
     code = code or assemble
-    gateway = Gateway(catalog, {"openai_chat": OpenAIChatBackend()}, profile=profile)
+    trace = ReasoningLog(trace_reasoning) if trace_reasoning else None
+    gateway = Gateway(catalog, {"openai_chat": OpenAIChatBackend()}, profile=profile, trace=trace)
     store = HMem(memory) if memory is not None else None
     recall = store.query(task, domain=domain, top_n=RECALL_TOP_N) if store else None
     recalled = len(recall.memories) if recall else 0
@@ -233,7 +231,7 @@ def run(
     plan = _side_call(gateway, plan_role, "plan", _PLAN, task)
     chunk_task = f"{task}\n\nPlan from the planner (follow it):\n{plan}" if plan else task
 
-    chunk_recall = _chunk_recall(store, task, domain)
+    recall_chunk = chunk_recall(store, task, domain)
 
     def attempt(task_text: str, number: int) -> tuple[MarkovianResult, str]:
         attempt_role = (repair_role or role) if number else role
@@ -241,7 +239,7 @@ def run(
             result = asyncio.run(run_single_shot(gateway, attempt_role, task_text, memory_context))
         else:
             result = asyncio.run(
-                run_markovian(gateway, attempt_role, task_text, config, memory_context, chunk_recall)
+                run_markovian(gateway, attempt_role, task_text, config, memory_context, recall_chunk)
             )
         _record_stats(stats, result, task, profile, recalled, number)
         _report(result)

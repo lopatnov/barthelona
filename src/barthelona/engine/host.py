@@ -20,11 +20,13 @@ from barthelona.domain import (
     RunEvent,
     TestCase,
 )
-from barthelona.engine.graph import Services
+from barthelona.engine.graph import SOURCE_FILE, Services
 from barthelona.engine.preflight import preflight_for
 from barthelona.llm.gateway import ModelGateway
+from barthelona.llm.hmem import HMem
 from barthelona.llm.zetaris import ZetarisConfig, ZetarisError, facts_block, run_sql
 from barthelona.persistence import Store
+from barthelona.verification.asm_gate import find_nasm
 
 REQUEST_FILE = "request.txt"
 SPEC_FILE = "spec.json"
@@ -80,6 +82,8 @@ def services_for(
     runs_dir: Path,
     gateway_for: Callable[[Run], ModelGateway],
     facts: Callable[[], str] | None = None,
+    memory: HMem | None = None,
+    nasm: str | None = None,
 ) -> Services:
     def load_request(run_id: str) -> str:
         return (run_dir(runs_dir, run_id) / REQUEST_FILE).read_text(encoding="utf-8")
@@ -90,6 +94,11 @@ def services_for(
         (folder / SPEC_FILE).write_text(spec.model_dump_json(indent=2), encoding="utf-8", newline="\n")
         tests = [case.model_dump(mode="json") for case in cases]
         (folder / TESTS_FILE).write_bytes(orjson.dumps(tests, option=orjson.OPT_INDENT_2) + b"\n")
+
+    def save_source(run_id: str, source: str) -> None:
+        folder = run_dir(runs_dir, run_id)
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / SOURCE_FILE).write_text(source + "\n", encoding="utf-8", newline="\n")
 
     def emit_zetaris_error(run_id: str, message: str) -> None:
         store.append_events(
@@ -115,4 +124,7 @@ def services_for(
         record_call=store.record_llm_call,
         save_spec=save_spec,
         facts=facts,
+        save_source=save_source,
+        nasm=find_nasm(nasm),
+        memory=memory,
     )

@@ -34,6 +34,7 @@ class Profile(StrEnum):
     LOCAL_ONLY = "local-only"
     HYBRID = "hybrid"
     CLOUD = "cloud"
+    METERLESS = "meterless"  # the catalog profile that routes through Nightshift (Meterless Runtime)
 
 
 class RunStatus(StrEnum):

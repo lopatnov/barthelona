@@ -34,6 +34,7 @@ class Completion(DomainModel):
     served_by: str  # catalog key of the model that answered
     fallbacks: tuple[str, ...] = ()  # one reason per chain entry that was skipped or failed first
     answered_by: str = ""  # the model id the provider reported, e.g. the lane a router picked
+    reasoning: str = ""  # what the model thought before answering; kept for the optional reasoning log only
 
 
 class GatewayError(RuntimeError):
@@ -64,6 +65,7 @@ class ModelCallError(GatewayError):
         code: str | None = None,
         fix: tuple[str, ...] = (),
         chat_carrier: bool | None = None,
+        retry_after: float | None = None,
     ) -> None:
         super().__init__(message)
         self.kind = kind
@@ -71,3 +73,4 @@ class ModelCallError(GatewayError):
         self.code = code
         self.fix = fix
         self.chat_carrier = chat_carrier
+        self.retry_after = retry_after  # seconds the provider asked to wait, the minimum before a repeat
