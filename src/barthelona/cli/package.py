@@ -14,7 +14,7 @@ from typing import Annotated
 import typer
 from rich.console import Console
 
-from barthelona.domain import ProjectSpec, StopReason, TestCase
+from barthelona.domain import DEMOS_DIR, ProjectSpec, StopReason, TestCase
 from barthelona.engine.codegen import check_all
 from barthelona.engine.graph import SOURCE_FILE
 from barthelona.engine.host import REQUEST_FILE, SPEC_FILE, TESTS_FILE, run_dir
@@ -27,10 +27,13 @@ _out = Console(soft_wrap=True, highlight=False)
 
 def package_command(
     run_id: Annotated[str, typer.Argument(help="A run that stopped green.")],
-    out: Annotated[Path, typer.Option(help="The folder that receives the project.")],
     barthelona_ref: Annotated[
         str, typer.Option(help="Full commit sha of barthelona that the generated CI installs.")
     ],
+    out: Annotated[
+        Path | None,
+        typer.Option(help="The folder that receives the project (default: the run's demos/ folder)."),
+    ] = None,
     db: Annotated[Path, typer.Option("--db", help="The app database.")] = Path("var/app.sqlite"),
     runs: Annotated[Path, typer.Option("--runs", help="The per-run files folder.")] = Path("var/runs"),
     force: Annotated[bool, typer.Option(help="Overwrite files that already exist in --out.")] = False,
@@ -39,6 +42,9 @@ def package_command(
     with closing(open_store(db)) as store:
         run = store.get_run(run_id)
         calls = store.llm_calls(run_id)
+    target_dir = out or Path(run.workspace)
+    if out is None and not run.workspace.startswith(f"{DEMOS_DIR}/"):
+        raise typer.BadParameter(f"run {run_id} has no demos/ folder (workspace {run.workspace}); pass --out")
     if run.stop_reason is not StopReason.GREEN:
         raise typer.BadParameter(f"run {run_id} did not stop green ({run.stop_reason}); nothing to package")
     folder = run_dir(runs, run_id)
@@ -56,11 +62,11 @@ def package_command(
         )
     except UnsupportedCiTarget as exc:
         raise typer.BadParameter(str(exc)) from exc
-    taken = [name for name in files if (out / name).exists() and not force]
+    taken = [name for name in files if (target_dir / name).exists() and not force]
     if taken:
-        raise typer.BadParameter(f"{out} already has {', '.join(taken)}; use --force to overwrite")
+        raise typer.BadParameter(f"{target_dir} already has {', '.join(taken)}; use --force to overwrite")
     for name, text in files.items():
-        target = out / name
+        target = target_dir / name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text, encoding="utf-8", newline="\n")
         _out.print(name, markup=False)

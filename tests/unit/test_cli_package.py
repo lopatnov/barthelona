@@ -105,9 +105,11 @@ def _call(model: str, tokens_in: int, tokens_out: int, latency_ms: int) -> LLMCa
     )
 
 
-def _green_run(tmp_path: Path, stop: StopReason = StopReason.GREEN) -> str:
+def _green_run(tmp_path: Path, stop: StopReason = StopReason.GREEN, *submit_args: str) -> str:
     db, runs = str(tmp_path / "app.sqlite"), str(tmp_path / "runs")
-    submitted = CliRunner().invoke(app, ["runs", "submit", "Print hello.", "--db", db, "--runs", runs])
+    submitted = CliRunner().invoke(
+        app, ["runs", "submit", "Print hello.", "--db", db, "--runs", runs, *submit_args]
+    )
     run_id = submitted.output.strip()
     with closing(open_store(tmp_path / "app.sqlite")) as store:
         store.set_run_status(run_id, RunStatus.RUNNING)
@@ -135,6 +137,28 @@ def test_package_writes_the_project_files_of_a_green_run(tmp_path: Path) -> None
     assert (out / "src" / "hello.asm").read_text(encoding="utf-8") == SOURCE + "\n"
     assert "meterless/auto" in (out / "README.md").read_text(encoding="utf-8")
     assert (out / ".github" / "workflows" / "release.yml").exists()
+
+
+def test_package_without_out_writes_into_the_runs_demos_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    run_id = _green_run(tmp_path, StopReason.GREEN, "--project", "hello-en")
+    args = ["runs", "package", run_id, "--barthelona-ref", REF, "--db", "app.sqlite", "--runs", "runs"]
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "demos" / "hello-en" / "README.md").exists()
+
+
+def test_package_without_out_needs_a_demos_folder_on_the_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    run_id = _green_run(tmp_path)
+    args = ["runs", "package", run_id, "--barthelona-ref", REF, "--db", "app.sqlite", "--runs", "runs"]
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 2
+    assert not (tmp_path / "workspaces").exists()
 
 
 def test_package_refuses_a_run_that_did_not_stop_green(tmp_path: Path) -> None:
