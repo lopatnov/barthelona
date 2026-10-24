@@ -22,6 +22,7 @@ from barthelona.llm.zetaris_publish import (
 
 zetaris_app = typer.Typer(help="Zetaris structured knowledge store (optional).", no_args_is_help=True)
 _out = Console(soft_wrap=True, highlight=False)
+_UNCONFIGURED = "unconfigured: set ZETARIS_API_KEY"
 
 
 @zetaris_app.command("status")
@@ -41,7 +42,7 @@ def sql(
     """Run one read-only statement and print the rows."""
     config = ZetarisConfig.from_env(os.environ)
     if config is None:
-        _out.print("unconfigured: set ZETARIS_API_KEY", markup=False)
+        _out.print(_UNCONFIGURED, markup=False)
         raise typer.Exit(1)
     try:
         result = run_sql(config, statement, limit)
@@ -63,7 +64,7 @@ def publish(
     """Copy run history and H-MEM into Zetaris as tables (SQLite stays the store); safe to repeat."""
     config = ZetarisConfig.from_env(os.environ)
     if config is None:
-        _out.print("unconfigured: set ZETARIS_API_KEY", markup=False)
+        _out.print(_UNCONFIGURED, markup=False)
         raise typer.Exit(1)
     try:
         sources = default_sources(runs_db, hmem_db)
@@ -87,7 +88,7 @@ def seed(
     """Turn the registered knowledge tables into H-MEM memories, so chunked runs recall them per task."""
     config = ZetarisConfig.from_env(os.environ)
     if config is None:
-        _out.print("unconfigured: set ZETARIS_API_KEY", markup=False)
+        _out.print(_UNCONFIGURED, markup=False)
         raise typer.Exit(1)
     store = HMem(memory)
     try:
