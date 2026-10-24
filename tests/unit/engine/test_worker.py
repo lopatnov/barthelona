@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator
 from contextlib import closing
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -21,6 +22,7 @@ from barthelona.domain import (
     GateDecision,
     Linker,
     ObjFormat,
+    ProjectSpec,
     Run,
     RunBudget,
     RunCommand,
@@ -31,10 +33,20 @@ from barthelona.domain import (
     TargetProfile,
 )
 from barthelona.engine.graph import build_graph
+from barthelona.engine.host import REQUEST_FILE, SPEC_FILE, services_for
 from barthelona.engine.worker import Worker
+from barthelona.llm import FakeGateway, GatewayError
 from barthelona.persistence import Store, connect, migrate
 
 NOW = datetime(2026, 10, 24, 12, 0, tzinfo=UTC)
+
+INTAKE = '{"lang": "ru", "goal_en": "Print hello.", "entities": ["stdout"], "assumptions": ["Linux x64"]}'
+SPEC = (
+    '{"slug": "hello", "summary_en": "Prints hello.",'
+    ' "requirements": [{"id": "R1", "text": "Writes hello and a newline to stdout."}],'
+    ' "modules": [{"path": "src/hello.asm", "purpose": "entry", "exports": ["_start"]}]}'
+)
+REPLIES = [INTAKE, SPEC]
 
 
 def _run(run_id: str = "r1") -> Run:
@@ -59,6 +71,11 @@ def _run(run_id: str = "r1") -> Run:
 
 
 @pytest.fixture
+def runs_dir(tmp_path: Path) -> Path:
+    return tmp_path / "runs"
+
+
+@pytest.fixture
 def store(tmp_path: Path) -> Iterator[Store]:
     conn = connect(tmp_path / "app.sqlite")
     migrate(conn)
@@ -66,8 +83,23 @@ def store(tmp_path: Path) -> Iterator[Store]:
         yield Store(conn, clock=lambda: NOW)
 
 
-def _worker(store: Store, reason: str | None = None, saver: object | None = None) -> Worker:
-    graph = build_graph(lambda _run_id: reason, saver or InMemorySaver())  # type: ignore[arg-type]
+def _queue(store: Store, runs_dir: Path, run_id: str = "r1") -> None:
+    store.create_run(_run(run_id))
+    (runs_dir / run_id).mkdir(parents=True, exist_ok=True)
+    (runs_dir / run_id / REQUEST_FILE).write_text("Напиши hello на ассемблере.", encoding="utf-8")
+
+
+def _worker(
+    store: Store,
+    runs_dir: Path,
+    reason: str | None = None,
+    saver: object | None = None,
+    replies: list[str | Exception] | None = None,
+) -> Worker:
+    gateway = FakeGateway(REPLIES * 4 if replies is None else replies)
+    services = services_for(store, runs_dir, lambda _run: gateway)
+    services = replace(services, preflight=lambda _run_id: reason)
+    graph = build_graph(services, saver or InMemorySaver())  # type: ignore[arg-type]
     return Worker(store, graph, clock=lambda: NOW)
 
 
@@ -81,20 +113,20 @@ def _kinds(store: Store, run_id: str = "r1") -> list[EventKind]:
     return [event.kind for event in store.events_after(run_id)]
 
 
-async def test_a_queued_run_stops_at_gate_g1_with_the_gate_open(store: Store) -> None:
-    store.create_run(_run())
-    worker = _worker(store)
+async def test_a_queued_run_stops_at_gate_g1_with_the_gate_open(store: Store, runs_dir: Path) -> None:
+    _queue(store, runs_dir)
+    worker = _worker(store, runs_dir)
     assert await worker.step() is True
     assert store.get_run("r1").status is RunStatus.WAITING_GATE
     [gate] = store.pending_gates("r1")
     assert (gate.gate_id, gate.kind.value, gate.options) == ("r1-G1", "G1", ["approve", "reject"])
-    assert _kinds(store) == [EventKind.NODE_END, EventKind.GATE_REQUESTED]
+    assert _kinds(store) == [EventKind.NODE_END] * 3 + [EventKind.GATE_REQUESTED]
     assert await worker.step() is False  # nothing to do until the UI answers
 
 
-async def test_rejecting_the_gate_stops_the_run_as_a_human_abort(store: Store) -> None:
-    store.create_run(_run())
-    worker = _worker(store)
+async def test_rejecting_the_gate_stops_the_run_as_a_human_abort(store: Store, runs_dir: Path) -> None:
+    _queue(store, runs_dir)
+    worker = _worker(store, runs_dir)
     await worker.step()
     _decide(store, "reject")
     assert await worker.step() is True
@@ -109,9 +141,11 @@ async def test_rejecting_the_gate_stops_the_run_as_a_human_abort(store: Store) -
     ]
 
 
-async def test_approving_stops_with_an_infra_error_until_the_rest_of_the_flow_exists(store: Store) -> None:
-    store.create_run(_run())
-    worker = _worker(store)
+async def test_approving_stops_with_an_infra_error_until_the_rest_of_the_flow_exists(
+    store: Store, runs_dir: Path
+) -> None:
+    _queue(store, runs_dir)
+    worker = _worker(store, runs_dir)
     await worker.step()
     _decide(store, "approve")
     await worker.step()
@@ -121,18 +155,54 @@ async def test_approving_stops_with_an_infra_error_until_the_rest_of_the_flow_ex
     assert "not built yet" in errors[0].payload["error"]
 
 
-async def test_an_unsupported_target_stops_before_any_gate(store: Store) -> None:
-    store.create_run(_run())
-    worker = _worker(store, reason="no nasm in the image")
+async def test_the_spec_is_written_for_the_gate_and_every_model_call_is_in_the_ledger(
+    store: Store, runs_dir: Path
+) -> None:
+    _queue(store, runs_dir)
+    await _worker(store, runs_dir).step()
+    spec = ProjectSpec.model_validate_json((runs_dir / "r1" / SPEC_FILE).read_text(encoding="utf-8"))
+    assert (spec.slug, spec.request_lang, spec.target.preset) == ("hello", "ru", "linux-x64-nasm-static")
+    assert spec.request_original.startswith("Напиши hello")
+    assert spec.assumptions == ["Linux x64"]
+    assert [call.tokens_out for call in store.llm_calls("r1")] == [len(INTAKE.split()), len(SPEC.split())]
+
+
+async def test_a_reply_that_is_not_json_is_sent_back_once(store: Store, runs_dir: Path) -> None:
+    _queue(store, runs_dir)
+    replies: list[str | Exception] = ["I cannot say.", f"```json\n{INTAKE}\n```", SPEC]
+    await _worker(store, runs_dir, replies=replies).step()
+    assert store.get_run("r1").status is RunStatus.WAITING_GATE
+    assert len(store.llm_calls("r1")) == 3
+
+
+async def test_two_unusable_replies_stop_the_run_as_max_attempts(store: Store, runs_dir: Path) -> None:
+    _queue(store, runs_dir)
+    await _worker(store, runs_dir, replies=["no", '{"lang": "english"}']).step()
+    run = store.get_run("r1")
+    assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.MAX_ATTEMPTS)
+    assert store.pending_gates("r1") == []
+
+
+async def test_a_chain_with_no_usable_model_stops_the_run_as_no_model_available(
+    store: Store, runs_dir: Path
+) -> None:
+    _queue(store, runs_dir)
+    await _worker(store, runs_dir, replies=[GatewayError("every model failed")]).step()
+    assert store.get_run("r1").stop_reason is StopReason.NO_MODEL_AVAILABLE
+
+
+async def test_an_unsupported_target_stops_before_any_gate(store: Store, runs_dir: Path) -> None:
+    _queue(store, runs_dir)
+    worker = _worker(store, runs_dir, reason="no nasm in the image")
     await worker.step()
     run = store.get_run("r1")
     assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.UNSUPPORTED_TARGET)
     assert store.pending_gates("r1") == []
 
 
-async def test_cancelling_a_waiting_run_stops_it(store: Store) -> None:
-    store.create_run(_run())
-    worker = _worker(store)
+async def test_cancelling_a_waiting_run_stops_it(store: Store, runs_dir: Path) -> None:
+    _queue(store, runs_dir)
+    worker = _worker(store, runs_dir)
     await worker.step()
     store.enqueue_command(RunCommand(run_id="r1", kind=CommandKind.CANCEL))
     await worker.step()
@@ -140,10 +210,10 @@ async def test_cancelling_a_waiting_run_stops_it(store: Store) -> None:
     assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.HUMAN_ABORT)
 
 
-async def test_two_runs_wait_independently(store: Store) -> None:
-    store.create_run(_run("r1"))
-    store.create_run(_run("r2"))
-    worker = _worker(store)
+async def test_two_runs_wait_independently(store: Store, runs_dir: Path) -> None:
+    _queue(store, runs_dir, "r1")
+    _queue(store, runs_dir, "r2")
+    worker = _worker(store, runs_dir)
     await worker.step()
     await worker.step()
     assert [r.status for r in store.list_runs()] == [RunStatus.WAITING_GATE] * 2
@@ -160,18 +230,18 @@ async def sqlite_saver(tmp_path: Path) -> AsyncIterator[AsyncSqliteSaver]:
 
 
 async def test_a_crashed_worker_continues_from_its_checkpoint_without_a_second_gate(
-    store: Store, sqlite_saver: AsyncSqliteSaver
+    store: Store, runs_dir: Path, sqlite_saver: AsyncSqliteSaver
 ) -> None:
-    store.create_run(_run())
-    await _worker(store, saver=sqlite_saver).step()
+    _queue(store, runs_dir)
+    await _worker(store, runs_dir, saver=sqlite_saver).step()
     store.set_run_status(
         "r1", RunStatus.RUNNING
     )  # the crash came after the interrupt, before the status write
-    assert await _worker(store, saver=sqlite_saver).recover() == 1
+    assert await _worker(store, runs_dir, saver=sqlite_saver).recover() == 1
     assert store.get_run("r1").status is RunStatus.WAITING_GATE
     assert len(store.pending_gates("r1")) == 1
     _decide(store, "reject")
-    await _worker(store, saver=sqlite_saver).step()
+    await _worker(store, runs_dir, saver=sqlite_saver).step()
     assert store.get_run("r1").stop_reason is StopReason.HUMAN_ABORT
 
 
@@ -198,11 +268,23 @@ def test_the_worker_command_runs_what_is_queued_and_exits(tmp_path: Path) -> Non
 
     db = tmp_path / "app.sqlite"
     with closing(open_store(db)) as seed:
-        seed.create_run(_run())
+        seed.create_run(_run())  # no request file: the run fails before any model is called
     result = CliRunner().invoke(
-        app, ["worker", "--once", "--db", str(db), "--checkpoints", str(tmp_path / "cp.sqlite")]
+        app,
+        [
+            "worker",
+            "--once",
+            "--db",
+            str(db),
+            "--checkpoints",
+            str(tmp_path / "cp.sqlite"),
+            "--runs",
+            str(tmp_path / "runs"),
+        ],
     )
     assert result.exit_code == 0, result.output
     with closing(open_store(db)) as check:
-        assert check.get_run("r1").status is RunStatus.WAITING_GATE
-        assert [g.gate_id for g in check.pending_gates("r1")] == ["r1-G1"]
+        run = check.get_run("r1")
+        assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.INFRA_ERROR)
+        errors = [e for e in check.events_after("r1") if e.kind is EventKind.ERROR]
+        assert "FileNotFoundError" in errors[0].payload["error"]

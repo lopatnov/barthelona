@@ -10,20 +10,29 @@ import typer
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from rich.console import Console
 
+from barthelona.domain import Run
 from barthelona.engine.graph import build_graph
-from barthelona.engine.preflight import preflight_for
+from barthelona.engine.host import services_for
 from barthelona.engine.worker import Worker
+from barthelona.llm import CatalogError, Gateway, OpenAIChatBackend, load_catalog
+from barthelona.llm.gateway import ModelGateway
 from barthelona.persistence import open_store
 
 _err = Console(stderr=True, soft_wrap=True, highlight=False)
 
 
-async def _run(db: Path, checkpoints: Path, poll: float, once: bool) -> None:
+async def _run(db: Path, checkpoints: Path, runs: Path, catalog_path: Path, poll: float, once: bool) -> None:
+    catalog = load_catalog(catalog_path)
+    backends = {"openai_chat": OpenAIChatBackend()}
+
+    def gateway_for(run: Run) -> ModelGateway:
+        return Gateway(catalog, backends, profile=run.profile.value)
+
     store = open_store(db)
     checkpoints.parent.mkdir(parents=True, exist_ok=True)
     try:
         async with AsyncSqliteSaver.from_conn_string(str(checkpoints)) as saver:
-            worker = Worker(store, build_graph(preflight_for(store), saver))
+            worker = Worker(store, build_graph(services_for(store, runs, gateway_for), saver))
             if once:
                 await worker.recover()
                 while await worker.step():
@@ -39,6 +48,10 @@ def worker_command(
     checkpoints: Annotated[Path, typer.Option(help="The LangGraph checkpoint database.")] = Path(
         "var/checkpoints.sqlite"
     ),
+    runs: Annotated[Path, typer.Option(help="The per-run files folder.")] = Path("var/runs"),
+    catalog_path: Annotated[Path, typer.Option("--catalog", help="Model catalog.")] = Path(
+        "config/models.yaml"
+    ),
     poll: Annotated[float, typer.Option(min=0.1, help="Seconds between polls when idle.")] = 1.0,
     once: Annotated[
         bool, typer.Option("--once", help="Run what is queued, then exit (for tests and CI).")
@@ -46,6 +59,8 @@ def worker_command(
 ) -> None:
     """Claim queued runs, run them to their next human gate and continue them when the UI resumes them."""
     try:
-        asyncio.run(_run(db, checkpoints, poll, once))
+        asyncio.run(_run(db, checkpoints, runs, catalog_path, poll, once))
+    except CatalogError as exc:
+        raise typer.BadParameter(str(exc)) from exc
     except KeyboardInterrupt:
         _err.print("worker stopped")
