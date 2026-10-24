@@ -35,6 +35,8 @@ Run `python -m barthelona --help` for the full list. Key commands:
 | `meterless status`  | Probe Meterless Runtime (Nightshift)                           | ✅                        |
 | `zetaris status`    | Probe Zetaris REST API                                         | ✅                        |
 | `zetaris sql`       | Run read-only SQL against Zetaris                              | ✅                        |
+| `worker`            | Run queued runs to gate G1, then codegen and gate G4           | ✅ (needs model endpoint) |
+| `runs submit/status/decide` | Queue a run, watch it, answer its gates without the UI  | ✅                        |
 | `chunked run`       | Run a long task through the model gateway as Markovian chunks  | ✅ (needs model endpoint) |
 | `chunked stats`     | Show run statistics from SQLite DB                             | ✅                        |
 
