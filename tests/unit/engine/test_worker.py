@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import shutil
+import time
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import closing
 from dataclasses import replace
@@ -428,3 +429,28 @@ async def test_a_codegen_that_outlasts_the_run_budget_stops_as_budget_time(
     run = store.get_run("r1")
     assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.BUDGET_TIME)
     assert store.pending_gates("r1") == []
+
+
+class _SlowIntakeThenStalls(_StallsAtCodegen):
+    """The first call (intake) takes 0.7 s; codegen never answers."""
+
+    async def complete(self, role: str, request: CompletionRequest) -> Completion:
+        if not self.calls:
+            await asyncio.sleep(0.7)
+        return await super().complete(role, request)
+
+
+async def test_time_used_by_earlier_nodes_shortens_the_codegen_allowance(
+    store: Store, runs_dir: Path
+) -> None:
+    run = _run().model_copy(update={"budget": RunBudget(wall_s=1.0, tokens=100_000)})
+    store.create_run(run)
+    (runs_dir / "r1").mkdir(parents=True, exist_ok=True)
+    (runs_dir / "r1" / REQUEST_FILE).write_text("Print hello.", encoding="utf-8")
+    worker = _worker(store, runs_dir, gateway=_SlowIntakeThenStalls(REPLIES))
+    await worker.step()
+    _decide(store, "approve")
+    started = time.monotonic()
+    await worker.step()
+    assert time.monotonic() - started < 0.7  # a fresh 1.0 s allowance would have lasted about 1.0 s
+    assert store.get_run("r1").stop_reason == StopReason.BUDGET_TIME

@@ -13,6 +13,8 @@ thread that opened it.
 from __future__ import annotations
 
 import asyncio
+import functools
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from itertools import pairwise
@@ -68,6 +70,7 @@ class RunState(TypedDict, total=False):
     g1: str  # the decision made at gate G1
     verdict: str  # the oracle's verdict on it: pass, fail or unavailable
     g4: str  # the decision made at gate G4
+    spent_s: float  # seconds the model nodes have used so far; the run's wall-clock budget is spent from it
 
 
 def gate_id(run_id: str, kind: GateKind) -> str:
@@ -104,6 +107,18 @@ async def _or_stop(step: Awaitable[dict[str, Any]]) -> dict[str, Any]:
         return {"stop": StopReason.MAX_ATTEMPTS.value}
 
 
+def _timed(node: Callable[[Any, RunState], Awaitable[dict[str, Any]]]) -> Callable[..., Any]:
+    """Add the node's running time to `spent_s` (gate waits for a human are not counted)."""
+
+    @functools.wraps(node)
+    async def run(self: Any, state: RunState) -> dict[str, Any]:
+        started = time.monotonic()
+        update = await node(self, state)
+        return update | {"spent_s": state.get("spent_s", 0.0) + time.monotonic() - started}
+
+    return run
+
+
 class _Nodes:
     """The graph's nodes; each is `async def` (see the module docstring) and returns a state update."""
 
@@ -120,6 +135,7 @@ class _Nodes:
         reason = self._services.preflight(state["run_id"])
         return {"stop": StopReason.UNSUPPORTED_TARGET.value} if reason else {}
 
+    @_timed
     async def intake(self, state: RunState) -> dict[str, Any]:
         run_id = state["run_id"]
         facts = await asyncio.to_thread(self._services.facts)  # a failing store ends the run as infra_error
@@ -128,6 +144,7 @@ class _Nodes:
         )
         return await _or_stop(_update("intake", result)) | {"facts": facts}
 
+    @_timed
     async def spec(self, state: RunState) -> dict[str, Any]:
         run_id = state["run_id"]
         drafted = draft_spec(
@@ -140,6 +157,7 @@ class _Nodes:
         )
         return await _or_stop(_update("spec", drafted))
 
+    @_timed
     async def test_author(self, state: RunState) -> dict[str, Any]:
         run_id = state["run_id"]
         spec = ProjectSpec.model_validate(state["spec"])
@@ -163,11 +181,15 @@ class _Nodes:
     async def g1_gate(self, state: RunState) -> dict[str, Any]:
         return _ask(state, GateKind.G1_SPEC, G1_OPTIONS)
 
+    @_timed
     async def codegen(self, state: RunState) -> dict[str, Any]:
         run_id = state["run_id"]
         wall_s = self._services.load_run(run_id).budget.wall_s
+        remaining = wall_s - state.get("spent_s", 0.0)  # earlier nodes have already used part of the budget
+        if remaining <= 0:
+            return {"stop": StopReason.BUDGET_TIME.value}
         try:
-            async with asyncio.timeout(wall_s):  # the longest node: bounded by the run's wall-clock budget
+            async with asyncio.timeout(remaining):  # the longest node: bounded by what is left of the budget
                 done = await generate_source(
                     self._gateway(run_id),
                     ProjectSpec.model_validate(state["spec"]),
