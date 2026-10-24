@@ -312,7 +312,7 @@ def test_expect_stdout_runs_the_program_in_the_emulator_and_passes(
     args = ["chunked", "run", "t", "--expect-stdout", "Hello, Barthelona!\\n", "--out", str(out)]
     result = runner.invoke(app, args)
     assert result.exit_code == 0, result.output
-    assert "assemble: pass" in result.output
+    assert "assemble: pass (it also ran in the emulator" in result.output
 
 
 @_needs_nasm

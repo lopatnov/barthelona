@@ -30,6 +30,7 @@ from barthelona.llm import (
 from barthelona.llm.hmem import HMem, facts_from_state
 from barthelona.llm.runlog import RunLog
 from barthelona.llm.zetaris import ZetarisConfig, ZetarisError, facts_block, run_sql
+from barthelona.verification.asm_gate import AssembleResult
 from barthelona.verification.behavior_gate import Expectation
 
 chunked_app = typer.Typer(
@@ -243,11 +244,17 @@ def run(
     else:
         _out.print(text, markup=False)
     if gate is not None:
-        _err.print(
-            f"assemble: {gate.status}" + ("" if accepted else f" ({'; '.join(gate.errors)})"), markup=False
-        )
+        _err.print(_verdict(gate, expect is not None), markup=False)
     if result.stop_reason.value != "green" or not accepted:
         raise typer.Exit(1)
+
+
+def _verdict(gate: AssembleResult, ran: bool) -> str:
+    """The final ``assemble:`` line; with an expectation a pass means the emulator run matched it too."""
+    if gate.status != "pass":
+        return f"assemble: {gate.status} ({'; '.join(gate.errors)})"
+    suffix = " (it also ran in the emulator: stdout and exit code as expected)" if ran else ""
+    return f"assemble: pass{suffix}"
 
 
 def _expectation(stdout: str | None, exit_code: int | None) -> Expectation | None:
