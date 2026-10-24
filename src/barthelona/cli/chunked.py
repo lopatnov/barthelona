@@ -267,7 +267,7 @@ def _report(result: MarkovianResult) -> None:
         f"stop_reason={result.stop_reason.value} chunks={len(result.chunks)} tokens_in={result.tokens_in} "
         f"tokens_out={result.tokens_out} peak_prompt={result.peak_tokens_in} status={result.status} "
         f"standard_cost={result.standard_cost} markovian_cost={result.markovian_cost} "
-        f"efficiency={result.efficiency_percent:.1f}%",
+        f"efficiency={result.efficiency_label}",
         markup=False,
     )
 

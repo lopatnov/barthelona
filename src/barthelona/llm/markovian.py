@@ -34,7 +34,8 @@ _SYSTEM = (
     "summary. Do the next part of the work and write only that part.\n"
     f"- If more work remains, end with a line `{CHECKPOINT}` and under it a compact state block with the "
     "labels COMPLETED, REMAINING, DECISIONS and CONTEXT (names and decisions the next step needs).\n"
-    f"- When the whole task is finished, end with a line `{COMPLETE}`.\n"
+    f"- When the whole task is finished, end with a line `{COMPLETE}` and under it the labels DECISIONS and "
+    "CONTEXT (what a later run of a similar task should know).\n"
     "Never repeat work that the state summary says is done.\n"
     "Put all code in fenced blocks (three backticks). Text outside the fences is commentary and is dropped."
 )
@@ -200,6 +201,13 @@ class MarkovianResult:
         return saved / self.standard_cost * 100 if self.standard_cost else 0.0
 
     @property
+    def efficiency_label(self) -> str:
+        """The efficiency for a report: a run too short to save anything says so instead of printing 0.0%."""
+        if self.markovian_cost >= self.standard_cost:
+            return "too short to compare"
+        return f"{self.efficiency_percent:.1f}%"
+
+    @property
     def peak_tokens_in(self) -> int:
         """The largest prompt of any chunk: the number that stays flat."""
         return max((chunk.tokens_in for chunk in self.chunks), default=0)
@@ -208,7 +216,8 @@ class MarkovianResult:
 def _split(text: str) -> tuple[str, str, Literal["checkpoint", "complete", "none"]]:
     """The chunk body, the state block after the checkpoint marker, and which marker ended the chunk."""
     if COMPLETE in text:
-        return text.split(COMPLETE, 1)[0].rstrip(), "", "complete"
+        body, state = text.split(COMPLETE, 1)
+        return body.rstrip(), state.strip(), "complete"
     if CHECKPOINT in text:
         body, state = text.split(CHECKPOINT, 1)
         return body.rstrip(), state.strip(), "checkpoint"
