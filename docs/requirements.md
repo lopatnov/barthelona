@@ -1,6 +1,6 @@
 # Requirements: what Barthelona must be able to do
 
-Status: draft for owner review, 2026-10-18. Reviewed before Phase 1 starts. Docs only; no code changed.
+Status: owner decisions recorded 2026-10-24 (section 7); the analysis itself dates from 2026-10-18. Docs only; no code changed.
 
 The plan grew bottom-up: assembler adapters, a ladder, a gateway. This page works top-down. It takes the **hardest version of each demo** as a reference workload, derives the capabilities Barthelona needs to build it, and checks each against the architecture (`docs/architecture.md`, "§"), the ADRs (`docs/adr/`) and the roadmap (`docs/roadmap.md`).
 
@@ -195,20 +195,20 @@ Existing issues that cover rows are cited in the matrix and not repeated. New `a
 
 Comments added instead of new issues: #151 (non-image assets, D3), #181 (context and repo-map scale, A6) and #171 (gcc -S pairs, F4).
 
-## 7. Decisions for the owner
+## 7. Decisions (owner, 2026-10-24)
 
-Each has a recommended default, so work can continue.
+The owner answered the five open questions on 2026-10-24. Where an answer differs from the recommended default, the answer wins and its consequence is listed.
 
-| # | Question | Recommended default |
-| --- | --- | --- |
-| O-1 | GUI platform and language for the hardest version | **Option A (recommended): pure assembly**, Linux first, talking to the OS directly: the X11 wire protocol over a Unix socket (or Wayland) with software-rendered fonts and widgets, no toolkit. Matches the D-054 bar (no linked TLS, no linked library) and needs no D4 library model, but needs C6, C13, C14 and C15 first. **Option B: C family with a pinned toolkit** (SDL2 or GTK, D4): much easier to reach, but it is not the owner's bar; C stays an input (D-040), not the demo language. A Win32 GUI (user32 from assembly, `asm_doc` has the headers) waits for Phase 4 |
-| O-2 | 3D scope (D-050 says commercial-grade 3D is out of range) | A deterministic software 3D renderer written in assembly, no GPU API, judged by golden frames and performance budgets (tier T7). A GPU API (OpenGL, Vulkan) stays out until a GPU-capable sandbox exists |
-| O-3 | Are GUI, 2D and 3D demos assembly or C? | **Assembly (recommended)**, consistent with D-054 and "assembler first". Each demo is reached through ladder tiers (section 5), so early tiers use small programs. C-family versions (Phase 6) are an optional comparison arm showing what a toolkit buys, never a replacement |
-| O-4 | Should Phase 1b include the schema-reserving items in section 4 (1 to 5)? | Yes: reserve the fields, build nothing. Costs a few days now and avoids a schema migration |
-| O-5 | Where does the ladder (section 5) live? | `bench/ladder/` beside `bench/tasks/`, with its own ADR when adopted |
+| # | Question | Decision | Consequence |
+| --- | --- | --- | --- |
+| O-1 | GUI platform and language for the hardest version | Not X11 only: **X11 and Wayland, and Windows**. Pure assembly talking to the OS directly (recommended option A), no toolkit | Linux first (X11, then Wayland). A Windows GUI (user32 / Win32 from assembly, headers in `asm_doc`) needs the Win64 preset (Phase 4) and a Windows-capable display oracle (V8, Windows Sandbox). C6, C13, C14 and C15 are prerequisites on every platform |
+| O-2 | 3D scope (D-050 says commercial-grade 3D is out of range) | **GPU is wanted**, not only a software renderer | The software renderer with golden frames (tier T7) stays the first, deterministic step, because a GPU makes frames hardware-dependent. A GPU API (OpenGL, Vulkan) follows once a GPU-capable sandbox profile exists (#194) and a tolerance-based visual oracle (C15, #195). The ADR amending D-050 (F-105) records this |
+| O-3 | Are GUI, 2D and 3D demos assembly or C? | **Both, in this order: C is compiled to assembly, and the assembly is then optimised and analysed.** Assembly stays the artefact that is judged | C is no longer only an input (D-040): a C source plus `gcc -S` / `clang -S` is a legitimate way to obtain a first assembly version, which Barthelona then optimises, checks and analyses (the oracles still decide). Ties to #171 (gcc -S pairs) and D-055 (licence-gated binary tools). The D-050/D-040 amendment must say so |
+| O-4 | Should Phase 1b include the schema-reserving items in section 4 (1 to 5)? | **Yes.** Reserve the fields, build nothing | Phase 1b scope gains items 1 to 5 of section 4 |
+| O-5 | Where does the ladder (section 5) live? | The recommended default: `bench/ladder/` beside `bench/tasks/`, with its own ADR when adopted (owner: "by your recommendation") | None until the ladder is adopted |
 
 ## 8. Method and limits
 
 Sources read: `docs/architecture.md`, `docs/roadmap.md`, `docs/adr/D-001` to `D-053` (plus D-054 and D-055 from open PR #187), `AGENTS.md`, `src/barthelona/` module list, `config/models.yaml` (no vision model), all open `agent-system-gap` issues (29 at the time of writing). Demo repos were checked through GitHub: each holds a README title and, for the GUI demo, a licence.
 
-Limits: workload definitions are assumptions until the owner confirms section 7. Prior art for GUI, game and visual testing was **not** researched here (F-72 stays open); each new issue names the survey to do before design. No version, price or date-sensitive fact is asserted beyond what the cited ADRs record.
+Limits: the workload definitions were assumptions until the owner confirmed section 7 (2026-10-24). Prior art for GUI, game and visual testing was **not** researched here (F-72 stays open); each new issue names the survey to do before design. No version, price or date-sensitive fact is asserted beyond what the cited ADRs record.
