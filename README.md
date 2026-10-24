@@ -84,7 +84,7 @@ See [`docs/runbook.md`](docs/runbook.md) for detailed installation, WSL configur
 
 ### Guides & References
 
-- **[`docs/current-status.md`](docs/current-status.md)** — **Comprehensive technical reference** (actual runnable capabilities): detailed CLI commands, verification ladder V0–V8, model gateway, Meterless/Zetaris integration, chunked runs, training data, test projects, code generation, what doesn't work yet, directory layout, next steps for contributors
+- **[`docs/current-status.md`](docs/current-status.md)** — **Comprehensive technical reference** (actual runnable capabilities): detailed CLI commands, verification ladder (V0–V2/V5/V6 runnable; V3/V4 library only, V7/V8 planned), model gateway, Meterless/Zetaris integration, chunked runs, training data, test projects, code generation, what doesn't work yet, directory layout, next steps for contributors
 - **[`docs/quickstart.md`](docs/quickstart.md)** — **Concise getting-started guide**: installation, running the hello demo, creating your own assembly program, troubleshooting, known limits
 - **[`docs/meterless-guide.md`](docs/meterless-guide.md)** — **Complete Meterless/Nightshift guide**: installation, Nightshift UI setup, lane configuration, profiles, H-MEM, troubleshooting
 - **[`docs/zetaris-guide.md`](docs/zetaris-guide.md)** — **Complete Zetaris guide**: installation, API key setup, SQL queries, `--facts-sql` injection, fact registration, troubleshooting
