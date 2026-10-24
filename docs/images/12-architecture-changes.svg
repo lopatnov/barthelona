@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 800" width="1300" height="800" role="img" aria-label="Layered view of the engine with the new project planner, registries, dynamic-oracle layer, sandbox profiles and review artefacts" font-family="Arial, Helvetica, sans-serif">
+<title>12. Proposed architecture changes</title>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#37474f"/></marker></defs>
+<rect x="0" y="0" width="1300" height="800" fill="#ffffff"/>
+<text x="24" y="36" font-size="18" fill="#1a1a1a" text-anchor="start" font-weight="bold">12. Proposed architecture changes</text>
+<text x="24" y="58" font-size="13" fill="#455a64" text-anchor="start">Purple boxes are new or changed by the requirements pass; grey boxes exist in the plan (docs/requirements.md section 4)</text>
+<rect x="560" y="86" width="22" height="14" rx="3" fill="#c8e6c9" stroke="#2e7d32" stroke-width="1.5"/>
+<text x="588" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Exists on main</text>
+<rect x="698" y="86" width="22" height="14" rx="3" fill="#eceff1" stroke="#607d8b" stroke-width="1.5"/>
+<text x="726" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">Planned</text>
+<rect x="787" y="86" width="22" height="14" rx="3" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.5"/>
+<text x="815" y="97" font-size="12" fill="#1a1a1a" text-anchor="start">New (requirements pass)</text>
+<rect x="40" y="120" width="1220" height="52" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="650.0" y="150.3" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Request: human prompt or task repo (#145), recipe and run report (#157, #146)</text>
+<rect x="40" y="200" width="1220" height="64" rx="6" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.8"/>
+<text x="650.0" y="227.8" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Project planner above the sprint: module DAG, integration order, project budget across runs (#181)</text>
+<text x="650.0" y="244.8" font-size="13" fill="#1a1a1a" text-anchor="middle">reads the per-PC capability ceiling from the bench ladder T0-T8 and the endpoint profile</text>
+<rect x="40" y="292" width="1220" height="52" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="650.0" y="322.3" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Sprint loop: L0/L1/L2 topologies, validator T1-T10, fix loop, escalation, gates G1 G2 G4 (existing plan)</text>
+<rect x="40" y="372" width="400" height="150" rx="6" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.8"/>
+<text x="240.0" y="417.3" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Check registry (D-053)</text>
+<text x="240.0" y="434.3" font-size="13" fill="#1a1a1a" text-anchor="middle">carries data kinds: images,</text>
+<text x="240.0" y="451.3" font-size="13" fill="#1a1a1a" text-anchor="middle">traces, measurements with provenance</text>
+<text x="240.0" y="468.3" font-size="13" fill="#1a1a1a" text-anchor="middle">new families: crypto-vectors, constant-time,</text>
+<text x="240.0" y="485.3" font-size="13" fill="#1a1a1a" text-anchor="middle">fuzz, perf budget, visual, interop</text>
+<rect x="470" y="372" width="400" height="150" rx="6" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.8"/>
+<text x="670.0" y="417.3" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Sandbox profile registry</text>
+<text x="670.0" y="434.3" font-size="13" fill="#1a1a1a" text-anchor="middle">none | loopback | display | audio-null</text>
+<text x="670.0" y="451.3" font-size="13" fill="#1a1a1a" text-anchor="middle">a check names the profile it needs</text>
+<text x="670.0" y="468.3" font-size="13" fill="#1a1a1a" text-anchor="middle">resources and mounts per profile</text>
+<text x="670.0" y="485.3" font-size="13" fill="#1a1a1a" text-anchor="middle">libs list pinned in project.yaml (D4)</text>
+<rect x="900" y="372" width="360" height="150" rx="6" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.8"/>
+<text x="1080.0" y="417.3" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Dynamic-oracle layer</text>
+<text x="1080.0" y="434.3" font-size="13" fill="#1a1a1a" text-anchor="middle">virtual clock, RNG, files, network, input</text>
+<text x="1080.0" y="451.3" font-size="13" fill="#1a1a1a" text-anchor="middle">one world for V4 (Unicorn) and</text>
+<text x="1080.0" y="468.3" font-size="13" fill="#1a1a1a" text-anchor="middle">V5/V6 trace capture in bart-run</text>
+<text x="1080.0" y="485.3" font-size="13" fill="#1a1a1a" text-anchor="middle">replayable, deterministic</text>
+<rect x="40" y="550" width="400" height="96" rx="6" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.8"/>
+<text x="240.0" y="585.3" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Contract schema, reserved now</text>
+<text x="240.0" y="602.3" font-size="13" fill="#1a1a1a" text-anchor="middle">secret: true, perf budget, requirement id,</text>
+<text x="240.0" y="619.3" font-size="13" fill="#1a1a1a" text-anchor="middle">event and route kinds, family axis</text>
+<rect x="470" y="550" width="400" height="96" rx="6" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.8"/>
+<text x="670.0" y="585.3" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Endpoint scheduling policy</text>
+<text x="670.0" y="602.3" font-size="13" fill="#1a1a1a" text-anchor="middle">allowed hours, sustained-load cap, cool-down,</text>
+<text x="670.0" y="619.3" font-size="13" fill="#1a1a1a" text-anchor="middle">portable flag (laptop) next to D-052 profile</text>
+<rect x="900" y="550" width="360" height="96" rx="6" fill="#eceff1" stroke="#607d8b" stroke-width="1.8"/>
+<text x="1080.0" y="593.8" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Executors and images</text>
+<text x="1080.0" y="610.8" font-size="13" fill="#1a1a1a" text-anchor="middle">bart-tc, bart-run, Unicorn child, WSL or local transport</text>
+<rect x="40" y="676" width="600" height="84" rx="6" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.8"/>
+<text x="340.0" y="705.3" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Artefact store</text>
+<text x="340.0" y="722.3" font-size="13" fill="#1a1a1a" text-anchor="middle">screenshots, recordings, traces, binary assets,</text>
+<text x="340.0" y="739.3" font-size="13" fill="#1a1a1a" text-anchor="middle">with tool, version, seed and licence record</text>
+<rect x="670" y="676" width="590" height="84" rx="6" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="1.8"/>
+<text x="965.0" y="705.3" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">Review page and gate G4</text>
+<text x="965.0" y="722.3" font-size="13" fill="#1a1a1a" text-anchor="middle">shows screenshots, recording or live display,</text>
+<text x="965.0" y="739.3" font-size="13" fill="#1a1a1a" text-anchor="middle">not only diff and program output</text>
+<polyline points="240,344 240,372" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="670,344 670,372" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="1080,344 1080,372" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="650,264 650,292" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="650,172 650,200" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="240,646 240,676" fill="none" stroke="#37474f" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<polyline points="1080,522 1080,550" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="640,718 670,718" fill="none" stroke="#37474f" stroke-width="1.6" marker-end="url(#ah)"/>
+</svg>

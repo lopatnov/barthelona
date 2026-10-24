@@ -64,9 +64,6 @@ obs = [
 ]
 # Fallback parser for the MASM PDF (prefer the cpp-docs Markdown sources)
 ingest-pdf = ["pypdf>=6.20,<7"]
-# Emulator child package (D-056): V3 static lint (capstone) + V4 dynamic checks (unicorn)
-# Note: unicorn and capstone are already in main dependencies; this extra is a marker
-emulator = []
 dev = [
     "pytest>=9.1,<10",
     "pytest-asyncio>=1.4,<2",
@@ -101,6 +98,15 @@ strict = true
 mypy_path = "src"
 packages = ["barthelona"]
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# Unicorn and Capstone ship partial or no type information; only the emulator package calls them.
+module = ["barthelona.emulator.*"]
+disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
+module = ["capstone", "capstone.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "9.0"

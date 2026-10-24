@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import os
 import time
-from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated
 
@@ -13,6 +12,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from barthelona.cli._oracle import NO_ORACLE, until_it_passes
 from barthelona.llm import (
     CatalogError,
     ChatMessage,
@@ -27,12 +27,10 @@ from barthelona.llm import (
     run_markovian,
     run_single_shot,
 )
-from barthelona.llm.guard import wrap_untrusted
 from barthelona.llm.hmem import HMem, facts_from_state
-from barthelona.llm.markovian import source_blocks
 from barthelona.llm.runlog import RunLog
 from barthelona.llm.zetaris import ZetarisConfig, ZetarisError, facts_block, run_sql
-from barthelona.verification.asm_gate import AssembleResult, assemble_best
+from barthelona.verification.behavior_gate import Expectation
 
 chunked_app = typer.Typer(
     help="Long tasks as bounded chunks with flat context (Markovian).", no_args_is_help=True
@@ -165,6 +163,13 @@ def run(
     repair: Annotated[
         int, typer.Option(min=0, max=3, help="With --assemble: extra attempts that get NASM's errors back.")
     ] = 0,
+    expect_stdout: Annotated[
+        str | None,
+        typer.Option(help="Run the program in the emulator and require this stdout (\\n, \\t are escapes)."),
+    ] = None,
+    expect_exit: Annotated[
+        int | None, typer.Option(help="Run the program in the emulator and require this exit code.")
+    ] = None,
     nasm: Annotated[
         str | None,
         typer.Option(help="nasm binary (default: BARTHELONA_NASM, NASM_PATH, PATH, usual Windows folders)."),
@@ -181,6 +186,9 @@ def run(
     plan_role: Annotated[
         str | None, typer.Option(help="Role that writes a short plan first (e.g. planner).")
     ] = None,
+    repair_role: Annotated[
+        str | None, typer.Option(help="Role for the repair attempts (e.g. planner); default: --role.")
+    ] = None,
     review_role: Annotated[
         str | None, typer.Option(help="Role that reviews the output afterwards (e.g. cheap); advisory.")
     ] = None,
@@ -194,7 +202,7 @@ def run(
         "config/models.yaml"
     ),
 ) -> None:
-    """Run TASK in chunks (or single-shot); print per-chunk tokens and latency; exit non-zero unless completed."""
+    """Run TASK in chunks (or single-shot); print tokens and latency; exit non-zero unless completed."""
     try:
         catalog = load_catalog(catalog_path)
         config = MarkovianConfig(chunk_tokens, carryover_tokens, max_chunks)
@@ -202,6 +210,8 @@ def run(
         raise typer.BadParameter(str(exc)) from exc
     if task.startswith("@"):
         task = Path(task[1:]).read_text(encoding="utf-8")
+    expect = _expectation(expect_stdout, expect_exit)
+    assemble = assemble or expect is not None
     code = code or assemble
     gateway = Gateway(catalog, {"openai_chat": OpenAIChatBackend()}, profile=profile)
     store = HMem(memory) if memory is not None else None
@@ -211,23 +221,17 @@ def run(
     plan = _side_call(gateway, plan_role, "plan", _PLAN, task)
     chunk_task = f"{task}\n\nPlan from the planner (follow it):\n{plan}" if plan else task
 
-    if single_shot:
-        result = asyncio.run(run_single_shot(gateway, role, chunk_task, memory_context))
-        _record_stats(stats, result, task, profile, recalled, 0)
-        _report(result)
-        text = _answer_text(result, code, out)
-        if assemble:
-            text, gate = _assemble(result, text, nasm)
+    def attempt(task_text: str, number: int) -> tuple[MarkovianResult, str]:
+        attempt_role = (repair_role or role) if number else role
+        if single_shot:
+            result = asyncio.run(run_single_shot(gateway, attempt_role, task_text, memory_context))
         else:
-            gate = None
-    else:
-        def attempt(task_text: str, number: int) -> tuple[MarkovianResult, str]:
-            result = asyncio.run(run_markovian(gateway, role, task_text, config, memory_context))
-            _record_stats(stats, result, task, profile, recalled, number)
-            _report(result)
-            return result, _answer_text(result, code, out)
+            result = asyncio.run(run_markovian(gateway, attempt_role, task_text, config, memory_context))
+        _record_stats(stats, result, task, profile, recalled, number)
+        _report(result)
+        return result, _answer_text(result, code, out)
 
-        result, text, gate = _until_it_assembles(attempt, chunk_task, nasm if assemble else NO_ORACLE, repair)
+    result, text, gate = until_it_passes(attempt, chunk_task, nasm if assemble else NO_ORACLE, repair, expect)
     accepted = gate is None or gate.status == "pass"
     if store:
         _remember(store, result, recalled, domain, gate.status if gate else "")
@@ -246,45 +250,12 @@ def run(
         raise typer.Exit(1)
 
 
-NO_ORACLE = ""  # the sentinel for "do not assemble"; a real binary name is never empty
-
-Attempt = Callable[[str, int], tuple[MarkovianResult, str]]
-
-
-def _until_it_assembles(
-    attempt: Attempt, task: str, nasm: str | None, repair: int
-) -> tuple[MarkovianResult, str, AssembleResult | None]:
-    """The first attempt plus up to *repair* retries that get NASM's errors; no gate when NASM is off."""
-    result, text = attempt(task, 0)
-    if nasm == NO_ORACLE:
-        return result, text, None
-    text, gate = _assemble(result, text, nasm)
-    for number in range(1, repair + 1):
-        if gate.status != "fail":
-            break
-        _err.print(
-            f"assemble: failed, repair attempt {number}/{repair}: {'; '.join(gate.errors)}", markup=False
-        )
-        result, text = attempt(_repair_task(task, text, gate), number)
-        text, gate = _assemble(result, text, nasm)
-    return result, text, gate
-
-
-def _assemble(result: MarkovianResult, text: str, nasm: str | None) -> tuple[str, AssembleResult]:
-    """Assemble the joined code, or one block of it when the blocks together do not (and say so)."""
-    chosen, gate = assemble_best(text, source_blocks(result.text), nasm)
-    if chosen != text:
-        _err.print("assemble: the joined blocks were rejected; one block alone assembles and is used")
-    return chosen, gate
-
-
-def _repair_task(task: str, source: str, gate: AssembleResult) -> str:
-    errors = wrap_untrusted("\n".join(gate.errors), "nasm")
-    return (
-        f"{task}\n\nYour previous attempt did not assemble. NASM reported:\n{errors}\n\n"
-        f"Previous source:\n```asm\n{source}\n```\n"
-        "Write the complete corrected program exactly once, in a single fenced block."
-    )
+def _expectation(stdout: str | None, exit_code: int | None) -> Expectation | None:
+    """The behavior the emulator run must show, or None when neither option was given."""
+    if stdout is None and exit_code is None:
+        return None
+    text = stdout.replace("\\n", "\n").replace("\\t", "\t") if stdout is not None else None
+    return Expectation(text.encode("utf-8") if text is not None else None, exit_code or 0)
 
 
 def _report(result: MarkovianResult) -> None:

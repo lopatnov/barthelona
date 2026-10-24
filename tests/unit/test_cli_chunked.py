@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import pytest
@@ -125,6 +126,17 @@ def test_repair_feeds_nasm_errors_back_and_green_needs_the_second_attempt_to_ass
     log.close()
 
 
+def test_repair_attempts_can_use_a_stronger_role(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeGateway([f"```asm\nbad\n```\n{COMPLETE}", f"```asm\ngood\n```\n{COMPLETE}"])
+    monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
+    _stub_assemble(monkeypatch, AssembleResult("fail", ("line 1: bad",)), AssembleResult("pass"))
+    result = runner.invoke(
+        app, ["chunked", "run", "t", "--assemble", "--repair", "1", "--repair-role", "planner"]
+    )
+    assert result.exit_code == 0, result.output
+    assert [role for role, _ in fake.calls] == ["worker", "planner"]
+
+
 def test_a_later_chunk_that_restates_the_program_with_changes_does_not_sink_the_run(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -200,9 +212,7 @@ def test_facts_sql_without_a_key_stops_instead_of_being_skipped(monkeypatch: pyt
     assert "ZETARIS_API_KEY" in result.output
 
 
-def test_single_shot_mode_bypasses_chunking(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_single_shot_mode_bypasses_chunking(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Single-shot mode completes in one call without checkpoint markers."""
     fake = FakeGateway([f"```asm\n_start:\n    mov eax, 60\n    xor edi, edi\n```\n{COMPLETE}"])
     monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
@@ -219,23 +229,33 @@ def test_single_shot_mode_bypasses_chunking(
     assert "marker=complete" in result.output or "complete" in result.output.lower()
 
 
-def test_single_shot_with_plan_and_review(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_single_shot_with_plan_and_review(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Single-shot mode works with plan and review roles."""
-    fake = FakeGateway([
-        "1. data\n2. text",  # planner
-        f"```asm\n_start:\n```\n{COMPLETE}",  # worker
-        "looks complete",  # reviewer
-    ])
+    fake = FakeGateway(
+        [
+            "1. data\n2. text",  # planner
+            f"```asm\n_start:\n```\n{COMPLETE}",  # worker
+            "looks complete",  # reviewer
+        ]
+    )
     monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
     out = tmp_path / "hello.asm"
     result = runner.invoke(
         app,
         [
-            "chunked", "run", "write hello", "--plan-role", "planner",
-            "--review-role", "cheap", "--single-shot", "--code",
-            "--out", str(out), "--memory", str(tmp_path / "mem.sqlite"),
+            "chunked",
+            "run",
+            "write hello",
+            "--plan-role",
+            "planner",
+            "--review-role",
+            "cheap",
+            "--single-shot",
+            "--code",
+            "--out",
+            str(out),
+            "--memory",
+            str(tmp_path / "mem.sqlite"),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -244,3 +264,81 @@ def test_single_shot_with_plan_and_review(
     assert out.read_text(encoding="utf-8") == "_start:\n"
     # Single-shot has no state block, so no facts are written to memory (written=0)
     assert "written=0" in result.output and "advisory" in result.output
+
+
+def test_single_shot_still_runs_the_assemble_oracle_and_repairs(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeGateway([f"```asm\nbad\n```\n{COMPLETE}", f"```asm\ngood\n```\n{COMPLETE}"])
+    monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
+    _stub_assemble(monkeypatch, AssembleResult("fail", ("line 1: bad",)), AssembleResult("pass"))
+    result = runner.invoke(
+        app,
+        ["chunked", "run", "t", "--single-shot", "--assemble", "--repair", "1", "--repair-role", "planner"],
+    )
+    assert result.exit_code == 0, result.output
+    assert [role for role, _ in fake.calls] == ["worker", "planner"]
+    assert "assemble: pass" in result.output
+
+
+def test_single_shot_rejected_by_the_assembler_exits_non_zero_and_writes_no_memory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake = FakeGateway([f"```asm\nbad\n```\n{COMPLETE}"])
+    monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
+    _stub_assemble(monkeypatch, AssembleResult("fail", ("line 1: bad",)))
+    result = runner.invoke(
+        app, ["chunked", "run", "t", "--single-shot", "--assemble", "--memory", str(tmp_path / "m.sqlite")]
+    )
+    assert result.exit_code == 1
+    assert "written=0" in result.output
+
+
+_HELLO_ASM = (
+    'section .data\n    msg db "Hello, Barthelona!", 10\n    msg_len equ $ - msg\nsection .text\n'
+    "    global _start\n_start:\n    mov rax, 1\n    mov rdi, 1\n    mov rsi, msg\n    mov rdx, msg_len\n"
+    "    syscall\n    mov rax, 60\n    xor rdi, rdi\n    syscall\n"
+)
+_needs_nasm = pytest.mark.skipif(
+    shutil.which("nasm") is None, reason="nasm is not installed on this host; CI installs it"
+)
+
+
+@_needs_nasm
+def test_expect_stdout_runs_the_program_in_the_emulator_and_passes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake = FakeGateway([f"```asm\n{_HELLO_ASM}```\n{COMPLETE}"])
+    monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
+    out = tmp_path / "hello.asm"
+    args = ["chunked", "run", "t", "--expect-stdout", "Hello, Barthelona!\\n", "--out", str(out)]
+    result = runner.invoke(app, args)
+    assert result.exit_code == 0, result.output
+    assert "assemble: pass" in result.output
+
+
+@_needs_nasm
+def test_a_program_that_assembles_but_prints_the_wrong_text_is_repaired_with_the_reason(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    wrong = _HELLO_ASM.replace("msg_len\n", "6\n")
+    fake = FakeGateway([f"```asm\n{wrong}```\n{COMPLETE}", f"```asm\n{_HELLO_ASM}```\n{COMPLETE}"])
+    monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
+    args = ["chunked", "run", "t", "--expect-stdout", "Hello, Barthelona!\\n", "--repair", "1"]
+    result = runner.invoke(app, args)
+    assert result.exit_code == 0, result.output
+    repair_prompt = fake.calls[1][1].messages[1].content
+    assert "stdout was 'Hello,'" in repair_prompt
+    assert "was rejected when it was assembled and run" in repair_prompt
+
+
+@_needs_nasm
+def test_a_wrong_program_without_repair_fails_the_run_and_writes_no_memory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake = FakeGateway([f"```asm\n{_HELLO_ASM.replace('xor rdi, rdi', 'mov rdi, 3')}```\n{COMPLETE}"])
+    monkeypatch.setattr("barthelona.cli.chunked.Gateway", lambda *args, **kwargs: fake)
+    result = runner.invoke(
+        app, ["chunked", "run", "t", "--expect-exit", "0", "--memory", str(tmp_path / "m.db")]
+    )
+    assert result.exit_code == 1
+    assert "exit code was 3, expected 0" in result.output
+    assert "written=0" in result.output

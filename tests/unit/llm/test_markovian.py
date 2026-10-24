@@ -146,3 +146,59 @@ async def test_chunk_stats_keep_the_reasons_earlier_chain_entries_were_skipped()
 
     result = await run_markovian(_Fallback([f"x\n{COMPLETE}"]), "worker", "task", _SMALL)
     assert result.chunks[0].fallbacks == ("meterless_auto: boom",)
+
+
+_UNCLOSED_RAW = """```asm
+section .data
+    msg db "Hello, Barthelona!", 10
+    msg_len equ $ - msg
+section .text
+    global _start
+_start:
+    mov rax, 1
+    mov rsi, msg
+```asm
+section .data
+    msg db "Hello, Barthelona!", 10
+    msg_len equ $ - msg
+section .text
+    global _start
+_start:
+    mov rax, 1
+    mov rsi, msg
+    mov rdx, msg_len
+    syscall
+    mov rax, 60
+    xor rdi, rdi
+```asm
+section .data
+    msg db "Hello, Barthelona!", 10
+    msg_len equ $ - msg
+section .text
+    global _start
+_start:
+    mov rax, 1
+    mov rsi, msg
+    mov rdx, msg_len
+    syscall
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+```
+"""
+
+
+def test_extract_code_survives_blocks_the_model_never_closed() -> None:
+    code = extract_code(_UNCLOSED_RAW)
+    assert "```" not in code
+    assert code.count("_start:") == 1
+    assert code.rstrip().endswith("syscall")
+
+
+def test_a_block_left_open_at_the_end_of_the_text_is_kept() -> None:
+    assert extract_code("```asm\nsection .text\n_start:\n    ret") == "section .text\n_start:\n    ret"
+
+
+def test_a_stray_fence_before_a_tagged_block_does_not_hide_it() -> None:
+    text = "```\n```asm\nsection .text\n_start:\n    ret\n```"
+    assert extract_code(text) == "section .text\n_start:\n    ret"

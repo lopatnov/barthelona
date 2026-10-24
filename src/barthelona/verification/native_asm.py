@@ -1,7 +1,8 @@
-"""V0-V6 checks for native assembly targets (architecture §13.1, family ``native-asm``).
+"""V0-V2 checks for native assembly targets (architecture §13.1, family ``native-asm``).
 
-V3 (static ABI lint, Capstone CFG) and V4 (Unicorn dynamic checks) are Phase 2.
-V5 (C harness) and V6 (golden I/O) are Phase 0.
+V3 (static ABI lint) and V4 (Unicorn) are Phase 2.  V5 (C harness) needs the
+generated harness from codegen and registers here when that lands (issue #47);
+V6 lives in :mod:`barthelona.verification.golden`.
 """
 
 from __future__ import annotations
@@ -13,8 +14,6 @@ from barthelona.contracts import check_object_symbols, parse_nm
 from barthelona.domain.contracts import ContractRegistry
 from barthelona.domain.enums import DiagnosticLevel, Level, Linker, ObjFormat
 from barthelona.domain.verification import Diagnostic, LevelResult, Severity
-from barthelona.emulator.dynamic_check import DynamicCheck
-from barthelona.emulator.static_lint import StaticLintCheck
 from barthelona.executors._types import Command, ExecLimits, ExecResult
 from barthelona.executors.protocol import Session
 from barthelona.toolchains.dialect import DialectAdapter
@@ -244,14 +243,6 @@ class LinkCheck:
 
 
 def register_native_asm(registry: CheckRegistry) -> None:
-    """Register V0-V6 for the ``native-asm`` family."""
-    for check in (
-        SyntaxCheck(),
-        AssembleCheck(),
-        LinkCheck(),
-        StaticLintCheck(),
-        DynamicCheck(),
-        HarnessCheck(),
-        GoldenIoCheck(),
-    ):
+    """Register V0-V2, V5 and V6 for the ``native-asm`` family."""
+    for check in (SyntaxCheck(), AssembleCheck(), LinkCheck(), HarnessCheck(), GoldenIoCheck()):
         registry.register(NATIVE_ASM, check)
