@@ -128,7 +128,13 @@ class Worker:
     def _open_gate(self, run_id: str, ask: dict[str, Any]) -> None:
         if any(gate.gate_id == ask["gate_id"] for gate in self._store.pending_gates(run_id)):
             return  # a recovered run asks again for the gate that is already open
-        request = GateRequest(gate_id=ask["gate_id"], kind=ask["kind"], run_id=run_id, options=ask["options"])
+        request = GateRequest(
+            gate_id=ask["gate_id"],
+            kind=ask["kind"],
+            run_id=run_id,
+            options=ask["options"],
+            payload=ask.get("payload", {}),
+        )
         self._store.open_gate(request)
         self._emit(
             run_id, EventKind.GATE_REQUESTED, payload={"gate_id": request.gate_id, "kind": request.kind}

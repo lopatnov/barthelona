@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any
@@ -22,6 +23,17 @@ from barthelona.domain._base import (
 from barthelona.domain.enums import CompositionLevel, StopReason
 from barthelona.domain.project import TargetProfile
 
+DEMOS_DIR = "demos"
+_PROJECT_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,40}")
+
+
+def project_workspace(name: str) -> str:
+    """The `demos/<name>` folder a run's project belongs to; the name is a lowercase slug."""
+    if not _PROJECT_NAME.fullmatch(name):
+        raise ValueError("use lowercase letters, digits and dashes, starting with a letter or digit")
+    return f"{DEMOS_DIR}/{name}"
+
+
 ProviderId = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,31}$")]
 
 
@@ -34,6 +46,7 @@ class Profile(StrEnum):
     LOCAL_ONLY = "local-only"
     HYBRID = "hybrid"
     CLOUD = "cloud"
+    METERLESS = "meterless"  # the catalog profile that routes through Nightshift (Meterless Runtime)
 
 
 class RunStatus(StrEnum):

@@ -93,3 +93,15 @@ _start:
 """
     expect = Expectation(stdout=b"abc", stdin=b"abc")
     assert check_behavior(echo, expect).status == "pass"
+
+
+def test_a_program_whose_output_holds_the_expected_text_passes() -> None:
+    expect = Expectation(contains=(b"Barthelona", b"Hello"))
+    assert check_behavior(_HELLO, expect).status == "pass"
+
+
+def test_a_missing_text_is_named_with_what_was_printed() -> None:
+    result = check_behavior(_HELLO, Expectation(contains=(b"Goodbye",)))
+    assert result.status == "fail"
+    assert "stdout does not contain 'Goodbye'" in result.errors[0]
+    assert "Hello, Barthelona!" in result.errors[0]

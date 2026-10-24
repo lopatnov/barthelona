@@ -17,6 +17,8 @@ from barthelona.cli._toolchain import ensure_toolchain
 from barthelona.cli.bench import bench_app
 from barthelona.cli.chunked import chunked_app
 from barthelona.cli.meterless import meterless_app
+from barthelona.cli.package import check_command
+from barthelona.cli.runs import runs_app
 from barthelona.cli.worker import worker_command
 from barthelona.cli.zetaris import zetaris_app
 from barthelona.domain import DOCUMENTS, LevelResult, Verdict
@@ -42,7 +44,9 @@ app.add_typer(bench_app, name="bench")
 app.add_typer(chunked_app, name="chunked")
 app.add_typer(meterless_app, name="meterless")
 app.add_typer(zetaris_app, name="zetaris")
+app.add_typer(runs_app, name="runs")
 app.command("worker")(worker_command)
+app.command("check")(check_command)
 _out = Console(soft_wrap=True, highlight=False)
 _err = Console(stderr=True, soft_wrap=True, highlight=False)
 

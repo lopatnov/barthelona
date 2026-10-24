@@ -3,8 +3,9 @@
 Phase 1a fields:
 - Mode: create / edit
 - Dialect/preset picker (built-in list)
+- Folder under demos/ the result belongs to (existing subfolder or a new name)
 - Prompt textarea (Russian/English/Ukrainian)
-- Profile: local-only / hybrid / cloud
+- Profile: meterless / local-only / hybrid / cloud
 - Budget controls (wall time, tokens, optional USD cap)
 - Collect training data checkbox (D-036)
 """
@@ -16,10 +17,44 @@ from uuid import uuid4
 
 import streamlit as st
 
-from barthelona.domain import CompositionLevel, Profile, Run, RunBudget, RunMode
+from barthelona.domain import DEMOS_DIR, CompositionLevel, Profile, Run, RunBudget, RunMode, project_workspace
 from barthelona.domain.presets import builtin_presets
 from barthelona.engine.host import REQUEST_FILE, run_dir
 from barthelona.persistence import open_store
+
+NEW_FOLDER = "+ New folder..."
+
+
+def _demo_folders() -> list[str]:
+    """The subfolders of demos/ a run can belong to, sorted; empty when the directory is missing."""
+    root = Path(DEMOS_DIR)
+    return sorted(entry.name for entry in root.iterdir() if entry.is_dir()) if root.is_dir() else []
+
+
+def _folder_fields() -> str:
+    """The demos/ subfolder the user picked, or the new name typed in (not yet validated)."""
+    choice = st.selectbox(
+        "Save the project in demos/",
+        [*_demo_folders(), NEW_FOLDER],
+        help="The demos/ subfolder this run's project is meant for: an existing one or a new name.",
+    )
+    new_name = st.text_input(
+        "New folder name",
+        placeholder="my-demo",
+        help=f"Used only for '{NEW_FOLDER}': lowercase letters, digits and dashes.",
+    )
+    return new_name.strip() if choice == NEW_FOLDER else choice
+
+
+def _form_problem(prompt: str, folder: str) -> str | None:
+    """What is wrong with the submitted form, or None when it can become a run."""
+    if not prompt.strip():
+        return "Prompt cannot be empty."
+    try:
+        project_workspace(folder)
+    except ValueError as exc:
+        return f"Folder name: {exc}"
+    return None
 
 
 def page_new_request() -> None:
@@ -49,8 +84,9 @@ def page_new_request() -> None:
         with col2:
             profile = st.radio(
                 "Model Profile",
-                [Profile.LOCAL_ONLY, Profile.HYBRID, Profile.CLOUD],
+                [Profile.METERLESS, Profile.LOCAL_ONLY, Profile.HYBRID, Profile.CLOUD],
                 format_func=lambda p: {
+                    Profile.METERLESS: "⚡ Meterless (Nightshift routes to free Nemotron lanes)",
                     Profile.LOCAL_ONLY: "🏠 Local only (LM Studio / Ollama)",
                     Profile.HYBRID: "🔀 Hybrid (cloud with local fallback)",
                     Profile.CLOUD: "☁️ Cloud (Anthropic, OpenAI, Gemini, DeepSeek)",
@@ -59,6 +95,8 @@ def page_new_request() -> None:
             )
 
         st.divider()
+
+        folder = _folder_fields()
 
         prompt = st.text_area(
             "Prompt",
@@ -106,13 +144,12 @@ def page_new_request() -> None:
         submitted = st.form_submit_button("🚀 Create Run", type="primary", use_container_width=True)
 
     if submitted:
-        if not prompt.strip():
-            st.error("Prompt cannot be empty.")
+        if problem := _form_problem(prompt, folder):
+            st.error(problem)
             return
 
         # Create the run
         run_id = f"run_{uuid4().hex[:12]}"
-        workspace = f"workspaces/{run_id}"
 
         budget = RunBudget(
             wall_s=float(wall_s),
@@ -125,7 +162,7 @@ def page_new_request() -> None:
         run = Run(
             id=run_id,
             mode=mode,
-            workspace=workspace,
+            workspace=project_workspace(folder),
             target=preset,
             profile=profile,
             policy_version="v1",  # Will be loaded from policies/v1/ later
@@ -147,7 +184,7 @@ def page_new_request() -> None:
             store.close()
 
             st.success(f"Run created: `{run_id}`")
-            st.info(f"Workspace: `{workspace}`")
+            st.info(f"Project folder: `{run.workspace}`")
             st.info("Switch to the **Approvals** page to review gates, or **Live Run** to watch execution.")
 
             # Offer to switch pages - use query params or callback

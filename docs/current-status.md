@@ -1,6 +1,6 @@
 # Current Status: What Works Today (2026-10-24)
 
-This document describes the **actual, runnable capabilities** of barthelona as of Phase 1a (walking skeleton). The **Streamlit UI and worker are working**: `.\scripts\run.ps1` launches the worker (outer run graph: preflight → intake → spec → test_author → validate_spec → G1 → finalize) and the Streamlit UI with three pages (New Request, Approvals, Live Run) on http://127.0.0.1:8501. The deterministic spine (toolchains, verification, model gateway, CLI) works **without any LLM**.
+This document describes the **actual, runnable capabilities** of barthelona as of Phase 1a (walking skeleton). The **Streamlit UI and worker are working**: `.\scripts\run.ps1` launches the worker (outer run graph: preflight → intake → spec → test_author → validate_spec → G1 → codegen → G4 → finalize) and the Streamlit UI with three pages (New Request, Approvals, Live Run) on http://127.0.0.1:8501. The deterministic spine (toolchains, verification, model gateway, CLI) works **without any LLM**.
 
 > **Integration guides:** [`docs/meterless-guide.md`](meterless-guide.md) | [`docs/zetaris-guide.md`](zetaris-guide.md) | [`docs/hackathon-demo-guide.md`](hackathon-demo-guide.md)
 
@@ -25,19 +25,23 @@ WSL2 Ubuntu 26.04 and Docker are used for building and sandboxed testing. Full s
 
 Run `python -m barthelona --help` for the full list. Key commands:
 
-| Command              | Purpose                                                        | Status                    |
-| -------------------- | -------------------------------------------------------------- | ------------------------- |
-| `version`            | Print barthelona version                                       | ✅                        |
-| `schema [Document]`  | Print JSON schema of a domain document, or list all            | ✅                        |
-| `probe`              | Probe `bart-tc` container, write `config/toolchains.lock.json` | ✅ (needs Docker)         |
-| `verify`             | Run verification ladder (V0–V2, V5, V6) on assembly sources    | ✅ (needs Docker)         |
-| `training status`    | Show opt-in training data setting and sample counts            | ✅                        |
-| `meterless status`   | Probe Meterless Runtime (Nightshift)                           | ✅                        |
-| `zetaris status`     | Probe Zetaris REST API                                         | ✅                        |
-| `zetaris sql`        | Run read-only SQL against Zetaris                              | ✅                        |
-| `chunked run`        | Run a long task through the model gateway as Markovian chunks  | ✅ (needs model endpoint) |
-| `chunked stats`      | Show run statistics from SQLite DB                             | ✅                        |
-| `run.ps1` / `run.sh` | Launch worker + Streamlit UI (Phase 1a walking skeleton)       | ✅                        |
+| Command                     | Purpose                                                        | Status                   |
+| --------------------------- | -------------------------------------------------------------- | ------------------------ |
+| `version`                   | Print barthelona version                                       | ✅                        |
+| `schema [Document]`         | Print JSON schema of a domain document, or list all            | ✅                        |
+| `probe`                     | Probe `bart-tc` container, write `config/toolchains.lock.json` | ✅ (needs Docker)         |
+| `verify`                    | Run verification ladder (V0–V2, V5, V6) on assembly sources    | ✅ (needs Docker)         |
+| `training status`           | Show opt-in training data setting and sample counts            | ✅                        |
+| `meterless status`          | Probe Meterless Runtime (Nightshift)                           | ✅                        |
+| `zetaris status`            | Probe Zetaris REST API                                         | ✅                        |
+| `zetaris sql`               | Run read-only SQL against Zetaris                              | ✅                        |
+| `worker`                    | Run queued runs to gate G1, then codegen and gate G4           | ✅ (needs model endpoint) |
+| `runs submit/status/decide` | Queue a run, watch it, answer its gates without the UI         | ✅                        |
+| `runs package`              | Write source, golden tests, README, CI, release of a green run | ✅ (single module, NASM)  |
+| `check`                     | Assemble a NASM file and run its golden tests in the emulator  | ✅ (needs nasm)           |
+| `chunked run`               | Run a long task through the model gateway as Markovian chunks  | ✅ (needs model endpoint) |
+| `chunked stats`             | Show run statistics from SQLite DB                             | ✅                        |
+| `run.ps1` / `run.sh`        | Launch worker + Streamlit UI (Phase 1a walking skeleton)       | ✅                        |
 
 ### 2.1 `probe` — Toolchain Lock File
 
@@ -451,9 +455,16 @@ recorded in the LLM-call ledger, and a bad reply is sent back once (two bad repl
 `max_attempts`; an exhausted chain stops it as `no_model_available`). Not built yet: G0 questions, a reference
 model and the emulator cross-check of the test examples. `worker --facts-sql "SELECT ..."` reads one Zetaris
 statement per run (needs `ZETARIS_API_KEY`) and adds its rows to the spec and test-author prompts, marked as
-untrusted data; a failing Zetaris stops the run as `infra_error`. The tables to load are in
-`knowledge/zetaris/`. A `resume` command with `approve` or `reject` continues the run;
-`reject` and `cancel` stop it as `human_abort`; a crash is recovered from `var/checkpoints.sqlite`. `approve` stops
-the run with `infra_error` ("not built yet") until the next slices (intake and spec, architect and scaffold, the
-sprint loop) add their nodes. There is no UI page for it yet; the commands go in through the store
-(`Store.enqueue_command`).
+untrusted data; a failing Zetaris stops the run as `infra_error` (without `--facts-sql` the worker reads the
+knowledge tables by default and a down Zetaris just gives no facts). The tables to load are in
+`knowledge/zetaris/`. `runs decide <run_id> approve|reject` (or the UI's Approvals page) continues the run;
+`reject` and `cancel` stop it as `human_abort`; a crash is recovered from `var/checkpoints.sqlite`. `approve` at G1 starts
+`codegen`: the Markovian chunk loop (Zetaris facts and an H-MEM recall in every chunk; `worker --memory`, default
+`hmem.sqlite` next to `--db`) writes one NASM file from the spec, then NASM assembles it and the Unicorn
+emulator runs every golden test. A rejected program is sent back with the checker's report up to twice; an
+accepted one is saved as `var/runs/<run_id>/main.asm`, written to H-MEM and shown at gate G4, and `approve` there
+ends the run as `green`. If the oracle rejects every attempt the run stops as `max_attempts` and never reaches G4.
+This is the single-module slice: no architect, contracts or sprint loop yet, so results are ABI-unverified. Runs are
+queued and answered with `runs submit/status/decide/package` ([create-flow.md](create-flow.md)) or in the Streamlit UI.
+Live evidence and what is not proven yet (compounding, the temperament demo) are in the
+[hackathon demo guide](hackathon-demo-guide.md#where-it-stands).

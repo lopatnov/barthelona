@@ -153,6 +153,17 @@ def test_a_block_alone_is_used_when_the_blocks_together_are_rejected(monkeypatch
     assert seen == ["first\nsecond", "second"]  # the last block is tried first
 
 
+def test_a_block_with_the_entry_point_is_tried_before_a_later_data_only_block(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: list[str] = []
+    program, data = "global _start\n_start:\n    ret", "section .data\nmsg db 1"
+    monkeypatch.setattr("barthelona.verification.asm_gate.assemble_source", _accepts_only(program, seen))
+    chosen, _ = assemble_best(f"{program}\n{data}", [program, data], "nasm")
+    assert chosen == program
+    assert seen[1] == program
+
+
 def test_when_no_block_assembles_the_joined_failure_is_kept(monkeypatch: pytest.MonkeyPatch) -> None:
     seen: list[str] = []
     monkeypatch.setattr("barthelona.verification.asm_gate.assemble_source", _accepts_only("none", seen))

@@ -42,7 +42,9 @@ Answer with ONE JSON object and nothing else:
  "modules": [{"path": "src/<name>.asm", "purpose": "<one line>", "exports": ["<symbol>"]}],
  "constraints": [], "non_goals": [], "assumptions": []}
 Rules: 1-12 requirements, each checkable from the program's output or exit code; 1-6 modules; paths relative
-to the project, ending in the dialect's source suffix; keep it as small as the goal allows."""
+to the project, ending in the dialect's source suffix; keep it as small as the goal allows. When the program
+prints results, state the exact text or format of those lines in the requirements (for example
+"Extraversion: <n>"), so the tests and the code agree on them."""
 
 
 class SpecError(RuntimeError):
@@ -97,6 +99,8 @@ async def ask_json[Model: DomainModel](
                 return value
         except (ValueError, ValidationError) as exc:  # orjson's decode error is a ValueError
             problem = str(exc)[:600]
+            if completion.record.stop_reason == "length":
+                problem = "the reply was cut off by the length limit: answer again, much shorter"
         messages += [
             ChatMessage(role="assistant", content=completion.text),
             ChatMessage(role="user", content=f"That reply is unusable: {problem}\nAnswer again, JSON only."),

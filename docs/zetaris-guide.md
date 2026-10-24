@@ -26,7 +26,7 @@ Complete step-by-step guide to setting up and using Zetaris as a structured know
 
 Key points:
 
-- **Read-only** from Barthelona's perspective (`SELECT`/`SHOW`/`DESCRIBE`/`WITH` only)
+- **Read-only for queries**: `zetaris sql` and `--facts-sql` send `SELECT`/`SHOW`/`DESCRIBE`/`WITH` only; the only commands that write are `zetaris publish` (run data) and the one-time table registration
 - **Opt-in** — runs work fine without it
 - **Untrusted data** — rows are wrapped in `[ZETARIS FACTS]` block and subject to injection guard
 - **Complements Qdrant** — Zetaris = exact SQL facts; Qdrant = vector search over docs
@@ -139,8 +139,8 @@ Zetaris status: online
 # List databases (example)
 python -m barthelona zetaris sql "SHOW LIGHTNING DATABASES"
 
-# Query a table (replace with your table)
-python -m barthelona zetaris sql "SELECT name, nr FROM syscalls LIMIT 10"
+# Query a knowledge table (registered as in the section below)
+python -m barthelona zetaris sql "SELECT number, name, arg1 FROM barthelona_files.linux_x64_syscalls LIMIT 10"
 
 # With limit
 python -m barthelona zetaris sql --limit 100 "WITH cte AS (...) SELECT * FROM cte"
@@ -149,7 +149,7 @@ python -m barthelona zetaris sql --limit 100 "WITH cte AS (...) SELECT * FROM ct
 **Constraints:**
 
 - Only **one** statement per call (`SELECT`, `SHOW`, `DESCRIBE`, or `WITH`)
-- Read-only — no `INSERT`, `UPDATE`, `DELETE`, `CREATE`, `DROP`
+- `zetaris sql` is read-only (it refuses `INSERT`, `UPDATE`, `DELETE`, `CREATE`, `DROP`); writing goes only through `zetaris publish` and the registration statements
 - Results returned as text table
 
 ---
@@ -159,11 +159,11 @@ python -m barthelona zetaris sql --limit 100 "WITH cte AS (...) SELECT * FROM ct
 Inject Zetaris facts into the first chunk of a long task:
 
 ```bash
-python -m barthelona chunked run "Write a NASM program that uses sys_write" \
+python -m barthelona chunked run "Write a NASM program that prints Hello using the write syscall" \
   --profile meterless \
   --role worker \
   --assemble --repair 2 \
-  --facts-sql "SELECT name, nr, args FROM syscalls WHERE name LIKE 'sys_write%'" \
+  --facts-sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'" \
   --memory var/hmem.sqlite \
   --stats var/runs.sqlite \
   --out myprog.asm
@@ -173,14 +173,9 @@ python -m barthelona chunked run "Write a NASM program that uses sys_write" \
 
 1. **Before chunk 1**: Barthelona executes the `--facts-sql` query against Zetaris
 2. **Rows returned** → formatted as text table
-3. **Injected** into chunk 1's prompt as an untrusted block:
-   ```
-   [ZETARIS FACTS]
-   name    | nr | args
-   --------|----|-----
-   sys_write | 1 | fd, buf, count
-   [/ZETARIS FACTS]
-   ```
+3. **Injected** into chunk 1's prompt as an untrusted block: a `[ZETARIS FACTS] rows of: <your query>` line followed by
+   the rows (`cell | cell | ...`, one row per line) wrapped as untrusted data, for example
+   `write | rdi=fd | rsi=buf | rdx=count`
 4. **Injection guard** validates the block (refuses prompt injection attempts)
 5. **Model sees facts** and can use them in generation
 6. **Oracle decides** — assembler/emulator still validate correctness
@@ -191,76 +186,51 @@ python -m barthelona chunked run "Write a NASM program that uses sys_write" \
 | ---------------------------- | ------------------------------------------------------- |
 | Filter to relevant facts     | `WHERE topic = 'nasm' AND arch = 'x86-64'`              |
 | Limit rows                   | `LIMIT 20` (prevents context overflow)                  |
-| Select only needed columns   | `SELECT mnemonic, operands, encoding FROM instructions` |
+| Select only needed columns   | `SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls` |
 | Use CTEs for complex queries | `WITH filtered AS (...) SELECT * FROM filtered`         |
 
 ---
 
 ## Registering Assembler Facts in Zetaris
 
-> ⚠️ **Current State**: Registering tables in Zetaris is **manual**. There is no automated ingestion pipeline yet. This section documents the intended workflow.
+> **Current state (2026-10-24):** the facts are two **file tables** registered by hand from CSV files; there is no
+> automated ingestion pipeline. The earlier version of this section proposed `CREATE TABLE` and `INSERT` statements
+> for `syscalls`, `instructions` and `directives` tables; that was never run and is not how the tables on the dev
+> PC were made. Instruction forms and directives are **not** in Zetaris yet.
 
-### Intended Schema for Assembly Facts
+What exists (verified on the local hackathon stack, build 2.4.3):
 
-```sql
--- Syscalls table
-CREATE TABLE syscalls (
-    name VARCHAR(64) PRIMARY KEY,    -- e.g., 'sys_write'
-    nr INTEGER NOT NULL,             -- syscall number (1 for write)
-    args VARCHAR(256),               -- comma-separated: 'fd, buf, count'
-    arch VARCHAR(16),                -- 'x86-64', 'aarch64'
-    abi VARCHAR(16)                  -- 'sysv64', 'win64'
-);
+| Table                                | Rows | Source file                                |
+| ------------------------------------ | ---: | ------------------------------------------ |
+| `barthelona_files.linux_x64_syscalls` |   37 | `knowledge/zetaris/linux_x64_syscalls.csv` |
+| `barthelona_files.abi_facts`          |   11 | `knowledge/zetaris/abi_facts.csv`          |
 
--- Instructions table
-CREATE TABLE instructions (
-    mnemonic VARCHAR(32),
-    operands VARCHAR(128),
-    encoding VARCHAR(64),            -- e.g., '48 89 C7'
-    cpu_flags VARCHAR(64),           -- affected flags
-    isa_ext VARCHAR(32),             -- 'BASE', 'AVX2', 'AVX512'
-    dialect VARCHAR(16),             -- 'nasm', 'gas-intel', 'gas-att'
-    arch VARCHAR(16)
-);
+### Registration steps
 
--- Directives table
-CREATE TABLE directives (
-    name VARCHAR(64),
-    dialect VARCHAR(16),             -- 'nasm', 'gas', 'fasm', 'masm'
-    synopsis TEXT,
-    example TEXT
-);
-```
+The exact commands (copy the CSVs into the volume that the Zetaris api and driver containers share, with relative
+paths because an absolute `C:\` path breaks `docker cp`; then `CREATE LIGHTNING DATABASE` and
+`CREATE LIGHTNING FILESTORE TABLE ... FORMAT CSV OPTIONS (path "...", header "true", delimiter ",")`) are in
+[`knowledge/zetaris/README.md`](../knowledge/zetaris/README.md) and in section 1.3 of
+[`hackathon-demo-guide.md`](hackathon-demo-guide.md). The path in the `OPTIONS` is a path **inside the Zetaris
+containers** (`/home/zetaris/customer-data/shared/barthelona/...`), not a Windows path. The API key was accepted for
+`CREATE` over the REST endpoint; each statement is sent on its own, and a repeated `CREATE` answers "already exists".
+The numbers in the CSVs were written from memory of the public syscall table and still need checking against the kernel
+table (`syscall_64.tbl`) and the System V psABI.
 
-### Manual Registration Steps
+### What writes to Zetaris
 
-1. **Log into Zetaris web UI**
-2. **Create a database/schema** for barthelona facts (e.g., `barthelona_kb`)
-3. **Create tables** using the schema above
-4. **Insert data** — manually or via CSV import:
-   - Linux syscalls: from `/usr/include/asm/unistd_64.h` or `syscall_64.tbl`
-   - NASM instructions: from Appendix F of NASM manual
-   - GAS directives: from `as.htm` pseudo-ops section
-5. **Grant access** to your API key's organization
+`zetaris sql` and `--facts-sql` send only one `SELECT`, `SHOW`, `DESCRIBE` or `WITH`. The only commands that write are
+`zetaris publish`, which registers and fills the `barthelona_runtime` tables (`runs`, `run_chunks`, `memories`,
+`memory_ledger`) from the local SQLite files, and the registration statements above, which an administrator sends
+once. `zetaris seed` reads Zetaris and writes only the local H-MEM file.
 
-### Example: Populating Syscalls
+### Not built
 
-```sql
--- In Zetaris SQL editor
-INSERT INTO syscalls (name, nr, args, arch, abi) VALUES
-('sys_read', 0, 'fd, buf, count', 'x86-64', 'sysv64'),
-('sys_write', 1, 'fd, buf, count', 'x86-64', 'sysv64'),
-('sys_open', 2, 'pathname, flags, mode', 'x86-64', 'sysv64'),
-('sys_close', 3, 'fd', 'x86-64', 'sysv64'),
-('sys_exit', 60, 'error_code', 'x86-64', 'sysv64');
--- ... continue for all syscalls
-```
+- No ingestion pipeline (`knowledge/sources.yaml` as a Zetaris source: planned, roadmap Phase 3).
+- No instruction-form, directive or diagnostic tables; no manuals loaded (Zetaris can register PDF, text and markdown
+  files as tables, which nobody has tried for `asm_doc/`).
 
-### Future: Automated Ingestion (Planned)
-
-- `knowledge/sources.yaml` will define Zetaris as a source
-- Ingestion pipeline: parse manuals → extract facts → upsert to Zetaris
-- See [`docs/roadmap.md`](roadmap.md) Phase 3 for timeline
+---
 
 ---
 
@@ -293,7 +263,7 @@ INSERT INTO syscalls (name, nr, args, arch, abi) VALUES
 | Cause                     | Fix                                                      |
 | ------------------------- | -------------------------------------------------------- |
 | Multiple statements       | Only one `SELECT`/`SHOW`/`DESCRIBE`/`WITH` allowed       |
-| Write operation attempted | Read-only: no `INSERT`/`UPDATE`/`DELETE`/`CREATE`/`DROP` |
+| Write operation attempted | `zetaris sql` is read-only; use `zetaris publish` or the registration steps |
 | Table doesn't exist       | Check spelling; use `SHOW TABLES` to list                |
 | Org ID wrong              | Set correct `ZETARIS_ORG_ID` in `.env`                   |
 
@@ -349,7 +319,7 @@ python -m barthelona chunked run "Complex NASM task" \
 from barthelona.llm.zetaris import ZetarisClient
 
 client = ZetarisClient()  # reads env vars automatically
-rows = client.query("SELECT name, nr FROM syscalls WHERE nr < 10")
+rows = client.query("SELECT name, number FROM barthelona_files.linux_x64_syscalls LIMIT 10")
 for row in rows:
     print(row)
 ```
@@ -391,9 +361,9 @@ python -m barthelona zetaris status
 python -m barthelona zetaris sql "SHOW TABLES"
 
 # 6. Use in chunked run
-python -m barthelona chunked run "Write NASM sys_write wrapper" \
+python -m barthelona chunked run "Write a NASM program that prints Hello using the write syscall" \
   --profile meterless \
-  --facts-sql "SELECT nr, args FROM syscalls WHERE name = 'sys_write'" \
+  --facts-sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'" \
   --assemble --repair 2 \
   --out write_wrapper.asm
 ```
@@ -404,11 +374,11 @@ python -m barthelona chunked run "Write NASM sys_write wrapper" \
 
 | Limitation                              | Status                                 |
 | --------------------------------------- | -------------------------------------- |
-| No automated fact ingestion pipeline    | Manual only (Phase 3)                  |
-| Tested against fake HTTP transport only | Not yet validated against real Zetaris |
+| No automated fact ingestion pipeline    | Manual file-table registration (Phase 3) |
+| Validated against a real Zetaris        | Yes, local hackathon build 2.4.3, 2026-10-24 (status, sql, seed, publish) |
 | Single-statement restriction            | By design (safety)                     |
-| Read-only access                        | By design (safety)                     |
-| No demo project using `--facts-sql`     | Planned                                |
+| Read-only queries (`zetaris sql`)       | By design (safety); writes only via `publish` and registration |
+| No demo project using `--facts-sql`     | Planned; the create flow uses the tables by default |
 
 ---
 

@@ -6,9 +6,12 @@ that is not written yet, so this backend declares them unsupported and the route
 
 from __future__ import annotations
 
+import email.utils
+import math
 import os
 import time
 from collections.abc import Callable, Mapping
+from datetime import UTC, datetime
 from typing import Any
 
 import openai
@@ -74,6 +77,25 @@ def _describe(exc: openai.OpenAIError, base_url: str | None = None) -> str:
     return " | ".join(parts) + (f" ({', '.join(extras)})" if extras else "")
 
 
+def _retry_after(exc: openai.OpenAIError) -> float | None:
+    """The ``Retry-After`` header in seconds, from its number or HTTP-date form, if the provider sent one."""
+    response = getattr(exc, "response", None)
+    if response is None:
+        return None
+    try:
+        value = response.headers["retry-after"]
+    except (KeyError, AttributeError):
+        return None
+    try:
+        seconds = float(value)
+    except ValueError:
+        try:
+            seconds = (email.utils.parsedate_to_datetime(value) - datetime.now(UTC)).total_seconds()
+        except (TypeError, ValueError):
+            return None
+    return max(0.0, seconds) if math.isfinite(seconds) else None
+
+
 def _call_error(exc: openai.OpenAIError, base_url: str | None) -> ModelCallError:
     block = _meterless_block(exc)
     return ModelCallError(
@@ -83,6 +105,7 @@ def _call_error(exc: openai.OpenAIError, base_url: str | None) -> ModelCallError
         code=getattr(exc, "code", None),
         fix=tuple(str(item) for item in block.get("fix") or []),
         chat_carrier=block.get("chat_carrier"),
+        retry_after=_retry_after(exc),
     )
 
 
@@ -161,6 +184,7 @@ class OpenAIChatBackend:
         arguments = self._arguments(target, request)
         started = time.monotonic()
         parts: list[str] = []
+        thoughts: list[str] = []
         stop_reason = "unknown"
         usage = None
         answered_by = ""
@@ -171,6 +195,12 @@ class OpenAIChatBackend:
                 answered_by = chunk.model or answered_by
                 for choice in chunk.choices:
                     parts.append(choice.delta.content or "")
+                    # Servers that separate reasoning send it as an extra delta field, under either name.
+                    thoughts.append(
+                        getattr(choice.delta, "reasoning_content", None)
+                        or getattr(choice.delta, "reasoning", None)
+                        or ""
+                    )
                     stop_reason = choice.finish_reason or stop_reason
         except openai.OpenAIError as exc:
             raise _call_error(exc, target.provider.base_url) from exc
@@ -183,4 +213,5 @@ class OpenAIChatBackend:
             stop_reason=stop_reason,
             latency_ms=round((time.monotonic() - started) * 1000),
             answered_by=answered_by,
+            reasoning="".join(thoughts),
         )

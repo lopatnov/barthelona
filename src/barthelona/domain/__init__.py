@@ -50,6 +50,7 @@ from barthelona.domain.memory import (
 from barthelona.domain.patch import FileWrite, HunkEdit, Patch, SymbolEdit
 from barthelona.domain.project import ChangeSpec, ModuleSpec, ProjectSpec, Requirement, TargetProfile
 from barthelona.domain.run import (
+    DEMOS_DIR,
     CommandKind,
     EventKind,
     GateDecision,
@@ -63,6 +64,7 @@ from barthelona.domain.run import (
     RunEvent,
     RunMode,
     RunStatus,
+    project_workspace,
 )
 from barthelona.domain.topology import (
     EdgeSpec,
@@ -122,6 +124,7 @@ DOCUMENTS: dict[str, type[Document]] = {
 
 __all__ = [
     "ABI",
+    "DEMOS_DIR",
     "DOCUMENTS",
     "OS",
     "SCHEMA_VERSION",
@@ -214,5 +217,6 @@ __all__ = [
     "VerificationReport",
     "Visibility",
     "canonical_json",
+    "project_workspace",
     "spec_hash",
 ]
