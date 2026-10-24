@@ -11,7 +11,7 @@ from typing import Any
 def normalize_name(name: str) -> str:
     """
     Normalize a name for stable ID generation.
-    
+
     NFKD decomposition, strip combining marks, lowercase, collapse whitespace.
     """
     # NFKD decomposition
@@ -30,7 +30,7 @@ def normalize_name(name: str) -> str:
 def entity_id_from_name(entity_type: str, name: str) -> str:
     """
     Generate a stable entity ID from type and normalized name.
-    
+
     Format: ent_<sha256(type:normalized_name)[:16]>
     """
     normalized = normalize_name(name)
@@ -42,7 +42,7 @@ def entity_id_from_name(entity_type: str, name: str) -> str:
 def external_id(entity_type: str, system: str, external_id: str) -> str:
     """
     Generate a stable entity ID from an external system key.
-    
+
     Format: ext_<sha256(type:system:external_id)[:16]>
     """
     content = f"{entity_type}:{system}:{external_id}"
@@ -53,7 +53,7 @@ def external_id(entity_type: str, system: str, external_id: str) -> str:
 def context_id_from_attrs(context_type: str, attrs: dict[str, Any], parent: str | None = None) -> str:
     """
     Generate a stable context ID from type and attributes.
-    
+
     Format: ctx_<sha256(type:parent:attrs_json)[:16]>
     """
     import json
@@ -68,7 +68,7 @@ def context_id_from_attrs(context_type: str, attrs: dict[str, Any], parent: str 
 def fact_id(about: str, predicate: str, value: Any, at: str, kind: str, url: str | None = None) -> str:
     """
     Generate a stable fact ID.
-    
+
     Format: fact_<sha256(about:predicate:value:at:kind:url)[:16]>
     """
     import json
@@ -79,10 +79,17 @@ def fact_id(about: str, predicate: str, value: Any, at: str, kind: str, url: str
     return f"fact_{hash_hex}"
 
 
-def relationship_id(from_: str, rel_type: str, to: str, context: str | None = None, valid_from: str | None = None, attrs: dict[str, Any] | None = None) -> str:
+def relationship_id(
+    from_: str,
+    rel_type: str,
+    to: str,
+    context: str | None = None,
+    valid_from: str | None = None,
+    attrs: dict[str, Any] | None = None,
+) -> str:
     """
     Generate a stable relationship ID.
-    
+
     Format: rel_<sha256(from:type:to:context:valid_from:attrs)[:16]>
     """
     import json

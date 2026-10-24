@@ -45,7 +45,7 @@ from .types import (
 class WorldModel:
     """
     World Model - an event-sourced, deterministic shared state for agents.
-    
+
     Single-writer discipline: every write goes through a FIFO queue per instance,
     so concurrent ingests serialize automatically.
     """
@@ -70,7 +70,10 @@ class WorldModel:
     def _normalize_provenance(self, source: Provenance | None) -> StoredProvenance:
         """Normalize provenance to stored format."""
         if not source or not source.kind or source.at is None:
-            raise ValueError("World Model: every write carries provenance (kind + at). No provenance, no write.")
+            raise ValueError(
+                "World Model: every write carries provenance (kind + at). "
+                "No provenance, no write."
+            )
 
         at = source.at.isoformat() if isinstance(source.at, datetime) else source.at
         return StoredProvenance(
@@ -91,7 +94,9 @@ class WorldModel:
         state: EntityState = EntityState.ACTIVE,
     ) -> Entity:
         """Upsert an entity."""
-        return await self._enqueue(lambda: self._upsert_entity_sync(type, external_key, name, attrs, source, state))
+        return await self._enqueue(
+            lambda: self._upsert_entity_sync(type, external_key, name, attrs, source, state)
+        )
 
     def _upsert_entity_sync(
         self,
@@ -171,7 +176,9 @@ class WorldModel:
 
         return result
 
-    def _create_external_key_alias(self, type: str, external_key: dict[str, str], entity_id: str, source: StoredProvenance) -> None:
+    def _create_external_key_alias(
+        self, type: str, external_key: dict[str, str], entity_id: str, source: StoredProvenance
+    ) -> None:
         """Create an alias from external key format (type:system:id) to the hash-based entity ID."""
         external_key_str = f"{type}:{external_key['system']}:{external_key['id']}"
         if external_key_str not in self.store.state.aliases:
@@ -182,7 +189,9 @@ class WorldModel:
                 "mergedBy": "system",
                 "reason": "external key alias",
             }, source.at)
-            self.store.log_audit("alias", "system", f"{external_key_str} -> {entity_id}", None, None, source.at)
+            self.store.log_audit(
+                "alias", "system", f"{external_key_str} -> {entity_id}", None, None, source.at
+            )
 
     def _fold_entity_upsert(
         self,
@@ -245,7 +254,9 @@ class WorldModel:
         source: Provenance | None = None,
     ) -> Context:
         """Upsert a context."""
-        return await self._enqueue(lambda: self._upsert_context_sync(type, external_key, attrs, parent, source))
+        return await self._enqueue(
+            lambda: self._upsert_context_sync(type, external_key, attrs, parent, source)
+        )
 
     def _upsert_context_sync(
         self,
@@ -289,7 +300,9 @@ class WorldModel:
         source: Provenance | None = None,
     ) -> Relationship:
         """Create a relationship."""
-        return await self._enqueue(lambda: self._relate_sync(from_, type, to, context, attrs, valid_from, valid_to, source))
+        return await self._enqueue(
+            lambda: self._relate_sync(from_, type, to, context, attrs, valid_from, valid_to, source)
+        )
 
     def _relate_sync(
         self,
@@ -353,7 +366,9 @@ class WorldModel:
         source: Provenance | None = None,
     ) -> Fact:
         """Assert a fact."""
-        return await self._enqueue(lambda: self._assert_fact_sync(about, predicate, value, confidence, context, source))
+        return await self._enqueue(
+            lambda: self._assert_fact_sync(about, predicate, value, confidence, context, source)
+        )
 
     def _assert_fact_sync(
         self,
@@ -367,7 +382,14 @@ class WorldModel:
         source_stored = self._normalize_provenance(source)
         about_resolved = self.store.resolve_alias(about)
 
-        fact_id_val = fact_id(about_resolved, predicate, value, source_stored.at, source_stored.kind.value, source_stored.url or "")
+        fact_id_val = fact_id(
+            about_resolved,
+            predicate,
+            value,
+            source_stored.at,
+            source_stored.kind.value,
+            source_stored.url or "",
+        )
         if fact_id_val in self.store.state.facts:
             return self.store.state.facts[fact_id_val]
 
@@ -480,7 +502,14 @@ class WorldModel:
         await self._enqueue(lambda: self._approve_merge_sync(proposal_id, by))
 
     def _approve_merge_sync(self, proposal_id: str, by: str) -> None:
-        p = next((m for m in self.store.state.merge_queue if m.id == proposal_id and m.status == "pending"), None)
+        p = next(
+            (
+                m
+                for m in self.store.state.merge_queue
+                if m.id == proposal_id and m.status == "pending"
+            ),
+            None,
+        )
         if not p:
             raise ValueError(f"World Model: no pending merge proposal {proposal_id}")
 
@@ -503,7 +532,14 @@ class WorldModel:
         await self._enqueue(lambda: self._reject_merge_sync(proposal_id, by))
 
     def _reject_merge_sync(self, proposal_id: str, by: str) -> None:
-        p = next((m for m in self.store.state.merge_queue if m.id == proposal_id and m.status == "pending"), None)
+        p = next(
+            (
+                m
+                for m in self.store.state.merge_queue
+                if m.id == proposal_id and m.status == "pending"
+            ),
+            None,
+        )
         if not p:
             raise ValueError(f"World Model: no pending merge proposal {proposal_id}")
 
@@ -613,7 +649,7 @@ class GraphView:
         visited: set[str] = set()
         frontier = [self.store.resolve_alias(start_id)]
 
-        for depth in range(max_depth):
+        for _depth in range(max_depth):
             if not frontier:
                 break
             next_frontier: list[str] = []
@@ -648,9 +684,7 @@ class GraphView:
     def _valid_at(self, rel: Relationship, at: str) -> bool:
         if rel.valid_from and at < rel.valid_from:
             return False
-        if rel.valid_to and at >= rel.valid_to:
-            return False
-        return True
+        return not (rel.valid_to and at >= rel.valid_to)
 
 
 class FactsView:

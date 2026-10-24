@@ -13,20 +13,18 @@ import sys
 from datetime import datetime
 
 # Add src to path
-import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from barthelona.world_model import (
-    WorldModel,
-    WorldModelOptions,
-    IngestObservation,
     IngestEntity,
+    IngestObservation,
     Provenance,
     ProvenanceKind,
-    canonical_json,
+    WorldModel,
+    WorldModelOptions,
 )
-
 
 FIXTURE = [
     {
@@ -74,11 +72,8 @@ def create_observations(mutate: bool = False) -> list[IngestObservation]:
     """Create observations from fixture, optionally mutating the first one."""
     observations = []
     for i, item in enumerate(FIXTURE):
-        if mutate and i == 0:
-            title = item["title"] + " (edited)"
-        else:
-            title = item["title"]
-        
+        title = item["title"] + " (edited)" if mutate and i == 0 else item["title"]
+
         obs = IngestObservation(
             external_id=item["external_id"],
             title=title,
@@ -92,32 +87,33 @@ def create_observations(mutate: bool = False) -> list[IngestObservation]:
 
 async def main() -> int:
     parser = argparse.ArgumentParser(description="World Model idempotency check")
-    parser.add_argument("--mutate", action="store_true", 
+    parser.add_argument("--mutate", action="store_true",
                        help="Mutate the second run to prove check can fail")
     args = parser.parse_args()
-    
+
     mutate = args.mutate
-    
-    clock = lambda: datetime(2026, 5, 18, 0, 0, 0)
-    
+
+    def clock():
+        return datetime(2026, 5, 18, 0, 0, 0)
+
     world = WorldModel(WorldModelOptions(
         storage="memory",
         namespace="idem",
         clock=clock,
     ))
-    
+
     # Run 1
     obs1 = create_observations(mutate=False)
     r1 = await world.ingest(obs1)
     shape1 = world.state_shape_canonical()
     print(f"run 1: processed={r1.processed} clusters={r1.clusters} changed={r1.changed}")
-    
+
     # Run 2 (same or mutated)
     obs2 = create_observations(mutate=mutate)
     r2 = await world.ingest(obs2)
     shape2 = world.state_shape_canonical()
     print(f"run 2: processed={r2.processed} skipped={r2.skipped_unchanged} changed={r2.changed}")
-    
+
     if shape1 == shape2:
         print("diff: empty")
         if mutate:

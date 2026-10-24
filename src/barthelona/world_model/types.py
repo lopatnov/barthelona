@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class EntityState(str, Enum):
+class EntityState(StrEnum):
     EMERGING = "emerging"
     ACTIVE = "active"
     ARCHIVED = "archived"
 
 
-class ProvenanceKind(str, Enum):
+class ProvenanceKind(StrEnum):
     MANUAL = "manual"
     RSS = "rss"
     API = "api"
@@ -166,14 +166,14 @@ class WorldModelOptions:
     clock: Any | None = None  # callable returning datetime
 
 
-class ConflictPolicy(str, Enum):
+class ConflictPolicy(StrEnum):
     MOST_RECENT_WINS = "most-recent-wins"
     HIGHEST_CONFIDENCE_WINS = "highest-confidence-wins"
     SOURCE_PRIORITY = "source-priority"
     MANUAL = "manual"
 
 
-class MergeDecision(str, Enum):
+class MergeDecision(StrEnum):
     AUTO_MERGE = "auto-merge"
     REVIEW = "review"
     NEW = "new"

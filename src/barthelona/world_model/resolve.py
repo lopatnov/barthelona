@@ -25,7 +25,7 @@ def levenshtein(a: str, b: str) -> int:
 def name_similarity(name1: str, name2: str) -> float:
     """
     Calculate normalized name similarity using Levenshtein distance.
-    
+
     Returns a value between 0.0 (completely different) and 1.0 (identical).
     """
     norm1 = name1.lower().strip()
@@ -53,10 +53,14 @@ def jaccard(set1: set[str], set2: set[str]) -> float:
     return intersection / union
 
 
-def decide(similarity: float, auto_merge_at: float = 0.85, review_band: tuple[float, float] = (0.82, 0.85)) -> str:
+def decide(
+    similarity: float,
+    auto_merge_at: float = 0.85,
+    review_band: tuple[float, float] = (0.82, 0.85),
+) -> str:
     """
     Decide merge action based on similarity score.
-    
+
     Returns:
         "auto-merge" if similarity >= auto_merge_at
         "review" if review_band[0] <= similarity < auto_merge_at

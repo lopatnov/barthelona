@@ -91,7 +91,7 @@ class TestConcurrentWriters:
     ) -> None:
         """
         Test that 10 agents can concurrently update the same entity.
-        
+
         All updates should be applied (no lost updates), and the final state
         should be deterministic based on the conflict resolution policy.
         """
@@ -117,7 +117,7 @@ class TestConcurrentWriters:
         await asyncio.gather(*tasks)
 
         # Verify the entity exists
-        entity_id = f"ent_{entity_type}:{entity_name.lower().replace(' ', '_')}"
+        f"ent_{entity_type}:{entity_name.lower().replace(' ', '_')}"
         # Actually, let's get the entity by querying
         graph = world_model.view("graph")
         entities = graph.query(type=entity_type, where=lambda e: e.name == entity_name)
@@ -143,7 +143,7 @@ class TestConcurrentWriters:
     ) -> None:
         """
         Test that 10 agents can concurrently ingest the same observations.
-        
+
         Idempotency should ensure the final state matches a single ingest.
         """
         observations = [
@@ -213,7 +213,7 @@ class TestConcurrentWriters:
     ) -> None:
         """
         Test that concurrent execution produces the same result as serial execution.
-        
+
         This is the key test: run 10 agents concurrently, then run the same
         operations serially, and verify the final state is identical.
         """
@@ -277,7 +277,7 @@ class TestConcurrentWriters:
     ) -> None:
         """
         Test high contention: 10 agents updating the SAME attribute.
-        
+
         With most-recent-wins policy, only one value should remain.
         The test verifies no updates are lost (all attempted) and final
         state is consistent.
@@ -315,7 +315,9 @@ class TestConcurrentWriters:
         # Verify audit log has all 10 attempts
         audit = world_model.audit()
         upsert_events = [e for e in audit if e.action == "upsertEntity"]
-        assert len(upsert_events) >= num_agents, f"Expected at least {num_agents} upsert events, got {len(upsert_events)}"
+        assert len(upsert_events) >= num_agents, (
+            f"Expected at least {num_agents} upsert events, got {len(upsert_events)}"
+        )
 
     @pytest.mark.asyncio
     async def test_concurrent_relationships(
@@ -325,7 +327,7 @@ class TestConcurrentWriters:
     ) -> None:
         """
         Test 10 agents creating relationships concurrently.
-        
+
         When creating multiple relationships with the same from_, type, and to,
         bitemporal semantics close the previous edge. So we expect 10 creation
         events + 9 closure events = 19 total relate events.
@@ -368,7 +370,10 @@ class TestConcurrentWriters:
             r for r in world_model.events()
             if r.kind == "relate"
         ]
-        assert len(rels) == num_agents * 2 - 1, f"Expected {num_agents * 2 - 1} relationship events (10 creates + 9 closes), got {len(rels)}"
+        assert len(rels) == num_agents * 2 - 1, (
+            f"Expected {num_agents * 2 - 1} relationship events "
+            f"(10 creates + 9 closes), got {len(rels)}"
+        )
 
         # Final state should have exactly 1 open relationship (the last one created)
         graph = world_model.view("graph")
