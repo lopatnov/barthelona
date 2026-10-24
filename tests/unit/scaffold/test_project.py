@@ -175,3 +175,11 @@ def test_a_gas_project_is_refused_by_the_golden_ci() -> None:
 def test_a_branch_name_is_not_a_commit() -> None:
     with pytest.raises(UnsupportedCiTarget, match="full commit sha"):
         _render(barthelona_ref="main")
+
+
+def test_a_substring_test_is_listed_with_its_texts() -> None:
+    case = _cases()[0].model_copy(
+        update={"expect": Expectation(stdout_contains=["Score: 2", "sanguine"], exit_code=0)}
+    )
+    readme = _render(cases=[case])["README.md"]
+    assert "stdout containing `'Score: 2'`, `'sanguine'`" in readme

@@ -66,14 +66,21 @@ class _Recording:
         return completion
 
 
+def _example(case: TestCase) -> str:
+    stdin = case.inputs.get("stdin", "")
+    wanted = []
+    if case.expect.stdout is not None:
+        wanted.append(f"stdout={case.expect.stdout!r}")
+    if case.expect.stdout_contains:
+        wanted.append(f"stdout contains {case.expect.stdout_contains!r}")
+    output = " and ".join(wanted) or "any stdout"
+    return f"{case.id}: stdin={stdin!r} -> {output}, exit code {case.expect.exit_code or 0}"
+
+
 def task_text(spec: ProjectSpec, cases: list[TestCase]) -> str:
     """The prompt for the chunk loop: what the program does and the exact behavior the emulator will check."""
     requirements = "\n".join(f"{r.id}: {r.text}" for r in spec.requirements)
-    examples = "\n".join(
-        f"{case.id}: stdin={case.inputs.get('stdin', '')!r} -> stdout={case.expect.stdout!r}, "
-        f"exit code {case.expect.exit_code or 0}"
-        for case in cases
-    )
+    examples = "\n".join(_example(case) for case in cases)
     constraints = "".join(f"\n- {line}" for line in spec.constraints)
     return (
         "Write a NASM program for Linux x86-64 (elf64, syscalls only, no libc, global _start, finish with "
@@ -93,6 +100,7 @@ def check_all(source: str, cases: list[TestCase], nasm: str | None) -> AssembleR
             stdout.encode("utf-8") if stdout is not None else None,
             case.expect.exit_code or 0,
             str(case.inputs.get("stdin", "")).encode("utf-8"),
+            tuple(text.encode("utf-8") for text in case.expect.stdout_contains),
         )
         verdict = check_behavior(source, expect, nasm)
         if verdict.status != "pass":

@@ -145,3 +145,8 @@ async def test_an_accepted_run_is_written_to_memory_and_a_rejected_one_is_not() 
     assert memory.count() == 0
     await _generate([f"```asm\n{HELLO}\n```\n{COMPLETE}\n{state}"], memory)
     assert memory.count() == 1
+
+
+def test_the_task_lists_substring_expectations_for_free_text_output() -> None:
+    case = _cases()[0].model_copy(update={"expect": Expectation(stdout_contains=["Score: 2"], exit_code=0)})
+    assert "T1: stdin='' -> stdout contains ['Score: 2'], exit code 0" in task_text(_spec(), [case])

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import Field, StringConstraints
+from pydantic import Field, StringConstraints, model_validator
 
 from barthelona.domain import (
     Expectation,
@@ -20,18 +20,23 @@ from barthelona.domain import (
     TestKind,
     TestOrigin,
 )
-from barthelona.domain._base import DomainModel, ItemId, require_unique
+from barthelona.domain._base import DomainModel, ItemId, ShortText, require_unique
 from barthelona.engine.spec import OnCall, ask_json, with_facts
 from barthelona.llm.gateway import ModelGateway
 
-TEST_ROLE = "planner"
+TEST_ROLE = "worker"  # the non-thinking lane: reasoning ate the output budget on long outputs (#257)
 
 _PROMPT = """You write acceptance tests for an assembly-language program from its specification.
 Answer with ONE JSON object and nothing else:
 {"tests": [{"id": "T1", "requirement_ids": ["R1"], "stdin": "", "stdout": "<exact expected stdout>",
+            "exit_code": 0},
+           {"id": "T2", "requirement_ids": ["R2"], "stdin": "y\\n", "stdout_contains": ["<text>"],
             "exit_code": 0}]}
-Rules: every requirement id is covered by at least one test; stdout is the exact text the program prints
-(use \\n for newlines); at most 20 tests; no code."""
+Rules: every requirement id is covered by at least one test. Give "stdout" (the exact text, use \\n for
+newlines) only when the specification fixes the whole output. When the program prints free text, such as
+prompts or messages, give "stdout_contains" instead: short texts that the output must hold, taken from the
+requirements (scores, result words, formats). Each test has "stdout" or "stdout_contains". At most 20
+tests; keep them short; no code."""
 
 
 class TestDraft(DomainModel):
@@ -40,8 +45,15 @@ class TestDraft(DomainModel):
     id: ItemId
     requirement_ids: list[ItemId] = Field(min_length=1, max_length=32)
     stdin: Annotated[str, StringConstraints(max_length=4000)] = ""
-    stdout: Annotated[str, StringConstraints(max_length=4000)]
+    stdout: Annotated[str, StringConstraints(max_length=4000)] | None = None
+    stdout_contains: list[ShortText] = Field(default_factory=list, max_length=16)
     exit_code: int = Field(default=0, ge=0, le=255)
+
+    @model_validator(mode="after")
+    def _checks_the_output(self) -> TestDraft:
+        if self.stdout is None and not self.stdout_contains:
+            raise ValueError(f"test {self.id} checks no output: give stdout or stdout_contains")
+        return self
 
 
 class TestsDraft(DomainModel):
@@ -88,7 +100,7 @@ async def author_tests(
             kind=TestKind.IO_GOLDEN,
             level=Level.V6,
             inputs={"stdin": t.stdin},
-            expect=Expectation(stdout=t.stdout, exit_code=t.exit_code),
+            expect=Expectation(stdout=t.stdout, stdout_contains=t.stdout_contains, exit_code=t.exit_code),
             origin=TestOrigin.TEST_AUTHOR,
         )
         for t in draft.tests

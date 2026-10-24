@@ -34,17 +34,26 @@ def _model_rows(calls: Sequence[LLMCallRecord]) -> list[str]:
     ]
 
 
+def _test_line(case: TestCase) -> str:
+    wanted = []
+    if case.expect.stdout is not None:
+        wanted.append(f"stdout `{case.expect.stdout!r}`")
+    if case.expect.stdout_contains:
+        wanted.append("stdout containing " + ", ".join(f"`{text!r}`" for text in case.expect.stdout_contains))
+    output = " and ".join(wanted) or "any stdout"
+    return (
+        f"- **{case.id}**: stdin `{case.inputs.get('stdin', '')!r}` gives {output} "
+        f"and exit code {case.expect.exit_code or 0}"
+    )
+
+
 def _readme(
     run: Run, spec: ProjectSpec, cases: Sequence[TestCase], request: str, calls: Sequence[LLMCallRecord]
 ) -> str:
     module = spec.modules[0].path
     artifact = f"{spec.slug}-linux-x86_64"
     requirements = "\n".join(f"- **{r.id}**: {r.text}" for r in spec.requirements)
-    tests = "\n".join(
-        f"- **{c.id}**: stdin `{c.inputs.get('stdin', '')!r}` gives stdout `{c.expect.stdout!r}` "
-        f"and exit code {c.expect.exit_code or 0}"
-        for c in cases
-    )
+    tests = "\n".join(_test_line(c) for c in cases)
     build = "\n".join(build_commands(spec))
     models = "\n".join(_model_rows(calls))
     quoted = "\n".join(f"> {line}" if line else ">" for line in request.strip().splitlines())
