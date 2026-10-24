@@ -86,7 +86,8 @@ def task_text(spec: ProjectSpec, cases: list[TestCase]) -> str:
         "Write a NASM program for Linux x86-64 (elf64, syscalls only, no libc, global _start, finish with "
         "the exit syscall). Return one complete source file in a single code block.\n"
         f"Program: {spec.summary_en}\nRequirements:\n{requirements}\n"
-        f"Acceptance tests (run in an emulator; stdout and exit code must match exactly):\n{examples}"
+        "Acceptance tests (run in an emulator; the exit code must match, stdout must match exactly "
+        f"unless a test says it contains texts, which only have to appear in it):\n{examples}"
         + (f"\nConstraints:{constraints}" if constraints else "")
     )
 

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime, timedelta
+from email.utils import format_datetime
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -10,6 +13,7 @@ from openai import AsyncOpenAI
 
 from barthelona.llm import ChatMessage, CompletionRequest, FailureKind, ModelCallError, OpenAIChatBackend
 from barthelona.llm.catalog import ModelConfig, ModelTarget, ProviderConfig
+from barthelona.llm.openai_chat import _retry_after
 
 
 def _target(*, local: bool = True, structured: str = "json_schema") -> ModelTarget:
@@ -87,6 +91,30 @@ async def test_streamed_reply_is_assembled_with_usage() -> None:
     assert seen[0]["temperature"] == 0.2
     assert seen[0]["seed"] == 7
     assert "response_format" not in seen[0]
+
+
+def _exc_with_header(value: str | None) -> Exception:
+    headers = {} if value is None else {"retry-after": value}
+    error = Exception("429")
+    error.response = SimpleNamespace(headers=headers)  # type: ignore[attr-defined]
+    return error
+
+
+@pytest.mark.parametrize(
+    ("header", "expected"),
+    [("7", 7.0), ("0.5", 0.5), ("-3", 0.0), (None, None), ("soon", None), ("nan", None)],
+)
+def test_retry_after_reads_seconds(header: str | None, expected: float | None) -> None:
+    assert _retry_after(_exc_with_header(header)) == expected  # type: ignore[arg-type]
+
+
+def test_retry_after_reads_an_http_date() -> None:
+    later = format_datetime(datetime.now(UTC) + timedelta(seconds=40), usegmt=True)
+    seconds = _retry_after(_exc_with_header(later))  # type: ignore[arg-type]
+    assert seconds is not None
+    assert 35 <= seconds <= 40
+    past = format_datetime(datetime.now(UTC) - timedelta(seconds=40), usegmt=True)
+    assert _retry_after(_exc_with_header(past)) == 0.0  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("field", ["reasoning_content", "reasoning"])

@@ -33,7 +33,8 @@ Defaults: `--db var/app.sqlite`, `--runs var/runs`, `--checkpoints var/checkpoin
 `--catalog config/models.yaml`, `--profile meterless`, `--preset linux-x64-nasm-static`, `--wall-s 3600`,
 `--tokens 400000`. `--memory` defaults to `hmem.sqlite` next to `--db`. `--facts-sql` replaces the Zetaris
 statement behind the facts in the prompts; by default, with `ZETARIS_API_KEY` set, the Barthelona knowledge
-tables are used. `--profile` is one of `local-only`, `hybrid`, `cloud`, `meterless`. Run any command with
+tables are used. `--profile` is one of `local-only`, `hybrid`, `cloud`, `meterless`; only `meterless` and the local profiles can
+answer today (`cloud` has no Anthropic, OpenAI or Gemini backend yet: F-111, #252). Run any command with
 `--help` for the current list.
 
 ## Watching what the models think

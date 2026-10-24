@@ -88,7 +88,8 @@ Linux x86-64 only; on Windows use WSL2. Tagged releases (`v*`) carry the binary 
 ## Test
 
 The golden tests in `{GOLDEN_TESTS}` run the program in Barthelona's Unicorn emulator, never on the host.
-A test passes when stdout and the exit code match exactly:
+A test passes when the exit code matches and stdout either matches exactly or, where a test lists texts,
+contains each of them:
 
 {tests}
 

@@ -87,6 +87,15 @@ async def test_a_reply_without_reasoning_says_so(tmp_path: Path) -> None:
     assert "(the model sent no reasoning)" in log.read_text(encoding="utf-8")
 
 
+async def test_a_log_that_cannot_be_written_does_not_lose_the_answer(tmp_path: Path) -> None:
+    blocked = tmp_path / "is-a-file"
+    blocked.write_text("x", encoding="utf-8")
+    gateway = _gateway(_reply("the answer"), ReasoningLog(blocked / "log.md"))  # a file cannot be a folder
+    done = await gateway.complete("worker", _request())
+    assert done.text == "the answer"
+    assert done.fallbacks[-1].startswith("reasoning log not written:")
+
+
 async def test_a_dash_prints_to_stderr_and_no_log_is_the_default(capsys: pytest.CaptureFixture[str]) -> None:
     await _gateway(_reply("hi", reasoning="thought"), ReasoningLog("-")).complete("worker", _request())
     assert "thought" in capsys.readouterr().err

@@ -6,9 +6,12 @@ that is not written yet, so this backend declares them unsupported and the route
 
 from __future__ import annotations
 
+import email.utils
+import math
 import os
 import time
 from collections.abc import Callable, Mapping
+from datetime import UTC, datetime
 from typing import Any
 
 import openai
@@ -75,12 +78,22 @@ def _describe(exc: openai.OpenAIError, base_url: str | None = None) -> str:
 
 
 def _retry_after(exc: openai.OpenAIError) -> float | None:
-    """The ``Retry-After`` header in seconds (the HTTP-date form is ignored), if the provider sent one."""
+    """The ``Retry-After`` header in seconds, from its number or HTTP-date form, if the provider sent one."""
     response = getattr(exc, "response", None)
-    try:
-        return max(0.0, float(response.headers["retry-after"])) if response is not None else None
-    except (KeyError, ValueError, AttributeError):
+    if response is None:
         return None
+    try:
+        value = response.headers["retry-after"]
+    except (KeyError, AttributeError):
+        return None
+    try:
+        seconds = float(value)
+    except ValueError:
+        try:
+            seconds = (email.utils.parsedate_to_datetime(value) - datetime.now(UTC)).total_seconds()
+        except (TypeError, ValueError):
+            return None
+    return max(0.0, seconds) if math.isfinite(seconds) else None
 
 
 def _call_error(exc: openai.OpenAIError, base_url: str | None) -> ModelCallError:

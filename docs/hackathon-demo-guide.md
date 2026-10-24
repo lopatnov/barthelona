@@ -13,9 +13,9 @@ local Zetaris, the worker and the Unicorn emulator).
 1. [Where it stands](#where-it-stands)
 2. [The three layers](#the-three-layers)
 3. [Prerequisites](#prerequisites)
-4. [Layer 1: Zetaris](#layer-1-data--zetaris)
-5. [Layer 2: Barthelona](#layer-2-build--barthelona)
-6. [Layer 3: Meterless and Nemotron](#layer-3-power--meterless-and-nemotron)
+4. [Layer 1: Zetaris](#layer-1-data-zetaris)
+5. [Layer 2: Barthelona](#layer-2-build-barthelona)
+6. [Layer 3: Meterless and Nemotron](#layer-3-power-meterless-and-nemotron)
 7. [Check that the layers work together](#check-that-the-layers-work-together)
 8. [Demos](#demos)
 9. [Troubleshooting](#troubleshooting)
@@ -77,12 +77,15 @@ needs Cursor.
 
 ## Prerequisites
 
-| Requirement | Minimum | Notes |
+These are what the tested machine had (checked 2026-10-24), not vendor minimums; for Zetaris's own requirements see
+the participant guide and https://github.com/zetaris/getting-started.
+
+| Requirement | Tested with | Notes |
 | --- | --- | --- |
-| OS | Windows 11, macOS or Linux | Tested on Windows 11 with WSL2 |
-| RAM | 16 GB | Zetaris needs about 8 GB for Docker |
+| OS | Windows 11 with WSL2 | Linux is the reference host for the engine; macOS is untested |
+| RAM | 16 GB | Docker was given 8 GB for Zetaris |
 | Disk | 15 GB free | Zetaris images are large |
-| Docker | 25+ | Zetaris, and the `bart-tc` toolchain container |
+| Docker | Docker Desktop | Zetaris, and the `bart-tc` toolchain container |
 | NASM | any recent | `nasm` on PATH, or `BARTHELONA_NASM` |
 
 > **Start Zetaris first.** The first start downloads large images (30 to 45 minutes). Set up the other layers while it
@@ -198,9 +201,12 @@ ports of the Meterless engine specs; what is and is not ported is listed in [hac
    http://127.0.0.1:8088/v1 by default.
 2. **Setup, Providers, add NVIDIA**, with a free key from https://build.nvidia.com/. The key stays in Nightshift. It
    is also fine to keep `NVIDIA_API_KEY` in your own `.env`, but Barthelona never reads it.
-3. **NIGHT, LANES**: add at least two lanes backed by different free models. A model never grades its own answers,
-   so Nightshift warns when two lanes share one family. Nemotron 3.5 needs thinking switched off on the main lane
-   (`chat_template_kwargs: {enable_thinking: false}`); the deep lane keeps thinking on.
+3. **NIGHT, LANES**: add at least two lanes backed by different free models. The hackathon participant guide says a
+   model never grades its own answers, so Nightshift warns when two lanes share one family (source: the participant
+   guide, https://meterless.ai; the warning itself was not re-checked in the UI on 2026-10-24). Nemotron 3.5 needs
+   thinking switched off on the main lane (`chat_template_kwargs: {enable_thinking: false}`); the deep lane keeps
+   thinking on. This was observed in live runs on 2026-10-23 (PRs #204 and #208, and the comment in
+   `config/models.yaml`); model details are on https://build.nvidia.com/.
 4. Copy the runtime token from **Console** into `METERLESS_RUNTIME_TOKEN` (same way as the Zetaris key).
    `METERLESS_BASE_URL` is only needed when the URL is not the default.
 

@@ -106,6 +106,11 @@ class Gateway:
                 continue
             done = build_completion(target, request, outcome, tuple(fallbacks))
             if self._trace is not None:
-                self._trace(role, done)
+                try:
+                    self._trace(role, done)
+                except OSError as exc:  # the log is optional: a model answer is never lost to it
+                    done = done.model_copy(
+                        update={"fallbacks": (*done.fallbacks, f"reasoning log not written: {exc}")}
+                    )
             return done
         raise GatewayError(f"no model in the {role!r} chain could answer: " + "; ".join(fallbacks))

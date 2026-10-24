@@ -79,6 +79,16 @@ async def test_a_test_that_checks_no_output_is_sent_back_and_then_accepted() -> 
     assert "checks no output" in gateway.calls[1][1].messages[-1].content
 
 
+async def test_a_test_that_gives_both_forms_is_sent_back() -> None:
+    both = (
+        '{"tests": [{"id": "T1", "requirement_ids": ["R1"], "stdout": "", "stdout_contains": ["Score: 2"]}]}'
+    )
+    gateway = FakeGateway([both, _CONTAINS])
+    _, cases = await author_tests(gateway, _spec(), "", lambda _r: None)
+    assert cases[0].expect.stdout is None
+    assert "gives both stdout and stdout_contains" in gateway.calls[1][1].messages[-1].content
+
+
 async def test_a_long_exact_transcript_is_sent_back_for_substring_checks() -> None:
     transcript = "Question? (y/n): " * 30
     long_exact = (

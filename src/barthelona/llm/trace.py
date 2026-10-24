@@ -13,7 +13,9 @@ STDERR = "-"
 class ReasoningLog:
     """Appends one markdown entry per answered request to a file, or prints it to stderr for ``-``.
 
-    The log holds prompts' answers and the models' thoughts, so it can hold task text: keep it out of git.
+    The log holds the models' answers and thoughts verbatim, so it can hold task text and anything the model
+    repeated from its prompt: keep it out of git and do not share it. Prompts never contain keys
+    (invariant 10), so nothing is redacted.
     """
 
     def __init__(self, target: str | Path) -> None:
@@ -31,5 +33,7 @@ class ReasoningLog:
             return
         path = Path(self._target)
         path.parent.mkdir(parents=True, exist_ok=True)
+        owner_only = 0o600  # the log holds the request text; Windows ignores the mode
+        path.touch(mode=owner_only, exist_ok=True)
         with path.open("a", encoding="utf-8", newline="\n") as handle:
             handle.write(entry)

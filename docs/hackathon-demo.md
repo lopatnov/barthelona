@@ -47,7 +47,7 @@ what the assembler or the emulator rejected as a lesson.
 
 ## Zetaris facts
 
-Zetaris must be running (the hackathon guide, [Layer 1](hackathon-demo-guide.md#layer-1-data--zetaris)) and its API
+Zetaris must be running (the hackathon guide, [Layer 1](hackathon-demo-guide.md#layer-1-data-zetaris)) and its API
 key created by you in the Zetaris web interface. Put `ZETARIS_API_KEY` (and `ZETARIS_REST_URL`, `ZETARIS_ORG_ID` if they differ from
 `http://localhost:8888/api/v1.0` and `1`) in `.env`. Then:
 
@@ -58,12 +58,13 @@ key created by you in the Zetaris web interface. Put `ZETARIS_API_KEY` (and `ZET
   untrusted-data block (the injection guard can refuse them). A missing key or a failing Zetaris stops the run; it is
   never skipped silently.
 
-The request follows the guide (`POST /sql-editor/sqls/run`, bearer key, `X-Org-ID`, `X-Request-ID`). Unit tests use
+The request follows the Zetaris getting-started guide (https://github.com/zetaris/getting-started, checked
+2026-10-24): `POST /sql-editor/sqls/run`, bearer key, `X-Org-ID`, `X-Request-ID`. Unit tests use
 a fake HTTP transport; on 2026-10-24 it also ran against the owner's local Zetaris, with two knowledge tables
 registered from `knowledge/zetaris/` (steps in its README; the numbers still need a documentation check). The worker
 reads both tables into its prompts by default when `ZETARIS_API_KEY` is set; with the default statement a down
-Zetaris gives a run without facts, with an explicit `--facts-sql` it stops the run. `zetaris seed` and `zetaris publish` are described in
-[zetaris-engines.md](zetaris-engines.md).
+Zetaris gives a run without facts, with an explicit `--facts-sql` it stops the run. `zetaris seed` and
+`zetaris publish` are described in [zetaris-engines.md](zetaris-engines.md).
 
 ## Status on 2026-10-24
 
@@ -91,7 +92,8 @@ One deliberate break each, run on 2026-10-23, then reverted with `git checkout`.
 ## Reproduce
 
 1. In Nightshift: Setup, Providers, add the NVIDIA key; NIGHT, LANES, add a Nemotron lane (for example
-   `nvidia/nemotron-3.5-lightning-30b-a3b`) and pin it.
+   `nvidia/nemotron-3.5-lightning-30b-a3b`; the id is an example: take the current one from
+   https://build.nvidia.com/, checked 2026-10-23) and pin it.
 2. Put the Console values in `.env` (gitignored): `METERLESS_RUNTIME_TOKEN`, and `METERLESS_BASE_URL` if it is not
    `http://127.0.0.1:8088/v1`. The NVIDIA key never goes into `.env`.
 3. Check the runtime: `python -m barthelona meterless status` prints `online` and the `meterless/*` ids, or
