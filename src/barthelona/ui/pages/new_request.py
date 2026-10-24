@@ -114,10 +114,12 @@ def page_new_request() -> None:
         st.subheader("Budget")
         col3, col4, col5 = st.columns(3)
         with col3:
-            wall_s = st.number_input("Wall time (seconds)", min_value=10, max_value=3600, value=300, step=10)
+            wall_s = st.number_input(
+                "Wall time (seconds)", min_value=10, max_value=86400, value=3600, step=60
+            )
         with col4:
             tokens = st.number_input(
-                "Token budget", min_value=1000, max_value=1000000, value=50000, step=1000
+                "Token budget", min_value=1000, max_value=1000000, value=400000, step=10000
             )
         with col5:
             usd = st.number_input(
