@@ -97,7 +97,7 @@ in chunks, NASM decides whether it is valid. You write no assembly.
 
    - `@file` reads the task from the file; plain text in quotes works too.
    - `--repair-role planner` lets a deeper model do the repair rounds; `--plan-role planner` plans first.
-   - `--facts-sql "SELECT ..."` gives the first chunk rows from Zetaris (optional).
+   - `--facts-sql "SELECT ..."` gives the first chunk rows from Zetaris (required for the hackathon demo).
 
 3. **Read the result.** `assemble: pass` means NASM accepted `demos/myprog/myprog.asm`. On `assemble: fail` the file is
    not trustworthy: read the errors, then `demos/myprog/myprog.asm.raw.txt` (the model's unfiltered text), sharpen the
@@ -125,7 +125,7 @@ behavior. Those need the Scrum engine and the emulator (Phase 1 and 2).
 | `python -m barthelona training status`                     | opt-in training-data setting and counts                                                 |
 | `python -m barthelona bench ...`                           | benchmark models on the dev tasks                                                       |
 | `python -m barthelona meterless status`                    | Nightshift online/unauthorized/offline and routes                                       |
-| `python -m barthelona zetaris status`, `zetaris sql "..."` | optional Zetaris facts store                                                            |
+| `python -m barthelona zetaris status`, `zetaris sql "..."` | Zetaris facts store (hackathon requirement)                                                            |
 
 ## Troubleshooting
 

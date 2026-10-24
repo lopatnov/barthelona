@@ -22,7 +22,7 @@ Complete step-by-step guide to setting up and using Zetaris as a structured know
 
 ## What is Zetaris?
 
-**Zetaris** is a data virtualization platform that provides a unified SQL interface over multiple data sources. Barthelona uses it as an **optional structured knowledge store** — a place to keep queryable facts (syscall numbers, instruction forms, ABI rules, etc.) that can be injected into the first chunk of a `chunked run` as untrusted context.
+**Zetaris** is a data virtualization platform that provides a unified SQL interface over multiple data sources. Barthelona uses it as a **structured knowledge store** (a hackathon requirement; the engine itself also runs without it) — a place to keep queryable facts (syscall numbers, instruction forms, ABI rules, etc.) that can be injected into the first chunk of a `chunked run` as untrusted context.
 
 Key points:
 
@@ -363,7 +363,7 @@ for row in rows:
 | Quickstart (includes Zetaris)  | [`docs/quickstart.md`](quickstart.md)                                                                     |
 | Current Status (detailed CLI)  | [`docs/current-status.md`](current-status.md#24-zetaris-status--zetaris-sql--structured-knowledge-store)  |
 | Runbook (environment setup)    | [`docs/runbook.md`](runbook.md#4-optional)                                                                |
-| Hackathon Demo Notes           | [`docs/hackathon-demo.md`](hackathon-demo.md#zetaris-facts-optional)                                      |
+| Hackathon Demo Notes           | [`docs/hackathon-demo.md`](hackathon-demo.md#zetaris-facts)                                      |
 | Architecture (Knowledge Layer) | [`docs/architecture.md`](architecture.md#14-knowledge-layer)                                              |
 | ADR D-016                      | [Knowledge: exact facts and FTS5 first, Qdrant](adr/D-016-knowledge-exact-facts-and-fts5-first-qdrant.md) |
 | ADR D-034                      | [Project-owned Qdrant in docker-compose](adr/D-034-project-owned-qdrant-in-docker-compose.md)             |
@@ -380,8 +380,8 @@ docker run -d --name zetaris -p 8888:8888 zetaris/zetaris:latest
 
 # 3. Add to .env
 ZETARIS_API_KEY=your-key
-# ZETARIS_REST_URL=http://localhost:8888/api/v1.0  # optional
-# ZETARIS_ORG_ID=1                                 # optional
+# ZETARIS_REST_URL=http://localhost:8888/api/v1.0  # default
+# ZETARIS_ORG_ID=1                                 # default
 
 # 4. Verify
 python -m barthelona zetaris status

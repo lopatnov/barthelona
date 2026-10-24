@@ -9,7 +9,7 @@ What Barthelona uses from the hackathon stack, and how to reproduce the demo.
 | Meterless Nightshift (Power) | Primary provider for the `meterless` profile                                                             | `config/models.yaml` (`meterless` provider), `src/barthelona/llm/meterless.py`   |
 | NVIDIA Nemotron (Power)      | Model behind a Nightshift lane, key lives in Nightshift only                                             | Nightshift Providers tab                                                         |
 | Markovian Engine (Build)     | Long generation as bounded chunks with flat context                                                      | `src/barthelona/llm/markovian.py`, `barthelona chunked run`                      |
-| Zetaris (Data)               | Optional structured knowledge store next to Qdrant: read-only SQL, rows enter chunk 1 as untrusted facts | `src/barthelona/llm/zetaris.py`, `barthelona zetaris`, `chunked run --facts-sql` |
+| Zetaris (Data)               | Structured knowledge store next to Qdrant (hackathon requirement): read-only SQL, rows enter chunk 1 as untrusted facts | `src/barthelona/llm/zetaris.py`, `barthelona zetaris`, `chunked run --facts-sql` |
 
 The Markovian code is a Python port of the Apache-2.0 spec at github.com/Meterless/Meterless/tree/main/engines/markovian
 (ARCHITECT mode). Not ported: model-based carryover compression, RESEARCH mode, the reflection pass. The TypeScript
@@ -45,7 +45,7 @@ run that finishes in one chunk still teaches the next one (#214). With one chunk
 the standard one, so the summary prints `efficiency=too short to compare` instead of `0.0%`. Not done from #214: storing
 what the assembler or the emulator rejected as a lesson.
 
-## Zetaris facts (optional)
+## Zetaris facts
 
 Zetaris must be running (the hackathon guide, Data part 1.9) and its API key created by you in the Zetaris web
 interface. Put `ZETARIS_API_KEY` (and `ZETARIS_REST_URL`, `ZETARIS_ORG_ID` if they differ from
