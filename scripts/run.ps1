@@ -72,8 +72,8 @@ function ConvertTo-ChildCommand {
     return "& '" + $envScript.Replace("'", "''") + "' " + ($quoted -join " ")
 }
 
-# Kill a process and its entire child tree
-function Kill-ProcessTree {
+# Stop a process and its entire child tree
+function Stop-ProcessTree {
     param([int]$ProcessId)
     # taskkill /T kills the process tree, /F forces it
     $null = taskkill /T /F /PID $ProcessId 2>$null
@@ -157,7 +157,7 @@ try {
         # Stop the remaining process and its child tree
         foreach ($p in $processes) {
             if (-not $p.HasExited) {
-                Kill-ProcessTree $p.Id
+                Stop-ProcessTree $p.Id
             }
         }
         if ($exited.ExitCode -ne 0) {
@@ -171,7 +171,7 @@ catch {
 }
 finally {
     Write-Host "Stopping processes..." -ForegroundColor Yellow
-    if ($workerProcess -and -not $workerProcess.HasExited) { Kill-ProcessTree $workerProcess.Id }
-    if ($uiProcess -and -not $uiProcess.HasExited) { Kill-ProcessTree $uiProcess.Id }
+    if ($workerProcess -and -not $workerProcess.HasExited) { Stop-ProcessTree $workerProcess.Id }
+    if ($uiProcess -and -not $uiProcess.HasExited) { Stop-ProcessTree $uiProcess.Id }
     Write-Host "Stopped." -ForegroundColor Yellow
 }
