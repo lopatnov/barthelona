@@ -6,6 +6,7 @@ the run, the engine writes `spec.json` and `tests.json` for gate G1.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from barthelona.domain import ProjectSpec, Run, TestCase
 from barthelona.engine.graph import Services
 from barthelona.engine.preflight import preflight_for
 from barthelona.llm.gateway import ModelGateway
+from barthelona.llm.zetaris import ZetarisConfig, ZetarisError, facts_block, run_sql
 from barthelona.persistence import Store
 
 REQUEST_FILE = "request.txt"
@@ -26,7 +28,24 @@ def run_dir(runs_dir: Path, run_id: str) -> Path:
     return runs_dir / run_id
 
 
-def services_for(store: Store, runs_dir: Path, gateway_for: Callable[[Run], ModelGateway]) -> Services:
+def no_facts() -> str:
+    return ""
+
+
+def zetaris_facts(sql: str) -> Callable[[], str]:
+    """A facts source that runs one read-only Zetaris statement; the API key comes from the environment."""
+    config = ZetarisConfig.from_env(os.environ)
+    if config is None:
+        raise ZetarisError("--facts-sql needs ZETARIS_API_KEY in the environment")
+    return lambda: facts_block(run_sql(config, sql), sql)
+
+
+def services_for(
+    store: Store,
+    runs_dir: Path,
+    gateway_for: Callable[[Run], ModelGateway],
+    facts: Callable[[], str] = no_facts,
+) -> Services:
     def load_request(run_id: str) -> str:
         return (run_dir(runs_dir, run_id) / REQUEST_FILE).read_text(encoding="utf-8")
 
@@ -44,4 +63,5 @@ def services_for(store: Store, runs_dir: Path, gateway_for: Callable[[Run], Mode
         load_request=load_request,
         record_call=store.record_llm_call,
         save_spec=save_spec,
+        facts=facts,
     )

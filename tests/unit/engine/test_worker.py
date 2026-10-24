@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import closing
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -34,9 +34,10 @@ from barthelona.domain import (
     TargetProfile,
 )
 from barthelona.engine.graph import build_graph
-from barthelona.engine.host import REQUEST_FILE, SPEC_FILE, TESTS_FILE, services_for
+from barthelona.engine.host import REQUEST_FILE, SPEC_FILE, TESTS_FILE, no_facts, services_for
 from barthelona.engine.worker import Worker
 from barthelona.llm import FakeGateway, GatewayError
+from barthelona.llm.zetaris import ZetarisError
 from barthelona.persistence import Store, connect, migrate
 
 NOW = datetime(2026, 10, 24, 12, 0, tzinfo=UTC)
@@ -101,9 +102,11 @@ def _worker(
     reason: str | None = None,
     saver: object | None = None,
     replies: list[str | Exception] | None = None,
+    facts: Callable[[], str] = no_facts,
+    gateway: FakeGateway | None = None,
 ) -> Worker:
-    gateway = FakeGateway(REPLIES * 4 if replies is None else replies)
-    services = services_for(store, runs_dir, lambda _run: gateway)
+    gateway = gateway or FakeGateway(REPLIES * 4 if replies is None else replies)
+    services = services_for(store, runs_dir, lambda _run: gateway, facts)
     services = replace(services, preflight=lambda _run_id: reason)
     graph = build_graph(services, saver or InMemorySaver())  # type: ignore[arg-type]
     return Worker(store, graph, clock=lambda: NOW)
@@ -174,6 +177,31 @@ async def test_the_spec_is_written_for_the_gate_and_every_model_call_is_in_the_l
     assert spec.requirements[0].test_ids == ["T1"]
     tests = orjson.loads((runs_dir / "r1" / TESTS_FILE).read_bytes())
     assert [(t["id"], t["kind"], t["expect"]["stdout"]) for t in tests] == [("T1", "io_golden", "hello\n")]
+
+
+async def test_knowledge_store_facts_reach_the_spec_and_test_prompts_but_not_intake(
+    store: Store, runs_dir: Path
+) -> None:
+    _queue(store, runs_dir)
+    gateway = FakeGateway(REPLIES)
+    await _worker(store, runs_dir, facts=lambda: "SYSCALL write=1", gateway=gateway).step()
+    prompts = [call[1].messages[-1].content for call in gateway.calls]
+    assert ["SYSCALL write=1" in prompt for prompt in prompts] == [False, True, True]
+
+
+async def test_a_failing_knowledge_store_stops_the_run_as_an_infra_error(
+    store: Store, runs_dir: Path
+) -> None:
+    _queue(store, runs_dir)
+
+    def down() -> str:
+        raise ZetarisError("connection refused")
+
+    await _worker(store, runs_dir, facts=down).step()
+    run = store.get_run("r1")
+    assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.INFRA_ERROR)
+    errors = [e for e in store.events_after("r1") if e.kind is EventKind.ERROR]
+    assert "connection refused" in errors[0].payload["error"]
 
 
 async def test_a_reply_that_is_not_json_is_sent_back_once(store: Store, runs_dir: Path) -> None:
