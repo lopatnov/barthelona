@@ -6,7 +6,9 @@
 .DESCRIPTION
     Agent tool shells (Claude Code, Codex) start fresh for every call, so an activated env does not carry
     over. This wrapper prepends the env's directories to PATH for this one command, sets PYTHONUTF8 and
-    WSL_UTF8, runs the command, restores PATH and returns its exit code. API keys from .env are NOT loaded
+    WSL_UTF8, puts this checkout's src folder first on PYTHONPATH (the env's editable install points at one
+    checkout only, so without it another checkout's code would be imported, #268), runs the command, restores
+    them and returns its exit code. API keys from .env are NOT loaded
     unless the first argument is -LoadEnv: then each KEY=VALUE line of the repository's .env that is not
     already set in the process is placed in the environment of this one command and removed afterwards.
     The values are never printed, logged or returned; the agent still never reads the file itself.
@@ -70,6 +72,7 @@ if ($__loadEnv -and -not (Test-Path -LiteralPath $__envFile)) {
 $__oldPath = $env:PATH
 $__oldUtf8 = $env:PYTHONUTF8
 $__oldWsl = $env:WSL_UTF8
+$__oldPyPath = $env:PYTHONPATH
 $__code = 1
 $__loaded = @()
 try {
@@ -91,6 +94,8 @@ try {
     $env:PATH = (@($__bartPrefix, (Join-Path $__bartPrefix 'Scripts'), (Join-Path $__bartPrefix 'Library\bin')) -join ';') + ';' + $__oldPath
     $env:PYTHONUTF8 = '1'
     $env:WSL_UTF8 = '1'
+    $__src = Join-Path (Split-Path -Parent $PSScriptRoot) 'src'
+    if ($__oldPyPath) { $env:PYTHONPATH = $__src + [System.IO.Path]::PathSeparator + $__oldPyPath } else { $env:PYTHONPATH = $__src }
     $__exe = $__argv[0]
     $__rest = @()
     if ($__argv.Count -gt 1) { $__rest = $__argv[1..($__argv.Count - 1)] }
@@ -103,5 +108,6 @@ finally {
     $env:PATH = $__oldPath
     $env:PYTHONUTF8 = $__oldUtf8
     $env:WSL_UTF8 = $__oldWsl
+    $env:PYTHONPATH = $__oldPyPath
 }
 exit $__code
