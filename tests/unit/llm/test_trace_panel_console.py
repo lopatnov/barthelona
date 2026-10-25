@@ -129,3 +129,33 @@ def test_console_progress_prints_a_timestamped_line(capsys: pytest.CaptureFixtur
     ConsoleProgress()("asking m, waiting for its reply")
 
     assert re.match(r"\[\d\d:\d\d:\d\d\] asking m, waiting for its reply\n", capsys.readouterr().err)
+
+
+def test_an_entry_says_which_models_failed_first_and_why() -> None:
+    notes = ("meterless_deep: Too Many Requests after 2.3s [server]", "meterless_auto: disabled")
+    done = _done().model_copy(update={"fallbacks": notes, "prompt": "[user]\nhi"})
+
+    entry = _entry("worker", done)
+
+    assert "### tried first\n\n- " + notes[0] + "\n- " + notes[1] in entry
+    assert entry.index("### tried first") < entry.index("### prompt")
+
+
+def test_an_entry_that_needed_no_fallback_has_no_tried_first_part() -> None:
+    assert "### tried first" not in _entry("worker", _done())
+
+
+def test_the_panel_splits_the_tried_first_part_off() -> None:
+    from barthelona.ui.reasoning_panel import split_entry
+
+    body = (
+        "### tried first\n\n- meterless_deep: 429\n\n### prompt\n\n[user]\nhi\n\n"
+        "### reasoning\n\nwhy\n\n### answer\n\nok"
+    )
+
+    assert split_entry(body) == {
+        "tried first": "- meterless_deep: 429",
+        "prompt": "[user]\nhi",
+        "reasoning": "why",
+        "answer": "ok",
+    }

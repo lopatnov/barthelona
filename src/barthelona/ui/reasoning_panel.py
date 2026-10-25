@@ -16,6 +16,7 @@ _TAIL_BYTES = 800_000  # read only the end of a long log; an entry can hold a wh
 _HEADING = re.compile(r"(?m)^(?=## (?:\d\d:\d\d:\d\d )?\S+ via \S+(?: -> \S+)? \()")
 
 _PARTS = (
+    ("tried first", "Tried first"),
     ("prompt", "Asked"),
     ("reasoning", "Thinking"),
     ("answer", "Answer"),
