@@ -33,7 +33,8 @@ REPAIRS = 2
 WRITE_ROLE = "worker"
 REPAIR_ROLE = "planner"
 DOMAIN = "assembly"
-CHUNKS = MarkovianConfig(chunk_tokens=2000, carryover_tokens=128, max_chunks=8)
+# A reasoning model spends part of a chunk on thinking; 2000 cut a 12-question quiz off mid-instruction.
+CHUNKS = MarkovianConfig(chunk_tokens=6000, carryover_tokens=128, max_chunks=8)
 
 OnCall = Callable[[LLMCallRecord], None]
 
