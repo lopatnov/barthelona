@@ -105,3 +105,12 @@ def test_a_missing_text_is_named_with_what_was_printed() -> None:
     assert result.status == "fail"
     assert "stdout does not contain 'Goodbye'" in result.errors[0]
     assert "Hello, Barthelona!" in result.errors[0]
+
+
+def test_a_long_output_is_shown_with_its_end() -> None:
+    from barthelona.verification.behavior_gate import _shown
+
+    shown = _shown(b"a" * 500 + b"THE END")
+
+    assert shown.startswith("'" + "a" * 100 + "'")
+    assert shown.endswith("THE END'")

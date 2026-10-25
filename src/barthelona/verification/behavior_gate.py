@@ -30,8 +30,12 @@ class Expectation:
 
 
 def _shown(data: bytes) -> str:
-    text = data[:_SHOWN].decode("utf-8", "backslashreplace")
-    return repr(text) + ("..." if len(data) > _SHOWN else "")
+    """The start of *data*, plus its end when longer: a program's bug often shows at the end of its output."""
+    if len(data) <= _SHOWN:
+        return repr(data.decode("utf-8", "backslashreplace"))
+    head = data[: _SHOWN // 2].decode("utf-8", "backslashreplace")
+    tail = data[-_SHOWN:].decode("utf-8", "backslashreplace")
+    return f"{head!r} ... {tail!r}"
 
 
 def check_behavior(source: str, expect: Expectation, nasm: str | None = None) -> AssembleResult:
