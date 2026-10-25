@@ -18,7 +18,10 @@ import streamlit as st
 
 from barthelona.domain import CommandKind, EventKind, RunBudget, RunCommand, RunStatus
 from barthelona.persistence import Store, open_store
+from barthelona.ui.event_text import describe
 from barthelona.ui.package_panel import render_package_panel
+from barthelona.ui.reasoning_panel import render_reasoning_panel
+from barthelona.ui.run_info import render_parameters, render_stages, render_status_banner
 
 _EVENT_KIND_ICONS = {
     EventKind.PHASE: "📍",
@@ -38,31 +41,18 @@ _EVENT_KIND_ICONS = {
 }
 
 
-def _format_event(event: Any) -> str:
-    """Format an event for display."""
+def _format_event(event: Any, technical: bool = False) -> str:
+    """One event as a line a person can read; *technical* adds the raw ids and payload."""
     icon = _EVENT_KIND_ICONS.get(event.kind, "•")
-    ts = event.ts.strftime("%H:%M:%S.%f")[:-3]
-    parts = [f"{icon} **{event.kind.value}**", f"`{ts}`"]
-
-    if event.sprint:
-        parts.append(f"Sprint #{event.sprint}")
-    if event.node_id:
-        parts.append(f"`{event.node_id}`")
-    if event.task_id:
-        parts.append(f"Task: `{event.task_id}`")
-
-    payload_str = ""
+    if event.kind is EventKind.STOP and event.payload.get("stop_reason") == "green":
+        icon = "🏁"
+    line = f"{icon} `{event.ts.astimezone().strftime('%H:%M:%S')}` {describe(event)}"  # local time
+    if not technical:
+        return line
+    details = [event.kind.value, *(str(part) for part in (event.node_id, event.task_id) if part)]
     if event.payload:
-        # Truncate large payloads
-        payload_json = json.dumps(event.payload, ensure_ascii=False, default=str)
-        if len(payload_json) > 500:
-            payload_json = payload_json[:500] + "... (truncated)"
-        payload_str = f"\n```json\n{payload_json}\n```"
-
-    if event.payload_ref:
-        parts.append(f"📎 `{event.payload_ref}`")
-
-    return " | ".join(parts) + payload_str
+        details.append(json.dumps(event.payload, ensure_ascii=False, default=str)[:500])
+    return f"{line}  \n<small>{' | '.join(details)}</small>"
 
 
 def _render_topology(run_id: str, store: Store) -> None:
@@ -164,13 +154,15 @@ def _render_run_header(run: Any) -> None:
 
 def _render_event_log(run: Any, store: Store) -> None:
     """Render the event log with polling controls."""
-    st.subheader("📜 Event Log")
+    st.subheader("📜 What happened")
 
     # Polling controls
-    col_poll1, col_poll2 = st.columns([3, 1])
+    col_poll1, col_poll2, col_poll3 = st.columns([2, 2, 1])
     with col_poll1:
-        auto_poll = st.checkbox("Auto-poll (1s)", value=True, key="auto_poll")
+        auto_poll = st.checkbox("Refresh every second", value=True, key="auto_poll")
     with col_poll2:
+        technical = st.checkbox("Show technical details", value=False, key="event_details")
+    with col_poll3:
         if st.button("🔄 Refresh Now"):
             st.rerun()
 
@@ -198,8 +190,9 @@ def _render_event_log(run: Any, store: Store) -> None:
     # Display accumulated event history (newest first)
     history = st.session_state[history_key]
     if history:
+        st.info(f"**Now:** {describe(history[0])}")
         for event in history:
-            st.markdown(_format_event(event))
+            st.markdown(_format_event(event, technical), unsafe_allow_html=technical)
     else:
         st.caption("No events yet...")
 
@@ -230,13 +223,21 @@ def page_live_run() -> None:
         )
         run = run_options[selected_key]
 
-        # Run status header
+        # Run status header, what it waits for, the stages and what it was started with
         _render_run_header(run)
+        render_status_banner(run, store)
+        render_stages(run, store)
+        render_parameters(run)
 
         st.divider()
 
         # Run controls
         _render_run_controls(run.id, run, store)
+
+        st.divider()
+
+        # What the models think and answer, as it arrives
+        render_reasoning_panel(run.id)
 
         st.divider()
 

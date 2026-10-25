@@ -298,17 +298,25 @@ One-sentence programs went green this way on 2026-10-24; larger ones (an interac
 ```
 
 starts the worker and the UI at http://127.0.0.1:8501 (`-UiOnly`, `-WorkerOnly` and `-StreamlitPort 8502` change that).
-Three pages exist: **New Request**, **Approvals** (answer G1 and G4) and **Live Run** (events of a run; for a run that stopped green it also has a **Package** panel, see below). On New Request
+Three pages exist: **New Request**, **Approvals** (answer G1 and G4) and **Live Run** (the models' thinking and answers as they arrive, the events of a run, and for a run that stopped green a **Package** panel, see below). On New Request
 you choose:
 
-- the dialect and target preset, the mode (create or edit) and the request text;
-- the **model profile**: Meterless (the default; Nightshift and Nemotron), local only, hybrid, or cloud (only Meterless
-  and local can answer today);
-- the **project folder**: an optional new name under `demos/`, with the existing folders listed as taken; a run records it
-  and `runs package` writes there;
+- **New project** (ticked by default): ticked creates a project in a new `demos/` folder, unticked edits an existing one;
+  then the dialect and target preset and the request text;
+- the **model profile**: Meterless (the default; Nightshift is the model router with its auto, deep and fast lanes),
+  local only, hybrid, or cloud (only Meterless and local can answer today). Zetaris works with every profile: with
+  `ZETARIS_API_KEY` set its assembler facts go into the prompts;
+- the **Project**: for a new project the folder name to create under `demos/`, otherwise the list of existing folders;
+  a run records it and `runs package` writes there;
 - **limits**, collapsed and optional: wall time, token limit, sprints and a money cap (defaults 3600 s, 400000 tokens,
   10 sprints, no money cap). Every run is bounded, but you do not have to enter anything;
 - cloud consent and the training-data checkbox (see section 4).
+
+**Model reasoning (Live Run).** The panel shows the newest replies of the run, each with what the model thought and what
+it answered, and refreshes by itself. The box "Show what the models think and answer" is ticked by default. The worker
+writes the same text to `var/runs/<run id>/reasoning.md` (per run) and to `var/activity.md` (all runs), and prints it to its
+own terminal window, with the model that answered (long thoughts and answers cut short). `worker` and `chunked run` do this
+by default; `--no-show-reasoning` turns it off.
 
 **Package panel (Live Run).** Select a green run: the panel shows the `demos/` folder it will write, a field for the full
 commit sha of barthelona that the generated CI installs (filled from `git rev-parse HEAD`), and the button **Package into

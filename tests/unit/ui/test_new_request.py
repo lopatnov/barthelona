@@ -38,3 +38,28 @@ def test_a_missing_demos_directory_gives_an_empty_list(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     assert new_request._demo_folders() == []
+
+
+def _page() -> None:
+    from barthelona.ui.pages.new_request import page_new_request
+
+    page_new_request()
+
+
+def test_the_new_project_box_decides_between_a_name_field_and_the_existing_list(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from streamlit.testing.v1 import AppTest
+
+    (tmp_path / "demos" / "a-demo").mkdir(parents=True)
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_function(_page).run()
+
+    assert app.checkbox[0].label == "New project" and app.checkbox[0].value is True
+    assert [box.label for box in app.text_input] == ["Project"]
+    assert not any(box.label == "Project" for box in app.selectbox)
+
+    app.checkbox[0].uncheck().run()
+
+    assert [box.label for box in app.selectbox if box.label == "Project"] == ["Project"]
+    assert not app.text_input
