@@ -140,3 +140,22 @@ def test_a_log_entry_in_the_wrong_format_does_not_break_the_page(
     app.run()
 
     assert not app.exception and not app.error
+
+
+def test_the_panel_shows_a_long_prompt_whole(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _run_waiting_for_g1(tmp_path)
+    prompt = "[user]\n" + "line of the spec\n" * 2000 + "THE END OF THE PROMPT"
+    entry = (
+        "## worker via meterless_auto (1 in, 2 out, 1.0s, stop=stop)\n\n"
+        f"### prompt\n\n{prompt}\n\n### reasoning\n\nwhy\n\n### answer\n\nok\n\n"
+    )
+    log = tmp_path / "var" / "runs" / "run-1" / "reasoning.md"
+    log.write_text(entry, encoding="utf-8", newline="\n")
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_function(_page, default_timeout=30)
+    app.session_state["auto_poll"] = False
+
+    app.run()
+
+    assert not app.exception and not app.error
+    assert any(block.value.endswith("THE END OF THE PROMPT") for block in app.code)

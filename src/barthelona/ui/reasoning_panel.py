@@ -11,7 +11,6 @@ from barthelona.domain.layout import REASONING_FILE, RUNS_DIR, run_dir
 
 MAX_ENTRIES = 8  # newest first; the whole log stays in the run folder
 _TAIL_BYTES = 800_000  # read only the end of a long log; an entry can hold a whole prompt
-PROMPT_SHOWN_CHARS = 6000  # a prompt can hold a whole spec; the log file has all of it
 
 # "## role via route -> model (usage)", as the log writes it; "-> model" only when the router names it
 _HEADING = re.compile(r"(?m)^(?=## \S+ via \S+(?: -> \S+)? \()")
@@ -45,12 +44,6 @@ def split_entry(body: str) -> dict[str, str]:
     return {name: body[text:end].strip() for (name, _, text), end in zip(starts, ends, strict=True)}
 
 
-def _shown(name: str, text: str) -> str:
-    if name == "prompt" and len(text) > PROMPT_SHOWN_CHARS:
-        return f"{text[:PROMPT_SHOWN_CHARS]}\n... (cut; the whole prompt is in the log)"
-    return text
-
-
 def _read_tail(path: Path) -> str:
     with path.open("rb") as handle:
         handle.seek(0, 2)
@@ -79,4 +72,4 @@ def render_reasoning_panel(run_id: str) -> None:
         with st.expander(heading.removeprefix("## "), expanded=position == 0):
             for tab, (key, _) in zip(st.tabs([label for _, label in shown]), shown, strict=True):
                 with tab:
-                    st.code(_shown(key, parts[key]), language="text", wrap_lines=True)
+                    st.code(parts[key], language="text", wrap_lines=True)
