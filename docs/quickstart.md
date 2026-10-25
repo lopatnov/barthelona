@@ -308,8 +308,10 @@ you choose:
   `ZETARIS_API_KEY` set its assembler facts go into the prompts;
 - the **Project**: for a new project the folder name to create under `demos/`, otherwise the list of existing folders;
   a run records it and `runs package` writes there;
-- **limits**, collapsed and optional: wall time, token limit, sprints and a money cap (defaults 14400 s, 400000 tokens,
-  10 sprints, no money cap). Every run is bounded, but you do not have to enter anything;
+- **limits**, collapsed and optional: wall time, token limit and a money cap (defaults 14400 s, 400000 tokens, no
+  money cap). Every run is also bounded by its structure: at most 5 code attempts of at most 8 model calls each,
+  after one call each for the request, the specification and the tests. There is no sprint limit because sprints do
+  not exist yet. You do not have to enter anything;
 - cloud consent and the training-data checkbox (see section 4).
 
 When you press **Create Run**, the UI takes you straight to **Live Run** with that run selected.
