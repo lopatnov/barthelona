@@ -93,11 +93,17 @@ def _render_run_controls(run_id: str, run: Any, store: Store) -> None:
 
     with col1:
         can_cancel = run.status in (RunStatus.QUEUED, RunStatus.RUNNING, RunStatus.WAITING_GATE)
-        if can_cancel and st.button("🛑 Cancel Run", type="secondary", use_container_width=True):
+        label = "⏸ Pause (Resume continues it later)" if run.status is RunStatus.RUNNING else "🛑 Cancel Run"
+        if can_cancel and st.button(label, type="secondary", use_container_width=True):
             command = RunCommand(run_id=run_id, kind=CommandKind.CANCEL)
             store.enqueue_command(command)
-            st.success("Cancel command queued")
+            st.success("Stop queued: the worker frees up and starts the next queued run")
             st.rerun()
+        if run.status is RunStatus.RUNNING:
+            st.caption(
+                "Pause drops the model request in flight and stops this run. **Resume** restarts it from "
+                "its last finished step. Meanwhile the worker takes the next queued run."
+            )
 
     with col2:
         render_continue(run, store)

@@ -43,8 +43,10 @@ class Gateway:
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         jitter: Callable[[float], float] = lambda cap: random.uniform(0, cap),  # noqa: S311  # backoff, not security
         trace: Callable[[str, Completion], None] | None = None,
+        progress: Callable[[str], None] | None = None,
     ) -> None:
         self._trace = trace  # the optional reasoning log, called once per answered request
+        self._progress = progress  # told in words when a request goes out, is repeated or fails over
         self._catalog = catalog
         self._backends = backends
         self._profile = profile
@@ -72,6 +74,10 @@ class Gateway:
             self._slots[target.provider_id] = asyncio.Semaphore(target.provider.max_concurrency)
         return self._slots[target.provider_id]
 
+    def _say(self, message: str) -> None:
+        if self._progress is not None:
+            self._progress(message)
+
     async def _call(
         self, target: ModelTarget, request: CompletionRequest
     ) -> tuple[RawReply | str, list[str]]:
@@ -81,6 +87,7 @@ class Gateway:
         for cap in (*self._retry_delays, None):
             try:
                 async with self._slot(target):
+                    self._say(f"asking {target.key}, waiting for its reply")
                     return await self._backends[target.provider.kind].complete(target, request), notes
             except ModelCallError as exc:
                 reason = f"{exc} after {time.monotonic() - started:.1f}s [{exc.kind}]"
@@ -90,6 +97,7 @@ class Gateway:
                     exc.retry_after or 0.0, self._jitter(cap)
                 )  # full jitter; Retry-After is the minimum
                 notes.append(f"{target.key}: retry in {delay:.1f}s: {reason}")
+                self._say(f"{target.key} failed ({reason}); asking again in {delay:.0f}s")
                 await self._sleep(delay)
         raise AssertionError("unreachable: the last delay is None")  # pragma: no cover
 
@@ -103,6 +111,7 @@ class Gateway:
             fallbacks.extend(notes)
             if isinstance(outcome, str):
                 fallbacks.append(f"{target.key}: {outcome}")
+                self._say(f"{target.key} gave up ({outcome}); trying the next model")
                 continue
             done = build_completion(target, request, outcome, tuple(fallbacks))
             if self._trace is not None:

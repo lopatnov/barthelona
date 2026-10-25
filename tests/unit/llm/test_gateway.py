@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
 
 from barthelona.llm import (
@@ -63,6 +65,7 @@ def _gateway(
     local: _Backend,
     retry_delays: tuple[float, ...] = (),
     sleeps: list[float] | None = None,
+    progress: Callable[[str], None] | None = None,
     **catalog_args: object,
 ) -> Gateway:
     backends: dict[str, _Backend] = {"openai_chat": local}
@@ -79,6 +82,7 @@ def _gateway(
         env={},
         retry_delays=retry_delays,
         sleep=sleep,
+        progress=progress,
         jitter=lambda cap: cap,  # the upper end of the jitter range, so the delays are predictable
     )
 
@@ -210,3 +214,16 @@ async def test_fake_gateway_replays_the_script_and_records_calls() -> None:
 )
 def test_strip_think(raw: str, expected: str) -> None:
     assert strip_think(raw) == expected
+
+
+async def test_progress_says_when_a_request_goes_out_is_repeated_and_fails_over() -> None:
+    said: list[str] = []
+    cloud = _Backend([ModelCallError("busy", FailureKind.SERVER), ModelCallError("busy", FailureKind.SERVER)])
+    gateway = _gateway(cloud, _Backend([_reply()]), retry_delays=(0.5,), progress=said.append)
+
+    await gateway.complete("worker", _request())
+
+    assert said[0] == "asking big, waiting for its reply"
+    assert any("asking again in" in line for line in said)
+    assert any("trying the next model" in line for line in said)
+    assert said[-1] == "asking local_main, waiting for its reply"

@@ -22,7 +22,7 @@ from barthelona.domain.layout import (
 from barthelona.persistence import Store
 from barthelona.ui.activity import activity_text, last_activity
 from barthelona.ui.bounds import REAL_BOUNDS
-from barthelona.ui.event_text import GATES, stop_text
+from barthelona.ui.event_text import GATES, describe, stop_text
 
 STAGES = (
     ("preflight", "Preflight"),
@@ -58,6 +58,17 @@ _STALE_HINT = (
     "open and that Nightshift is online (`python -m barthelona meterless status`); if both are fine, wait a "
     "little more or press **Cancel Run** and then **Resume**."
 )
+
+
+def activity_line(last: RunEvent | None, now: datetime) -> str:
+    """When the run last wrote anything and what that was: tells a long model wait from a hang."""
+    if last is None:
+        return "No activity recorded yet."
+    seconds = max(0, int((now - last.ts).total_seconds()))
+    return (
+        f"Last event at {last.ts.astimezone().strftime('%H:%M:%S')} ({seconds} s ago): {describe(last)}. "
+        "A model request can take many minutes; if it fails or is repeated, a line here says so."
+    )
 
 
 def stage_line(
@@ -109,8 +120,14 @@ def render_status_banner(run: Run, store: Store) -> None:
     elif run.status is RunStatus.QUEUED:
         st.info(queued_text(run, store.list_runs(RunStatus.RUNNING)))
     elif run.status is RunStatus.RUNNING:
-        sentence, stale = activity_text(_last_activity(run, store), datetime.now(UTC))
-        (st.warning if stale else st.info)(f"**Running.** {sentence} {_STALE_HINT if stale else _HOW_LONG}")
+        newest = _newest_event(run, store)
+        now = datetime.now(UTC)
+        last_event = newest.ts if newest else None
+        sentence, stale = activity_text(last_activity(run_dir(RUNS_DIR, run.id), last_event), now)
+        body = (
+            f"**Running.** {sentence} {_STALE_HINT if stale else _HOW_LONG}\n\n{activity_line(newest, now)}"
+        )
+        (st.warning if stale else st.info)(body)
     elif run.status is RunStatus.STOPPED and run.stop_reason is not None:
         text = stop_text(run.stop_reason.value)
         if run.stop_reason is StopReason.GREEN:
@@ -119,9 +136,9 @@ def render_status_banner(run: Run, store: Store) -> None:
             st.error(text)
 
 
-def _last_activity(run: Run, store: Store) -> datetime | None:
+def _newest_event(run: Run, store: Store) -> RunEvent | None:
     newest = store.events_after(run.id, after_seq=max(store.next_seq(run.id) - 2, -1), limit=5)
-    return last_activity(run_dir(RUNS_DIR, run.id), newest[-1].ts if newest else None)
+    return newest[-1] if newest else None
 
 
 def queued_text(run: Run, running: list[Run]) -> str:

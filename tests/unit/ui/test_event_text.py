@@ -61,3 +61,9 @@ def test_an_error_shows_its_message() -> None:
 
 def test_an_unknown_kind_falls_back_to_its_name_and_payload_keys() -> None:
     assert describe(_event(EventKind.BUDGET, tokens=5)) == "Budget (tokens)"
+
+
+def test_a_model_request_status_is_shown_as_a_sentence() -> None:
+    assert describe(_event(EventKind.LLM_CALL, status="asking m, waiting for its reply")) == (
+        "Model request: asking m, waiting for its reply"
+    )
