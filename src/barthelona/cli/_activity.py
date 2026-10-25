@@ -13,8 +13,11 @@ ACTIVITY_HELP = (
 )
 
 
-def activity_log(target: str) -> ReasoningLog | None:
-    """The log for *target*, or ``None`` when it is switched off."""
+SHOW_HELP = "Also print every model's reasoning and answer to the console (on by default)."
+
+
+def activity_log(target: str, *, show: bool = True) -> ReasoningLog | None:
+    """The log for *target*, echoed to the console unless *show* is off; ``None`` when it is switched off."""
     if not target or target.lower() == OFF:
         return None
-    return ReasoningLog(target)
+    return ReasoningLog(target, echo=show)

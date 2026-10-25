@@ -255,6 +255,7 @@ state came from. Then a summary line: `stop_reason` (`green` is done), `chunks`,
 | `--stats FILE` | Save per-chunk statistics to a SQLite file |
 | `--catalog FILE` | Use another model catalog (for example one with the local model disabled) |
 | `--trace-reasoning FILE` | Append every model's reasoning and answer to a file (`-` prints to the terminal); on by default (`var/activity.md`), `off` disables it; keep the file out of git |
+| `--show-reasoning` / `--no-show-reasoning` | Also print each model's reasoning and answer to the console (the worker's window); on by default |
 | `--nasm PATH` | The `nasm` program, if it is not found automatically |
 
 ### Logging agent activity: what is recorded and how to switch it on
@@ -263,7 +264,7 @@ Three records exist. The first two are on by default; run statistics need `--sta
 
 | What | How to switch it on | Where it ends up | How to read it |
 | --- | --- | --- | --- |
-| **Reasoning log**: for every answered model request the role, the model, tokens, seconds, what it thought and what it answered | on by default for `worker` and `chunked run`; `--trace-reasoning FILE` picks another file, `-` prints to the terminal, `off` disables it | `var/activity.md` | open it; it holds task text and model answers, so keep it out of git |
+| **Reasoning log**: for every answered model request the role, the model, tokens, seconds, what it thought and what it answered | on by default for `worker` and `chunked run`, written to the file and printed to the console (`--no-show-reasoning` stops the printing); `--trace-reasoning FILE` picks another file, `-` prints to the terminal, `off` disables it | `var/activity.md` | open it; it holds task text and model answers, so keep it out of git |
 | **Call ledger**: every model call of a run (provider, model, tokens in and out, time) | always on for the worker | table `llm_calls` in `var/app.sqlite` | `sqlite3 var/app.sqlite "SELECT model, COUNT(*), SUM(tokens_in), SUM(tokens_out) FROM llm_calls GROUP BY model"` |
 | **Run statistics** of `chunked run`: runs, and per chunk who answered, tokens, latency, fallbacks | add `--stats var/runs.sqlite` | the SQLite file you name | `python -m barthelona chunked stats --db var/runs.sqlite` |
 

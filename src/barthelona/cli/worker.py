@@ -10,7 +10,7 @@ import typer
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from rich.console import Console
 
-from barthelona.cli._activity import ACTIVITY_HELP, DEFAULT_ACTIVITY_LOG, activity_log
+from barthelona.cli._activity import ACTIVITY_HELP, DEFAULT_ACTIVITY_LOG, SHOW_HELP, activity_log
 from barthelona.domain import Run
 from barthelona.domain.layout import RUNS_DIR
 from barthelona.engine.graph import build_graph
@@ -89,6 +89,9 @@ def worker_command(
     trace_reasoning: Annotated[
         str, typer.Option("--trace-reasoning", help=ACTIVITY_HELP)
     ] = DEFAULT_ACTIVITY_LOG,
+    show_reasoning: Annotated[
+        bool, typer.Option("--show-reasoning/--no-show-reasoning", help=SHOW_HELP)
+    ] = True,
 ) -> None:
     """Claim queued runs, run them to their next human gate and continue them when the UI resumes them."""
     try:
@@ -102,7 +105,7 @@ def worker_command(
                 memory or db.parent / "hmem.sqlite",
                 poll,
                 once,
-                activity_log(trace_reasoning),
+                activity_log(trace_reasoning, show=show_reasoning),
             )
         )
     except (CatalogError, ZetarisError) as exc:

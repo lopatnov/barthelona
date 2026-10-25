@@ -13,13 +13,16 @@ STDERR = "-"
 class ReasoningLog:
     """Appends one markdown entry per answered request to a file, or prints it to stderr for ``-``.
 
+    With *echo* the entry goes to stderr as well, so a worker's console shows what the models think.
+
     The log holds the models' answers and thoughts verbatim, so it can hold task text and anything the model
     repeated from its prompt: keep it out of git and do not share it. Prompts never contain keys
     (invariant 10), so nothing is redacted.
     """
 
-    def __init__(self, target: str | Path) -> None:
+    def __init__(self, target: str | Path, *, echo: bool = False) -> None:
         self._target = str(target)
+        self._echo = echo  # also print every entry to stderr when writing to a file
 
     def __call__(self, role: str, done: Completion) -> None:
         record = done.record
@@ -28,8 +31,9 @@ class ReasoningLog:
         usage = f"{record.tokens_in} in, {record.tokens_out} out, {seconds:.1f}s, stop={record.stop_reason}"
         entry = f"## {role} via {done.served_by} ({usage})\n\n### reasoning\n\n{thought}\n\n"
         entry += f"### answer\n\n{done.text}\n\n"
-        if self._target == STDERR:
+        if self._target == STDERR or self._echo:
             sys.stderr.write(entry)
+        if self._target == STDERR:
             return
         path = Path(self._target)
         path.parent.mkdir(parents=True, exist_ok=True)

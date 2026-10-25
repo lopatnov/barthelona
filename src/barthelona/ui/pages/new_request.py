@@ -1,9 +1,9 @@
 """New Request page: create a new run from a natural-language prompt.
 
 Phase 1a fields:
-- Mode: create / edit
+- New project checkbox: create (a typed project name) or edit (a pick from demos/)
 - Dialect/preset picker (built-in list)
-- Folder under demos/ the result belongs to (existing subfolder or a new name)
+- Project under demos/ the result belongs to
 - Prompt textarea (Russian/English/Ukrainian)
 - Profile: meterless / local-only / hybrid / cloud
 - Budget controls (wall time, tokens, optional USD cap)
@@ -32,8 +32,6 @@ from barthelona.domain.layout import REQUEST_FILE, RUNS_DIR, run_dir
 from barthelona.domain.presets import builtin_presets
 from barthelona.persistence import open_store
 
-NEW_FOLDER = "+ New folder..."
-
 
 def _demo_folders() -> list[str]:
     """The subfolders of demos/ a run can belong to, sorted; empty when the directory is missing."""
@@ -41,19 +39,20 @@ def _demo_folders() -> list[str]:
     return sorted(entry.name for entry in root.iterdir() if entry.is_dir()) if root.is_dir() else []
 
 
-def _folder_fields() -> str:
-    """The demos/ subfolder the user picked, or the new name typed in (not yet validated)."""
-    choice = st.selectbox(
-        "Save the project in demos/",
-        [*_demo_folders(), NEW_FOLDER],
-        help="The demos/ subfolder this run's project is meant for: an existing one or a new name.",
-    )
-    new_name = st.text_input(
-        "New folder name",
-        placeholder="my-demo",
-        help=f"Used only for '{NEW_FOLDER}': lowercase letters, digits and dashes.",
-    )
-    return new_name.strip() if choice == NEW_FOLDER else choice
+def _project_field(new_project: bool) -> str:
+    """The demos/ project the run belongs to: a typed name for a new one, a pick from the list otherwise."""
+    if new_project:
+        name = st.text_input(
+            "Project",
+            placeholder="my-demo",
+            help="The demos/ subfolder for the new project: lowercase letters, digits and dashes.",
+        )
+        return name.strip()
+    folders = _demo_folders()
+    if not folders:
+        st.info("There is no project in demos/ yet: tick 'New project' to create one.")
+        return ""
+    return st.selectbox("Project", folders, help="The existing demos/ project this run edits.")
 
 
 def _form_problem(prompt: str, folder: str) -> str | None:
@@ -95,19 +94,16 @@ def page_new_request() -> None:
 
     presets = builtin_presets()
 
+    # Outside the form: a form only reruns on submit, and the Project field depends on this box.
+    new_project = st.checkbox(
+        "New project", value=True, help="Ticked: create a new project. Unticked: edit one."
+    )
+    mode = RunMode.CREATE if new_project else RunMode.EDIT
+
     with st.form("new_request_form", clear_on_submit=False):
         col1, col2 = st.columns(2)
 
         with col1:
-            mode = st.radio(
-                "Mode",
-                [RunMode.CREATE, RunMode.EDIT],
-                format_func=lambda m: (
-                    "🆕 Create new project" if m == RunMode.CREATE else "✏️ Edit existing project"
-                ),
-                horizontal=True,
-            )
-
             preset = st.selectbox(
                 "Target Preset",
                 presets,
@@ -119,7 +115,7 @@ def page_new_request() -> None:
                 "Model Profile",
                 [Profile.METERLESS, Profile.LOCAL_ONLY, Profile.HYBRID, Profile.CLOUD],
                 format_func=lambda p: {
-                    Profile.METERLESS: "⚡ Meterless (Nightshift routes to free Nemotron lanes)",
+                    Profile.METERLESS: "⚡ Meterless (Nightshift model routing, Zetaris facts)",
                     Profile.LOCAL_ONLY: "🏠 Local only (LM Studio / Ollama)",
                     Profile.HYBRID: "🔀 Hybrid (cloud with local fallback)",
                     Profile.CLOUD: "☁️ Cloud (Anthropic, OpenAI, Gemini, DeepSeek)",
@@ -129,7 +125,7 @@ def page_new_request() -> None:
 
         st.divider()
 
-        folder = _folder_fields()
+        folder = _project_field(new_project)
 
         prompt = st.text_area(
             "Prompt",

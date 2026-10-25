@@ -23,3 +23,13 @@ def test_off_or_empty_switches_the_log_off(target: str) -> None:
 def test_stderr_and_a_file_are_accepted(tmp_path: Path) -> None:
     assert isinstance(activity_log("-"), ReasoningLog)
     assert isinstance(activity_log(str(tmp_path / "log.md")), ReasoningLog)
+
+
+def test_the_console_shows_the_reasoning_unless_told_not_to(tmp_path: Path) -> None:
+    target = str(tmp_path / "log.md")
+    default = activity_log(target)
+    assert default is not None
+    assert default._echo is True
+    quiet = activity_log(target, show=False)
+    assert quiet is not None
+    assert quiet._echo is False

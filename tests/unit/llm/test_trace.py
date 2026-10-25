@@ -101,3 +101,18 @@ async def test_a_dash_prints_to_stderr_and_no_log_is_the_default(capsys: pytest.
     assert "thought" in capsys.readouterr().err
     await _gateway(_reply("hi", reasoning="secret thought"), None).complete("worker", _request())
     assert "secret thought" not in capsys.readouterr().err
+
+
+async def test_an_echoing_log_writes_the_file_and_prints_once(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    log = tmp_path / "r.md"
+    await _gateway(_reply("hi", reasoning="visible thought"), ReasoningLog(log, echo=True)).complete(
+        "worker", _request()
+    )
+    assert "visible thought" in log.read_text(encoding="utf-8")
+    assert capsys.readouterr().err.count("visible thought") == 1
+    await _gateway(_reply("hi", reasoning="dash thought"), ReasoningLog("-", echo=True)).complete(
+        "worker", _request()
+    )
+    assert capsys.readouterr().err.count("dash thought") == 1  # '-' plus echo does not print twice

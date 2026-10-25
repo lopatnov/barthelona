@@ -12,7 +12,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from barthelona.cli._activity import ACTIVITY_HELP, DEFAULT_ACTIVITY_LOG, activity_log
+from barthelona.cli._activity import ACTIVITY_HELP, DEFAULT_ACTIVITY_LOG, SHOW_HELP, activity_log
 from barthelona.cli._oracle import NO_ORACLE, until_it_passes
 from barthelona.llm import (
     CatalogError,
@@ -206,6 +206,9 @@ def run(
     trace_reasoning: Annotated[
         str, typer.Option("--trace-reasoning", help=ACTIVITY_HELP)
     ] = DEFAULT_ACTIVITY_LOG,
+    show_reasoning: Annotated[
+        bool, typer.Option("--show-reasoning/--no-show-reasoning", help=SHOW_HELP)
+    ] = True,
 ) -> None:
     """Run TASK in chunks (or single-shot); print tokens and latency; exit non-zero unless completed."""
     try:
@@ -218,7 +221,7 @@ def run(
     expect = _expectation(expect_stdout, expect_exit)
     assemble = assemble or expect is not None
     code = code or assemble
-    trace = activity_log(trace_reasoning)
+    trace = activity_log(trace_reasoning, show=show_reasoning)
     gateway = Gateway(catalog, {"openai_chat": OpenAIChatBackend()}, profile=profile, trace=trace)
     store = HMem(memory) if memory is not None else None
     recall = store.query(task, domain=domain, top_n=RECALL_TOP_N) if store else None
