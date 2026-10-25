@@ -53,8 +53,12 @@ def submit(
         str | None, typer.Option(help="Name of the demos/ subfolder the project is for (a lowercase slug).")
     ] = None,
     auto_approve: Annotated[
-        bool, typer.Option("--auto-approve", help="The worker approves the checkpoints G1 and G4 itself.")
-    ] = False,
+        bool,
+        typer.Option(
+            "--auto-approve/--no-auto-approve",
+            help="The worker approves G1 and G4 itself (default); --no-auto-approve waits for you.",
+        ),
+    ] = True,
     package: Annotated[
         bool,
         typer.Option(
