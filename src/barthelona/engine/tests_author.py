@@ -100,7 +100,10 @@ async def author_tests(
 ) -> tuple[ProjectSpec, list[TestCase]]:
     """The spec with each requirement linked to its tests, and the golden I/O test cases."""
     requirements = "\n".join(f"{r.id}: {r.text}" for r in spec.requirements)
-    user = f"Program: {spec.summary_en}\nRequirements:\n{requirements}"
+    user = (
+        f"Request (authoritative: when it lists the tests, write exactly those):\n{spec.request_original}\n\n"
+        f"Program: {spec.summary_en}\nRequirements:\n{requirements}"
+    )
     draft = await ask_json(
         gateway,
         TEST_ROLE,
