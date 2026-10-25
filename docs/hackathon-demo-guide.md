@@ -1,7 +1,8 @@
 # Barthelona at the Open Agent Hackathon 2026: demo guide
 
 How to set up the three hackathon layers on your machine and what Barthelona can honestly show today. Read
-"Where it stands" first: it says what was run live, what was not proven and what does not exist yet.
+"Where it stands" first: it says what was run live, what was not proven and what does not exist yet. Words you
+do not know (oracle, gate, route, chunk, H-MEM, lane, file table ...) are explained in the [Glossary](#glossary).
 
 Last updated 2026-10-24, from live runs on the owner's PC (free NVIDIA Nemotron through Meterless Nightshift, a
 local Zetaris, the worker and the Unicorn emulator).
@@ -18,8 +19,9 @@ local Zetaris, the worker and the Unicorn emulator).
 6. [Layer 3: Meterless and Nemotron](#layer-3-power-meterless-and-nemotron)
 7. [Check that the layers work together](#check-that-the-layers-work-together)
 8. [Demos](#demos)
-9. [Troubleshooting](#troubleshooting)
-10. [Glossary](#glossary)
+9. [Hackathon form: what we integrated and where](#hackathon-form-what-we-integrated-and-where)
+10. [Troubleshooting](#troubleshooting)
+11. [Glossary](#glossary)
 
 ---
 
@@ -41,7 +43,9 @@ person hand-writes a demo's sources, tests, README, CI or release files.
   Zetaris, read into the spec and test-author prompts, mined into 48 H-MEM facts by `zetaris seed`, and recalled in
   every chunk. `zetaris publish` copies run and memory data back into Zetaris tables.
 - Meterless: the `meterless` profile calls Nightshift; the `meterless/auto` and `meterless/deep` routes both
-  answered. Which concrete model serves a route is decided by Nightshift's lanes: check the run details there.
+  answered. Which concrete model serves a route is decided by Nightshift's lanes: check the run details there
+  (every run records `answered by`). All runs above were answered by Nemotron; on the evening of 2026-10-24 a Llama
+  model was also added to the Race lane, so read `answered by` before saying which model answered.
 - The gateway repeats a call that failed with a temporary error (Nightshift answers an intermittent
   `404 provider_error`), up to twice, with jitter.
 
@@ -72,6 +76,29 @@ the author's expected test results (#259).
 
 All layers run on your machine. The project was built with Claude Code; any editor works, and nothing in the demos
 needs Cursor.
+
+### A run in one picture
+
+What happens to one request in the create flow, and which technology does each step (unknown words are in the
+[Glossary](#glossary)):
+
+```
+request (one sentence)
+  |
+  v intake       language, goal in English, key entities        model: meterless/auto
+  v spec         requirements and modules                       model: meterless/deep + Zetaris facts
+  v test author  golden tests, one per requirement              model: meterless/deep + Zetaris facts
+  v G1 gate      a PERSON reads and approves spec and tests     (frozen afterwards)
+  v code         bounded chunks, H-MEM recall, Zetaris facts    model: meterless/auto
+  v oracles      NASM assembles; the emulator runs the golden tests;
+  |              a rejection goes back to the model with the reason (repairs on meterless/deep, up to 2)
+  v G4 gate      a PERSON reads and approves the code
+  v green        main.asm saved, memory written; `runs package` writes the repository
+```
+
+Each model call is routed by Nightshift to a Nemotron model and recorded (model, tokens, seconds); Zetaris is read
+for the prompts and can be written afterwards (`zetaris publish`). Nothing a model says is accepted without the
+oracles.
 
 ---
 
@@ -178,7 +205,7 @@ Coding agents never run `activate`; they use `.\scripts\dev.ps1 [-LoadEnv] <comm
 python -m barthelona version
 scripts/setup-toolchain.sh        # builds the bart-tc container (WSL on Windows)
 python -m barthelona probe
-python -m barthelona verify tests/projects/nasm-triple --level V6
+python -m barthelona verify tests/projects/nasm-triple --level V6 --dialect nasm --contracts tests/projects/nasm-triple/contracts.yaml --tests tests/projects/nasm-triple/tests.yaml --require "V0,V1,V2,V5,V6"
 ```
 
 The create flow needs only NASM and the Unicorn emulator, not the container. The container is for the verification
@@ -224,11 +251,16 @@ on the `lmstudio` provider (the file used in the live runs was `var/proof/models
 not in git). Then a run whose Nightshift calls all fail ends as
 `no_model_available` instead of calling a local model.
 
-### 3.3 Optional: a local fallback
+### 3.3 Local fallback
 
-Not used in the hackathon runs. If you want one: install LM Studio, load a coder model with a 16K context, start the
-local server on port 1234. On Windows cap WSL memory in `%UserProfile%\.wslconfig` (`memory=8GB`) and run
-`wsl --shutdown`.
+The default catalog, `config/models.yaml`, ends every role chain of the `meterless` profile with `local_main`
+(for example `worker: [meterless_auto, local_main]`), so when Nightshift fails a call falls through to a local model
+if one is running. To have one: install LM Studio, load a coder model with a 16K context, start the local server on
+port 1234. On Windows cap WSL memory in `%UserProfile%\.wslconfig` (`memory=8GB`) and run `wsl --shutdown`.
+
+The hackathon runs used a private copy of the catalog (`var/proof/models-free.yaml`) with the local model switched
+off, to keep the promise of free models only: with it a failed call stops the run instead of falling back. That copy
+is not in the repository; the committed catalog keeps the fallback.
 
 **Done with POWER when** `meterless status` prints `online`.
 
@@ -239,8 +271,8 @@ local server on port 1234. On Windows cap WSL memory in `%UserProfile%\.wslconfi
 ```
 python -m barthelona zetaris status          # online
 python -m barthelona meterless status        # online
-python -m barthelona verify tests/projects/nasm-triple --level V6
-python -m barthelona worker --once           # in a second terminal: processes what Demo A queues
+python -m barthelona verify tests/projects/nasm-triple --level V6 --dialect nasm --contracts tests/projects/nasm-triple/contracts.yaml --tests tests/projects/nasm-triple/tests.yaml --require "V0,V1,V2,V5,V6"
+python -m barthelona worker --once --trace-reasoning var/proof/reasoning.md   # in a second terminal: processes what Demo A queues
 ```
 
 ---
@@ -280,7 +312,7 @@ failed run; with an explicit `--facts-sql` a failing Zetaris stops the run as `i
 `chunked run` accepts `--facts-sql` too:
 
 ```
-python -m barthelona chunked run "NASM program that prints Hello using sys_write" --profile meterless --facts-sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'" --assemble --repair 2 --expect-stdout "Hello\n" --expect-exit 0 --out var/proof/zeta.asm
+python -m barthelona chunked run "NASM program that prints Hello using sys_write" --profile meterless --facts-sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'" --assemble --repair 2 --expect-stdout "Hello\n" --expect-exit 0 --out var/proof/zeta.asm --trace-reasoning var/proof/zeta-reasoning.md --stats var/runs.sqlite
 ```
 
 ### Demo C: memory and long tasks (not proven yet)
@@ -298,6 +330,38 @@ assembles and passes the emulator check. If both runs finish in one chunk, say t
 | A, create flow | Green run, package, `check` pass, per-model table | That the result is ABI-checked, fuzzed or multi-module |
 | B, Zetaris | Facts in the prompt and in the reasoning log, `seed` and `publish` tables | That the tables are verified against the kernel source |
 | C, memory | The mechanism and the published tables | That a second run is cheaper: not shown |
+
+---
+
+## Hackathon form: what we integrated and where
+
+Answers for the submission form, each with the place in the repository where a reviewer can check it.
+
+### Which Meterless features are integrated
+
+| Feature | Integrated? | What it does here | Where |
+| --- | --- | --- | --- |
+| **Nightshift runtime** | Yes | Every model call of the `meterless` profile (the default) goes to Nightshift's OpenAI-compatible API. Routes `meterless/auto`, `deep` and `fast` are mapped to roles; each call records which model answered | Provider, models and role chains: `config/models.yaml` (`providers.meterless`, `meterless_auto`, `meterless_deep`, `meterless_fast`, profile `meterless`). Client and discovery: `src/barthelona/llm/meterless.py`, `src/barthelona/llm/openai_chat.py`. Probe: `python -m barthelona meterless status` (`src/barthelona/cli/meterless.py`) |
+| **H-MEM** (persistent memory) | Yes | A Python port of the memory spec. Before every chunk the best memories are recalled; after the assembler and emulator accept a program the lesson is written back; the knowledge tables seed it | `src/barthelona/llm/hmem.py`; recall in each code-generation chunk: `src/barthelona/engine/codegen.py`; seeding from Zetaris: `src/barthelona/llm/zetaris_memory.py` (`zetaris seed`) |
+| **Markovian Thinking** (context optimisation) | Yes | Long work runs in bounded chunks that carry a short summary instead of the whole history; the run prints the measured saving against a full history (single-chunk runs print "too short to compare") | `src/barthelona/llm/markovian.py`; used by `python -m barthelona chunked run` (`src/barthelona/cli/chunked.py`) and by code generation in the worker (`src/barthelona/engine/codegen.py`) |
+| **World Model** (state and provenance) | **No, still working on integration** | Event-sourced shared state for agents running in parallel, written in TypeScript. Nothing in the pipeline uses it yet and the official conformance runner has not been run against it | `engines/world-model/index.ts`, status in `engines/world-model/README.md` |
+| AI Hotspot | No | Not used | |
+
+If the form has "Still working on integration", tick it and name the World Model there.
+
+### What kinds of intelligence Nightshift powers
+
+**Language and reasoning only:** chat, analysis and coding. In the create flow the models read the request (intake), write the specification and the golden tests (`deep` route), write the NASM program in chunks (`auto` route) and repair it from the assembler's and emulator's reports. Code: `src/barthelona/engine/spec.py`, `tests_author.py`, `codegen.py`. No vision, image, audio, video or 3D call exists in the project. Vision, image generation and 3D appear only as possible later uses for the 2D and 3D demos (roadmap Phase 6).
+
+### What goes well with Zetaris
+
+A local Zetaris runs next to the engine. Two knowledge tables (37 Linux x86-64 system calls and 11 ABI rules) are registered as file tables and read over the REST API into the spec and test-author prompts; they seed H-MEM; and run history is written back as tables (`barthelona_runtime`) that can be queried with SQL. All of it was checked end to end on the owner's PC.
+
+Where: the REST client `src/barthelona/llm/zetaris.py` (`zetaris status`, `zetaris sql`, read-only), facts in prompts `worker --facts-sql` and `chunked run --facts-sql`, seeding `src/barthelona/llm/zetaris_memory.py`, publishing `src/barthelona/llm/zetaris_publish.py` (`zetaris publish`), the data in `knowledge/zetaris/*.csv`, and the table registration in [`zetaris-guide.md`](zetaris-guide.md) and [`zetaris-engines.md`](zetaris-engines.md).
+
+### What does not go well with Zetaris
+
+Getting our own data in was manual: files had to be copied into the container's shared volume and registered with `CREATE LIGHTNING FILESTORE TABLE`, and we found no documented way to insert rows over REST. The knowledge is only two small tables (no assembler manuals loaded yet), and the Zetaris event is never emitted by the engine (#256). No run has yet shown that the facts make code better or cheaper to produce.
 
 ---
 
@@ -343,16 +407,107 @@ assembles and passes the emulator check. If both runs finish in one chunk, say t
 
 ## Glossary
 
+Words are grouped by what they belong to, then in the order you meet them. If a word is missing, tell us: this page
+is meant to be readable without knowing assemblers, SQL or agent frameworks.
+
+### The product and a run
+
 | Term | Meaning |
 | --- | --- |
-| **Gate (G1, G4)** | A point where a person approves or rejects: G1 the specification and tests, G4 the finished program |
-| **Oracle** | A tool that decides correctness: NASM, the linker, the emulator. Models propose, oracles decide |
-| **Chunk** | One bounded generation step of the Markovian engine; state is carried between chunks, so the prompt stays flat |
-| **H-MEM** | Hierarchical memory: facts recalled before each chunk and written back after an assembled run |
-| **Route (`meterless/auto`, `deep`, `fast`)** | A Nightshift routing mode; the lanes in Nightshift decide which concrete model answers |
-| **Lane** | A model with a duty in Nightshift (Race, Judge, Verify) |
-| **Zetaris** | Data virtualisation platform with a SQL interface; here the store of knowledge tables and published run data |
-| **Profile** | A catalog set of role chains: `local-only`, `hybrid`, `cloud`, `meterless` |
+| **Barthelona** | The system in this repository: it turns a request in plain language into a small assembly program and checks it with real tools |
+| **Request** | The sentence or text a person writes, for example "print the digits 1 to 9". The only human-written input of a demo |
+| **Run** | One request going through the whole pipeline. It has a **run id** (`run-20261024-...`), a status and files in `var/runs/<run id>/` |
+| **Spec** | The specification the system writes from the request: requirements, the program's modules, constraints. A person approves it at gate G1 |
+| **Golden test** | A test that says: for this input the program must print exactly this and exit with this code. The system writes them at the same time as the spec |
+| **Gate (G1, G4)** | A point where a person approves or rejects. **G1**: the spec and the golden tests (they are frozen afterwards). **G4**: the finished program. Answer with `runs decide <run id> approve` or in the UI's Approvals page |
+| **Green** | The only success: the oracles accepted the program and the person approved G4 |
+| **Stop reason** | Why a run ended; every run has one. See the table below |
+| **Worker** | The process (`python -m barthelona worker`) that takes queued runs and drives them to the next gate. The UI and the `runs` commands only queue runs and answer gates |
+| **Package** | `runs package`: writes the repository of a green run (source, tests, README, CI, release workflow) into a folder |
+| **Project folder** | The name under `demos/` that receives the packaged repository (`--project NAME`, or the New Request page) |
+| **Demo** | A folder under `demos/`. A real demo is produced by Barthelona from a prompt, never written by hand (see AGENTS.md); several folders there are placeholders |
+| **Preset, dialect** | Which assembler and target: `linux-x64-nasm-static` means NASM syntax, Linux, x86-64, no C library. Dialects: `nasm`, `gas-intel`, `gas-att` |
+| **Single module** | One source file. The create flow handles only this today; several modules need the sprint planner, which does not exist yet |
+
+**Stop reasons.**
+
+| Stop reason | Plain meaning |
+| --- | --- |
+| `green` | Done and accepted |
+| `max_attempts` | The model gave unusable answers, or the oracles rejected every attempt including the repairs |
+| `no_model_available` | No model in the chain could answer (all failed or were skipped) |
+| `human_abort` | A person rejected a gate or cancelled the run |
+| `unsupported_target` | The chosen preset is not supported by the pipeline yet |
+| `infra_error` | A required service failed (for example Zetaris when `--facts-sql` was given) |
+| `refusal` | A model refused the request |
+| `budget_tokens`, `budget_time`, `budget_cost`, `max_sprints` | A limit was reached; every run is bounded |
+
+### Checking the result (the oracles)
+
+| Term | Meaning |
+| --- | --- |
+| **Oracle** | A tool that decides whether code is acceptable: assembler, linker, emulator, tests. Models propose, oracles decide; a model's review is advice only |
+| **Assembler (NASM, GAS)** | Turns assembly text such as `mov rax, 1` into machine code. NASM and the GNU assembler (`as`, "GAS") are the two supported |
+| **Linker (`ld`)** | Joins machine code of several files into one program and finds the entry point |
+| **Symbol** | A name in a program, such as a function (`_start`). The symbol check compares the names found in the machine code with the contract |
+| **`_start`** | The entry point of a program without the C library: where execution begins. It must end by calling the exit syscall |
+| **Syscall** | A request from a program to the Linux kernel: `write` (number 1) prints, `exit` (60) ends the program |
+| **ABI** | The agreement on how functions pass arguments (which registers), keep registers and use the stack. Breaking it works in a test and crashes elsewhere |
+| **Emulator (Unicorn)** | A virtual CPU. The program runs inside it, never on your PC, and its output and exit code are compared with the golden test |
+| **Ladder (V0 to V8)** | The ordered checks: V0 syntax, V1 assemble and symbols, V2 link, V3 static ABI lint, V4 dynamic ABI checks, V5 C-harness tests, V6 whole-program golden input and output. V3 and V4 are libraries, V7 and V8 are planned |
+| **Contracts (`contracts.yaml`)** | The declared interface of a program: functions, argument registers, structs. The single source of truth for interfaces |
+| **`gen/` and the tamper gate** | `gen/` holds files generated from the contracts (include files, stubs, C headers, test harnesses). The tamper gate regenerates them on every check and fails if one is missing, edited or extra, so nobody changes interfaces while code is written |
+| **Toolchain, lock file** | The set of tools (`nasm`, `as`, `ld`, `gcc`, `gdb`, `make`) in the `bart-tc` container; `probe` writes their exact versions to `config/toolchains.lock.json` |
+| **`bart-tc`, `bart-run`** | The two Docker containers: `bart-tc` has the tools, `bart-run` is a sandbox that runs test programs |
+
+### Models: Meterless, Nightshift, Nemotron
+
+| Term | Meaning |
+| --- | --- |
+| **Meterless** | The company and open-source project behind Nightshift and the H-MEM, Markovian and World Model specifications |
+| **Nightshift** | The Meterless program on your PC that serves an OpenAI-compatible API (`http://127.0.0.1:8088/v1`) and routes each request to a model; it may let several models try the same request |
+| **NVIDIA Nemotron** | The free model family reached through Nightshift in the hackathon runs. Which model really answered is recorded as `answered by` |
+| **Route** (`meterless/auto`, `deep`, `fast`) | What Barthelona asks Nightshift for: `auto` the general choice, `deep` the strongest reasoning, `fast` the quickest. Nightshift picks the model |
+| **Lane** | A model with a duty (Race, Judge, Verify) inside Nightshift's own screens. Barthelona does not name lanes; it asks for routes |
+| **Race** | Several models try the same request and one answer wins. It is inside Nightshift: it does not split a project among agents |
+| **Gateway, backend** | The Barthelona code that sends a request to the models of a chain. The one backend today speaks the OpenAI chat protocol |
+| **Profile** | A named set of chains in `config/models.yaml`: `meterless`, `local-only`, `hybrid`, `cloud` (only `meterless` and `local-only` can answer today) |
+| **Role, chain** | A role (`main`, `worker`, `planner`, `cheap`, `escalation`) names a job; its chain is the ordered list of models to try. Every chain ends with the local model |
+| **Fall-through** | When a chain entry cannot be used or fails, the gateway tries the next one and shows why (`chunk 1 fell through: ...`) |
+| **Local model (`local_main`)** | The model in LM Studio on your PC. It is the last entry of every chain; demo runs under the free-models rule disable it |
+| **Token** | The unit models count text in (about four characters). Limits and costs are in tokens |
+| **Reasoning, `<think>`** | Some models write their thinking before the answer. It is stripped before the code is extracted; `--trace-reasoning` logs it |
+
+### Memory and long tasks
+
+| Term | Meaning |
+| --- | --- |
+| **Markovian engine** | Produces a long answer as bounded **chunks** so the prompt does not grow with the answer; this repository has its own Python port of the Meterless specification |
+| **Chunk, carry-over** | One bounded generation step; a short state (the carry-over) is passed to the next chunk. A chunk ends with the marker `[STATE_CHECKPOINT]` (more to come) or `[TASK_COMPLETE]` (done) |
+| **`peak_prompt`, `standard_cost`, `markovian_cost`, `efficiency`** | Summary numbers: the largest prompt sent; the input tokens a full-history run would have used; the input tokens chunking used; the saving in percent. `too short to compare` for a single chunk |
+| **H-MEM** | Hierarchical memory (a Python port of the Meterless specification): facts recalled before each chunk and written after a green run, in a SQLite file (`--memory`) |
+| **Recall, seed** | Recall: facts chosen for this task are put into the prompt. Seed: `zetaris seed` turns the Zetaris tables into memory entries (48 facts) |
+| **World Model** | A TypeScript engine for shared, event-sourced state between agents (`engines/world-model/`). Built, but not used by the pipeline yet |
+
+### Data: Zetaris
+
+| Term | Meaning |
+| --- | --- |
+| **Zetaris** | A data platform you query with SQL. Here it holds the assembler facts and receives published run history |
+| **Lightning database, file table** | Zetaris's way to expose files as tables: `CREATE LIGHTNING DATABASE`, then `CREATE LIGHTNING FILESTORE TABLE` over a CSV in the containers' shared volume |
+| **`barthelona_files`, `barthelona_runtime`** | The two databases: `barthelona_files` has `linux_x64_syscalls` (37 rows) and `abi_facts` (11 rows); `barthelona_runtime` has runs, chunks, memories and the memory ledger after `zetaris publish` |
+| **Facts** | Rows from those tables placed in the spec and test-author prompts and in the first chunk (`--facts-sql`), marked as untrusted data |
+| **Untrusted data, injection guard** | Text from outside (Zetaris rows, recalled memory) is wrapped in a block the model is told not to obey, and is refused if it looks like an instruction to the model |
+| **API key** | Created in the Zetaris UI; read from `ZETARIS_API_KEY`, never committed |
+
+### Commands and files you will see
+
+| Term | Meaning |
+| --- | --- |
+| **`dev.ps1`, `-LoadEnv`** | A wrapper that runs one command with the conda environment; `-LoadEnv` also exports the keys from `.env` for that one command |
+| **Catalog (`config/models.yaml`)** | Providers, models, roles, chains and profiles. A copy with `lmstudio` disabled is how a run is kept from using a local model (`--catalog`) |
+| **`var/`** | Runtime data, not in git: `app.sqlite` (runs, events, gates), `runs/<run id>/` (spec, tests, code), `hmem.sqlite`, `runs.sqlite` |
+| **`assemble: pass`** | The line `chunked run` prints when NASM assembled the program and, with `--expect-stdout`, the emulator saw the expected output |
 
 ---
 
@@ -364,6 +519,7 @@ assembles and passes the emulator check. If both runs finish in one chunk, say t
 - [ ] A catalog copy with LM Studio disabled, if you promise free models only
 - [ ] NASM found (`python -m barthelona check` on a packaged project passes)
 - [ ] Demo A rehearsed once; you know which models served `auto` and `deep` (Nightshift run details)
+- [ ] **Agent activity is logged (required by the hackathon):** `worker` and `chunked run` write the reasoning log to `var/activity.md` by default (`--trace-reasoning FILE` picks another file, `off` disables it), and `chunked run` also needs `--stats var/runs.sqlite`; after a run, the file exists and `python -m barthelona chunked stats --db var/runs.sqlite` or the `llm_calls` query shows the calls ([how](current-status.md))
 - [ ] You can state what is not proven (compounding, temperament, published demo)
 
 ---
@@ -376,7 +532,7 @@ assembles and passes the emulator check. If both runs finish in one chunk, say t
 | Architecture | [`architecture.md`](architecture.md) |
 | Meterless guide | [`meterless-guide.md`](meterless-guide.md) |
 | Zetaris guide and engines | [`zetaris-guide.md`](zetaris-guide.md), [`zetaris-engines.md`](zetaris-engines.md) |
-| Current status | [`current-status.md`](current-status.md) |
+| Quickstart and current status | [`quickstart.md`](quickstart.md) |
 | Runbook | [`runbook.md`](runbook.md) |
 | Hackathon participant guide | `.reference/7e1b7ca3995b4673b30a73555c87e71f.pdf` |
 | Meterless on GitHub | https://github.com/Meterless/Meterless |

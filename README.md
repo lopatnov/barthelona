@@ -29,19 +29,26 @@ You choose an assembler dialect (NASM and GNU as first; FASM, MASM-compatible an
 3. accepts code only when real tools agree: the assembler, linker, symbol and ABI checks, the Unicorn emulator, and sandboxed tests in Docker;
 4. delivers a self-contained git repository that builds without barthelona.
 
+The technologies of the Open Agent Hackathon are parts of this pipeline, not add-ons (the table with status is in [`docs/architecture.md` section 3.1](docs/architecture.md#31-where-the-hackathon-technologies-sit-in-the-pipeline)):
+
+- **Meterless Nightshift with NVIDIA Nemotron** answers every model call: the gateway asks for the routes `meterless/auto`, `meterless/deep` and `meterless/fast` by role, and Nightshift picks (and may race) the models;
+- **Zetaris** is the structured knowledge store: syscall and ABI facts read by SQL go into the spec and test prompts, seed the memory, and run history is written back to it;
+- **H-MEM and the Markovian chunk loop** (Python ports of the Meterless specs) give long generations bounded prompts and memory across runs;
+- the **World Model** (TypeScript) is the shared state for parallel agents; it is built but not used until the sprint loop exists.
+
 Models are pluggable:
 
-- a local model in LM Studio (or Ollama) is always available;
-- Anthropic, OpenAI, Google Gemini and DeepSeek are optional accelerators, configured in [`config/models.yaml`](config/models.yaml);
+- Meterless Nightshift is the default provider (profile `meterless`) and a local model in LM Studio (or Ollama) is always available as the last fallback;
+- Anthropic, OpenAI and Google Gemini are planned accelerators: they are listed in [`config/models.yaml`](config/models.yaml) but have no backend yet, so a chain entry for them is skipped (#252); DeepSeek is also listed but its reasoning parameters are not mapped yet;
 - dollar budgets are optional (spending is always metered; time and token limits always apply), and provider outages or empty balances fall back automatically to the next model, ending with the local one.
 
 ## Status
 
 **Barthelona cannot create or edit multi-module projects yet.** The Meta-Agentic Scrum loop and sprint planner do not exist; the description above is the design. What exists on `main` is a create flow for **single-module** programs (the worker: spec, tests, gate G1, code, gate G4, then `runs package`, PR #253) and a UI walking skeleton (#251): "print hello" and "print the digits 1 to 9" went green on Nemotron only on 2026-10-24; an interactive 12-question program did not (see `docs/hackathon-demo-guide.md`, "Where it stands").
 
-- **Current phase:** Phase 0, foundations and the deterministic spine (last updated 2026-10-24). **Done:** design docs, agent configuration, environment scripts, domain models, the SQLite store, executors (Fake/WSL/Local/Sandbox), NASM/GAS adapters, the verification ladder V0–V2/V5/V6 ([`python -m barthelona verify`](src/barthelona/cli/verify.py)), the model gateway with fallback chains, the bench library, the ABI mutation corpus, Meterless (Nightshift) and Zetaris integrations, Markovian chunked runs, opt-in training data collection. **Still open:** the bake-off and local-model choice, Docker image digests in [`config/toolchains.lock.json`](config/toolchains.lock.json), and the Phase 0 review. Phase 1a has started: [`python -m barthelona worker`](src/barthelona/cli/worker.py) runs queued runs through preflight, intake, spec and test-author nodes to gate G1 ([`docs/current-status.md`](docs/current-status.md) section 5); there is no UI yet.
-- **What you can try today:** the CLI ([`python -m barthelona version | schema | probe | verify | training status | chunked | meterless | zetaris | worker`](src/barthelona/cli/)), two hand-written 3-module test projects that pass the full MVP ladder. **Detailed guide:** [`docs/current-status.md`](docs/current-status.md). The goal is code that is **correct**, as the oracles decide; today the demo path checks only that it assembles, not that it behaves.
-- **Demo caveat:** `demos/simplest-demo` is a **placeholder, not a valid demo**. Claude wrote its sources, contract and test generators by hand because the engine does not exist yet; Barthelona only verifies it. Its scoring method is not documented, so its correctness is unproven. Real demos must be produced by Barthelona (mostly with local models) from a human-style prompt.
+- **Current phase:** Phase 0, foundations and the deterministic spine (last updated 2026-10-24). **Done:** design docs, agent configuration, environment scripts, domain models, the SQLite store, executors (Fake/WSL/Local/Sandbox), NASM/GAS adapters, the verification ladder V0–V2/V5/V6 ([`python -m barthelona verify`](src/barthelona/cli/verify.py)), the model gateway with fallback chains, the bench library, the ABI mutation corpus, Meterless (Nightshift) and Zetaris integrations, Markovian chunked runs, opt-in training data collection. **Still open:** the bake-off and local-model choice, Docker image digests in [`config/toolchains.lock.json`](config/toolchains.lock.json), and the Phase 0 review. Phase 1a has started: [`python -m barthelona worker`](src/barthelona/cli/worker.py) runs queued runs through preflight, intake, spec and test-author nodes to gate G1 ([`docs/quickstart.md`](docs/quickstart.md) section 5); there is no UI yet.
+- **What you can try today:** the CLI ([`python -m barthelona version | schema | probe | verify | training status | chunked | meterless | zetaris | worker`](src/barthelona/cli/)), two hand-written 3-module test projects that pass the full MVP ladder. **Detailed guide:** [`docs/quickstart.md`](docs/quickstart.md). The goal is code that is **correct**, as the oracles decide; today the demo path checks only that it assembles, not that it behaves.
+- **Demo status:** `demos/simplest-demo` (submodule, branch `english-temperament-demo`) is **generated by Barthelona**: a person wrote only `task.txt`; the specification, six tests, NASM source, README and CI came out of the create flow on the Meterless Nemotron lanes, NASM assembled the source and the emulator ran all six tests green. It is one small single-file program, not yet the multi-module Scrum pipeline. The other demo folders are still placeholders.
 - **Where to look:** phases and exit criteria in [`docs/roadmap.md`](docs/roadmap.md) (its "Current status" line is the source of truth). When a phase changes, update this section and that line together.
 
 ## Quick Start
@@ -84,8 +91,7 @@ See [`docs/runbook.md`](docs/runbook.md) for detailed installation, WSL configur
 
 ### Guides & References
 
-- **[`docs/current-status.md`](docs/current-status.md)** — **Comprehensive technical reference** (actual runnable capabilities): detailed CLI commands, verification ladder (V0–V2/V5/V6 runnable; V3/V4 library only, V7/V8 planned), model gateway, Meterless/Zetaris integration, chunked runs, training data, test projects, code generation, what doesn't work yet, directory layout, next steps for contributors
-- **[`docs/quickstart.md`](docs/quickstart.md)** — **Concise getting-started guide**: installation, running the hello demo, creating your own assembly program, troubleshooting, known limits
+- **[`docs/quickstart.md`](docs/quickstart.md)** — **Install, run, and what works today**: setup, every CLI command with an example, verification ladder, model gateway, Meterless/Zetaris, chunked runs and the create flow, your own program, troubleshooting, what does not work yet
 - **[`docs/meterless-guide.md`](docs/meterless-guide.md)** — **Complete Meterless/Nightshift guide**: installation, Nightshift UI setup, lane configuration, profiles, H-MEM, troubleshooting
 - **[`docs/zetaris-guide.md`](docs/zetaris-guide.md)** — **Complete Zetaris guide**: installation, API key setup, SQL queries, `--facts-sql` injection, fact registration, troubleshooting
 - **[`docs/hackathon-demo-guide.md`](docs/hackathon-demo-guide.md)** — **Hackathon demo guide**: complete 3-layer setup (Zetaris, Cursor, Meterless/Nemotron), demo scenarios, troubleshooting
@@ -164,7 +170,7 @@ The [`docs/adr/`](docs/adr/) directory contains all architecture decisions (D-00
 
 ## Demo
 
-[`demos/simplest-demo`](demos/simplest-demo) is a git submodule ([barthelona-simplest-demo](https://github.com/lopatnov/barthelona-simplest-demo)): an interactive console temperament questionnaire (Russian interface) in four NASM modules that passes barthelona's verification ladder (tamper gate, V0-V2, V5, V6) in its own CI. It is a hand-written placeholder (see the caveat above): its README says which parts the pipeline did and which Claude wrote by hand because the engine does not exist yet. Clone with `git clone --recurse-submodules`, or run `git submodule update --init` afterwards.
+[`demos/simplest-demo`](demos/simplest-demo) is a git submodule ([barthelona-simplest-demo](https://github.com/lopatnov/barthelona-simplest-demo), branch `english-temperament-demo`): an English 12-question temperament questionnaire in one NASM file for Linux x86-64. Its `task.txt` is the prompt; everything else (`src/temperament.asm`, `tests/golden.json`, README, CI, `build/temperament.o`) was produced by Barthelona's create flow and accepted by NASM and the emulator. Clone with `git clone --recurse-submodules`, or run `git submodule update --init` afterwards.
 
 Additional demo projects (each has its own README with run instructions):
 

@@ -50,6 +50,8 @@ from barthelona.domain.memory import (
 from barthelona.domain.patch import FileWrite, HunkEdit, Patch, SymbolEdit
 from barthelona.domain.project import ChangeSpec, ModuleSpec, ProjectSpec, Requirement, TargetProfile
 from barthelona.domain.run import (
+    DEFAULT_TOKENS,
+    DEFAULT_WALL_S,
     DEMOS_DIR,
     CommandKind,
     EventKind,
@@ -124,6 +126,8 @@ DOCUMENTS: dict[str, type[Document]] = {
 
 __all__ = [
     "ABI",
+    "DEFAULT_TOKENS",
+    "DEFAULT_WALL_S",
     "DEMOS_DIR",
     "DOCUMENTS",
     "OS",

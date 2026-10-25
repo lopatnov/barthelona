@@ -8,7 +8,7 @@ only the variables already set in the shell. Secrets come only from environment 
 
 ## The steps
 
-1. Start the worker and leave it running: `python -m barthelona worker`.
+1. Start the worker and leave it running: `python -m barthelona worker --trace-reasoning var/reasoning.md` (the option is explained under "Watching what the models think"; drop it for no log).
 2. Queue a run: `python -m barthelona runs submit @prompt.txt --profile meterless`. It prints the run id.
 3. The worker writes the specification and the tests, then parks the run at gate **G1**. Read them with
    `runs status <run_id>` (or in the Streamlit UI) and answer with `runs decide <run_id> approve` or
@@ -46,7 +46,7 @@ answer today (`cloud` has no Anthropic, OpenAI or Gemini backend yet: F-111, #25
 role, the model, tokens, seconds, the model's reasoning and its answer. `--trace-reasoning -` prints the
 entries to stderr instead. `chunked run` has the same flag. The reasoning comes from the provider's separate
 reasoning stream or from `<think>` blocks in the reply; when a model sends neither, the entry says so.
-The log is off by default and holds the request text and the models' answers, so keep it out of git.
+The log is on by default and goes to `var/activity.md` (not in git); `--trace-reasoning off` switches it off. It holds the request text and the models' answers, so do not share it.
 
 ## Environment variables
 

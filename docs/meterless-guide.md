@@ -431,7 +431,7 @@ models:
 | Document                        | Link                                                                                              |
 | ------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Quickstart (includes Meterless) | [`docs/quickstart.md`](quickstart.md)                                                             |
-| Current Status (detailed CLI)   | [`docs/current-status.md`](current-status.md#23-meterless-status--nightshift-runtime-probe)       |
+| Commands (meterless status)      | [`docs/quickstart.md`](quickstart.md#24-meterless-status-is-nightshift-reachable)       |
 | Runbook (environment setup)     | [`docs/runbook.md`](runbook.md#4-lm-studio-local-models)                                          |
 | Hackathon Demo Notes            | [`docs/hackathon-demo.md`](hackathon-demo.md)                                                     |
 | Architecture (Model Gateway)    | [`docs/architecture.md`](architecture.md#16-llm-routing-structured-output-context)                |
@@ -465,4 +465,4 @@ python -m barthelona chunked stats
 
 ---
 
-_Last updated: 2026-10-24. For the latest, check `docs/current-status.md` and `docs/hackathon-demo.md`._
+_Last updated: 2026-10-24. For the latest, check `docs/quickstart.md` and `docs/hackathon-demo.md`._

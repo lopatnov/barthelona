@@ -24,6 +24,7 @@ param(
     [string]$RunsPath = "var/runs",
     [string]$CatalogPath = "config/models.yaml",
     [string]$FactsSql = "",
+    [string]$TraceReasoning = "",
     [float]$PollInterval = 1.0,
     [switch]$WorkerOnly,
     [switch]$UiOnly,
@@ -90,6 +91,7 @@ function Invoke-Worker {
         [string]$Runs,
         [string]$Catalog,
         [string]$Facts,
+        [string]$Trace,
         [float]$Poll,
         [switch]$Once
     )
@@ -103,6 +105,7 @@ function Invoke-Worker {
         "--poll", $Poll
     )
     if ($Facts) { $cmdArgs += "--facts-sql", $Facts }
+    if ($Trace) { $cmdArgs += "--trace-reasoning", $Trace }
     if ($Once) { $cmdArgs += "--once" }
 
     if ($PSCmdlet.ShouldProcess("worker process", "Start worker")) {
@@ -135,7 +138,7 @@ $null = New-Item -ItemType Directory -Force -Path "var", "var/runs", "workspaces
 
 try {
     if (-not $UiOnly) {
-        $workerProcess = Invoke-Worker -Db $DatabasePath -Checkpoints $CheckpointsPath -Runs $RunsPath -Catalog $CatalogPath -Facts $FactsSql -Poll $PollInterval
+        $workerProcess = Invoke-Worker -Database $DatabasePath -Checkpoints $CheckpointsPath -Runs $RunsPath -Catalog $CatalogPath -Facts $FactsSql -Trace $TraceReasoning -Poll $PollInterval
         Start-Sleep -Seconds 2  # Give worker time to start
     }
 

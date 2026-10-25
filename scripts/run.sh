@@ -5,7 +5,8 @@
 # and the Streamlit UI (New Request, Approvals, Live Run pages) in parallel.
 # Both processes share the same SQLite database (var/app.sqlite) for coordination.
 #
-# Usage: ./scripts/run.sh [--worker-only] [--ui-only] [--port 8501]
+# Usage: ./scripts/run.sh [--worker-only] [--ui-only] [--port 8501] [--trace-reasoning FILE]
+# The worker logs agent activity to var/activity.md by default; FILE picks another file, "off" disables it.
 
 set -euo pipefail
 
@@ -14,6 +15,7 @@ CHECKPOINTS_PATH="var/checkpoints.sqlite"
 RUNS_PATH="var/runs"
 CATALOG_PATH="config/models.yaml"
 FACTS_SQL=""
+TRACE_REASONING=""  # empty: the CLI default (var/activity.md)
 POLL_INTERVAL=1.0
 WORKER_ONLY=false
 UI_ONLY=false
@@ -26,6 +28,7 @@ while [[ $# -gt 0 ]]; do
         --runs) RUNS_PATH="$2"; shift 2 ;;
         --catalog) CATALOG_PATH="$2"; shift 2 ;;
         --facts-sql) FACTS_SQL="$2"; shift 2 ;;
+        --trace-reasoning) TRACE_REASONING="$2"; shift 2 ;;
         --poll) POLL_INTERVAL="$2"; shift 2 ;;
         --worker-only) WORKER_ONLY=true; shift ;;
         --ui-only) UI_ONLY=true; shift ;;
@@ -76,6 +79,7 @@ start_worker() {
         --poll "$POLL_INTERVAL"
     )
     [[ -n "$FACTS_SQL" ]] && args+=(--facts-sql "$FACTS_SQL")
+    [[ -n "$TRACE_REASONING" ]] && args+=(--trace-reasoning "$TRACE_REASONING")
 
     echo "Starting worker: ${args[*]}" >&2
     PYTHONPATH=src "$ENV_SCRIPT" "${args[@]}" &

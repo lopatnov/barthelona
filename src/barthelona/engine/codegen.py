@@ -29,11 +29,13 @@ from barthelona.llm.types import Completion, CompletionRequest
 from barthelona.verification.asm_gate import AssembleResult, assemble_best
 from barthelona.verification.behavior_gate import Expectation, check_behavior
 
-REPAIRS = 2
+# Each repair sees the checker report (assembler errors, end of the wrong output); a quiz needed over 2.
+REPAIRS = 4
 WRITE_ROLE = "worker"
 REPAIR_ROLE = "planner"
 DOMAIN = "assembly"
-CHUNKS = MarkovianConfig(chunk_tokens=2000, carryover_tokens=128, max_chunks=8)
+# A reasoning model spends part of a chunk on thinking; 2000 cut a 12-question quiz off mid-instruction.
+CHUNKS = MarkovianConfig(chunk_tokens=6000, carryover_tokens=128, max_chunks=8)
 
 OnCall = Callable[[LLMCallRecord], None]
 

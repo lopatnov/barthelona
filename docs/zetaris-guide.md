@@ -331,7 +331,7 @@ for row in rows:
 | Document                       | Link                                                                                                      |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------- |
 | Quickstart (includes Zetaris)  | [`docs/quickstart.md`](quickstart.md)                                                                     |
-| Current Status (detailed CLI)  | [`docs/current-status.md`](current-status.md#24-zetaris-status--zetaris-sql--structured-knowledge-store)  |
+| Commands (zetaris)             | [`docs/quickstart.md`](quickstart.md#25-zetaris-status-sql-seed-publish)  |
 | Runbook (environment setup)    | [`docs/runbook.md`](runbook.md#4-optional)                                                                |
 | Hackathon Demo Notes           | [`docs/hackathon-demo.md`](hackathon-demo.md#zetaris-facts)                                      |
 | Architecture (Knowledge Layer) | [`docs/architecture.md`](architecture.md#14-knowledge-layer)                                              |
@@ -382,4 +382,4 @@ python -m barthelona chunked run "Write a NASM program that prints Hello using t
 
 ---
 
-_Last updated: 2026-10-24. For the latest, check `docs/current-status.md` and `docs/hackathon-demo.md`._
+_Last updated: 2026-10-24. For the latest, check `docs/quickstart.md` and `docs/hackathon-demo.md`._

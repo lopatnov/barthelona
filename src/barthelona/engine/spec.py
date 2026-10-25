@@ -22,6 +22,8 @@ from barthelona.llm.gateway import ModelGateway
 from barthelona.llm.types import ChatMessage, CompletionRequest
 
 ATTEMPTS = 2
+# A reasoning model spends part of this on thinking; 2048 cut the test author off mid-JSON on a 10-test quiz.
+ARTIFACT_TOKENS = 8192
 INTAKE_ROLE = "main"
 SPEC_ROLE = "planner"
 
@@ -41,7 +43,8 @@ Answer with ONE JSON object and nothing else:
  "requirements": [{"id": "R1", "text": "<one testable requirement>"}],
  "modules": [{"path": "src/<name>.asm", "purpose": "<one line>", "exports": ["<symbol>"]}],
  "constraints": [], "non_goals": [], "assumptions": []}
-Rules: 1-12 requirements, each checkable from the program's output or exit code; 1-6 modules; paths relative
+Rules: 1-12 requirements (a reply with more than 12 is rejected: merge related checks into one requirement),
+each checkable from the program's output or exit code; 1-6 modules; paths relative
 to the project, ending in the dialect's source suffix; keep it as small as the goal allows. When the program
 prints results, state the exact text or format of those lines in the requirements (for example
 "Extraversion: <n>"), so the tests and the code agree on them."""
@@ -89,7 +92,7 @@ async def ask_json[Model: DomainModel](
     problem = ""
     for _ in range(ATTEMPTS):
         completion = await gateway.complete(
-            role, CompletionRequest(messages=tuple(messages), max_tokens=2048)
+            role, CompletionRequest(messages=tuple(messages), max_tokens=ARTIFACT_TOKENS)
         )
         on_call(completion.record)
         try:
@@ -122,6 +125,7 @@ async def draft_spec(
 ) -> ProjectSpec:
     target = run.target
     user = (
+        f"Request (authoritative; keep its exact wording, formats and numbers):\n{request.strip()[:4000]}\n\n"
         f"Goal: {intake.goal_en}\nTarget: {target.preset} ({target.dialect.value}, {target.arch.value}, "
         f"{target.os.value}, {target.abi.value})\nEntities: {'; '.join(intake.entities) or 'none named'}"
     )
