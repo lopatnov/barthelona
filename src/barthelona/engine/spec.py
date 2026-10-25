@@ -122,6 +122,7 @@ async def draft_spec(
 ) -> ProjectSpec:
     target = run.target
     user = (
+        f"Request (authoritative; keep its exact wording, formats and numbers):\n{request.strip()[:4000]}\n\n"
         f"Goal: {intake.goal_en}\nTarget: {target.preset} ({target.dialect.value}, {target.arch.value}, "
         f"{target.os.value}, {target.abi.value})\nEntities: {'; '.join(intake.entities) or 'none named'}"
     )
