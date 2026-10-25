@@ -328,6 +328,12 @@ models gave no valid program, no model answered, an error) it reads "Resume" and
 the code step from the run's checkpoint. A finished (green) run and an unsupported target have no button. A run that
 was still going when the worker or the PC stopped needs no button: it continues when the worker starts again.
 
+**Danger zone (Live Run).** At the bottom, behind an expander: **Remove run** deletes a stopped run for good: its
+record, events and model-call ledger in `var/app.sqlite`, and the folder `var/runs/<run id>/`. It asks for a tick
+first, refuses a run that is queued, running or waiting (cancel it first), and never touches the project folder under
+`demos/` or the drafts in it. Run parameters also show whether the checkpoints are approved automatically and whether
+the project is written into `demos/` when the run is green; both are tick boxes on New Request, on by default.
+
 **Package panel (Live Run).** Select a green run: the panel shows the `demos/` folder it will write, a field for the full
 commit sha of barthelona that the generated CI installs (filled from `git rev-parse HEAD`), and the button **Package into
 demos/**. It writes the same files as `runs package` and lists them. It refuses a folder that already has files (pick

@@ -422,3 +422,46 @@ def test_llm_calls_are_recorded_per_run(store: Store) -> None:
     assert store.llm_calls("r1") == [record]
     with pytest.raises(NotFoundError):
         store.record_llm_call("ghost", record)
+
+
+def test_a_stopped_run_is_removed_with_everything_that_belongs_to_it(store: Store) -> None:
+    store.create_run(_run("r2"))
+    store.append_events([_event(0), _event(1)])
+    store.append_events([_event(0, run_id="r2")])
+    store.open_gate(_gate())
+    store.record_llm_call(
+        "r1",
+        LLMCallRecord(
+            provider="meterless",
+            model="m",
+            prompt_hash=SHA,
+            tokens_in=1,
+            tokens_out=1,
+            latency_ms=1,
+            stop_reason="stop",
+        ),
+    )
+    store.enqueue_command(RunCommand(run_id="r1", kind=CommandKind.CANCEL))
+    store.set_run_status("r1", RunStatus.STOPPED, StopReason.HUMAN_ABORT)
+
+    store.delete_run("r1")
+
+    assert [run.id for run in store.list_runs()] == ["r2"]
+    assert store.events_after("r1", after_seq=-1, limit=10) == []
+    assert store.llm_calls("r1") == [] and store.pending_gates("r1") == []
+    assert len(store.events_after("r2", after_seq=-1, limit=10)) == 1  # another run is untouched
+
+
+@pytest.mark.parametrize("status", [RunStatus.QUEUED, RunStatus.RUNNING, RunStatus.WAITING_GATE])
+def test_a_run_that_belongs_to_the_worker_cannot_be_removed(store: Store, status: RunStatus) -> None:
+    store.set_run_status("r1", status)
+
+    with pytest.raises(ConflictError, match="only a stopped run"):
+        store.delete_run("r1")
+
+    assert [run.id for run in store.list_runs()] == ["r1"]
+
+
+def test_removing_a_run_that_does_not_exist_is_an_error(store: Store) -> None:
+    with pytest.raises(NotFoundError):
+        store.delete_run("nope")

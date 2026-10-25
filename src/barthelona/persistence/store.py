@@ -99,6 +99,19 @@ class Store:
             self._save_run(updated)
         return updated
 
+    def delete_run(self, run_id: str) -> None:
+        """Remove a stopped run with its events, gates, commands and call ledger; any other run is refused.
+
+        A run that is queued, running or waiting for a gate belongs to the worker: cancel it first.
+        """
+        with self._write():
+            run = self.get_run(run_id)
+            if run.status is not RunStatus.STOPPED:
+                raise ConflictError(f"run {run_id} is {run.status.value}; only a stopped run can be removed")
+            for table in ("llm_calls", "gates", "commands", "events"):
+                self._conn.execute(f"DELETE FROM {table} WHERE run_id = ?", (run_id,))  # noqa: S608 - fixed names
+            self._conn.execute("DELETE FROM runs WHERE id = ?", (run_id,))
+
     def claim_next_queued_run(self) -> Run | None:
         """Atomically move the oldest queued run to `running` and return it (the worker's claim)."""
         with self._write():
