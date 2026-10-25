@@ -532,7 +532,7 @@ is meant to be readable without knowing assemblers, SQL or agent frameworks.
 | Architecture | [`architecture.md`](architecture.md) |
 | Meterless guide | [`meterless-guide.md`](meterless-guide.md) |
 | Zetaris guide and engines | [`zetaris-guide.md`](zetaris-guide.md), [`zetaris-engines.md`](zetaris-engines.md) |
-| Current status | [`current-status.md`](current-status.md) |
+| Quickstart and current status | [`quickstart.md`](quickstart.md) |
 | Runbook | [`runbook.md`](runbook.md) |
 | Hackathon participant guide | `.reference/7e1b7ca3995b4673b30a73555c87e71f.pdf` |
 | Meterless on GitHub | https://github.com/Meterless/Meterless |
