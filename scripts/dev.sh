@@ -43,6 +43,14 @@ case "$(uname -s)" in
 esac
 export PYTHONUTF8=1 WSL_UTF8=1
 
+# The env holds one editable install that points at one checkout (#268); this checkout's src wins instead.
+repo_src="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/src"
+sep=":"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) repo_src="$(cygpath -w "$repo_src" 2>/dev/null || echo "$repo_src")"; sep=";" ;;
+esac
+export PYTHONPATH="$repo_src${PYTHONPATH:+$sep$PYTHONPATH}"
+
 if [[ "$load_env" = 1 ]]; then
   env_file="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.env"
   if [[ ! -f "$env_file" ]]; then

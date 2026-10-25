@@ -70,6 +70,8 @@ if ($__loadEnv -and -not (Test-Path -LiteralPath $__envFile)) {
 $__oldPath = $env:PATH
 $__oldUtf8 = $env:PYTHONUTF8
 $__oldWsl = $env:WSL_UTF8
+$__oldPyPath = $env:PYTHONPATH
+$__repoSrc = Join-Path (Split-Path -Parent $PSScriptRoot) 'src'
 $__code = 1
 $__loaded = @()
 try {
@@ -91,6 +93,8 @@ try {
     $env:PATH = (@($__bartPrefix, (Join-Path $__bartPrefix 'Scripts'), (Join-Path $__bartPrefix 'Library\bin')) -join ';') + ';' + $__oldPath
     $env:PYTHONUTF8 = '1'
     $env:WSL_UTF8 = '1'
+    # The env holds one editable install that points at one checkout (#268); this checkout's src wins instead.
+    if ($__oldPyPath) { $env:PYTHONPATH = $__repoSrc + ';' + $__oldPyPath } else { $env:PYTHONPATH = $__repoSrc }
     $__exe = $__argv[0]
     $__rest = @()
     if ($__argv.Count -gt 1) { $__rest = $__argv[1..($__argv.Count - 1)] }
@@ -103,5 +107,6 @@ finally {
     $env:PATH = $__oldPath
     $env:PYTHONUTF8 = $__oldUtf8
     $env:WSL_UTF8 = $__oldWsl
+    $env:PYTHONPATH = $__oldPyPath
 }
 exit $__code
