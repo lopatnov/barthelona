@@ -8,9 +8,9 @@ from pathlib import Path
 import streamlit as st
 
 from barthelona.domain.layout import REASONING_FILE, RUNS_DIR, run_dir
+from barthelona.ui.paging import PAGE_SIZES, page_controls, page_slice
 
-MAX_ENTRIES = 8  # newest first; the whole log stays in the run folder
-_TAIL_BYTES = 800_000  # read only the end of a long log; an entry can hold a whole prompt
+PAGE_SIZE = 8  # entries per page, newest first
 
 # "## role via route -> model (usage)", as the log writes it; "-> model" only when the router names it
 _HEADING = re.compile(r"(?m)^(?=## (?:\d\d:\d\d:\d\d )?\S+ via \S+(?: -> \S+)? \()")
@@ -22,10 +22,9 @@ _PARTS = (
 )  # in the order the log has them
 
 
-def latest_entries(text: str, limit: int = MAX_ENTRIES) -> list[str]:
-    """The last *limit* entries of a reasoning log, newest first; each starts with its ``## ...`` heading."""
-    entries = [part.strip() for part in _HEADING.split(text) if part.startswith("## ")]
-    return entries[-limit:][::-1]
+def all_entries(text: str) -> list[str]:
+    """Every entry of a reasoning log, oldest first; each starts with its ``## ...`` heading."""
+    return [part.strip() for part in _HEADING.split(text) if part.startswith("## ")]
 
 
 def split_entry(body: str) -> dict[str, str]:
@@ -44,15 +43,15 @@ def split_entry(body: str) -> dict[str, str]:
     return {name: body[text:end].strip() for (name, _, text), end in zip(starts, ends, strict=True)}
 
 
-def _read_tail(path: Path) -> str:
-    with path.open("rb") as handle:
-        handle.seek(0, 2)
-        handle.seek(max(0, handle.tell() - _TAIL_BYTES))
-        return handle.read().decode("utf-8", errors="replace").replace("\r\n", "\n")
+@st.cache_data(max_entries=4, show_spinner=False)
+def _entries_of(path: str, modified: float, size: int) -> list[str]:
+    """The log's entries; read again only when the file changed (the arguments are the cache key)."""
+    del modified, size
+    return all_entries(Path(path).read_bytes().decode("utf-8", errors="replace").replace("\r\n", "\n"))
 
 
 def render_reasoning_panel(run_id: str) -> None:
-    """The newest model calls of one run: what was asked, the thinking and the answer; on by default."""
+    """Every model call of one run, newest page first: what was asked, the thinking and the answer."""
     st.subheader("🧠 Model reasoning")
     show = st.checkbox(
         "Show what was asked and what the models think and answer",
@@ -65,7 +64,11 @@ def render_reasoning_panel(run_id: str) -> None:
     if not path.is_file():
         st.caption("No model has answered yet. Each call appears here as soon as its reply arrives.")
         return
-    for position, entry in enumerate(latest_entries(_read_tail(path))):
+    info = path.stat()
+    entries = _entries_of(str(path), info.st_mtime, info.st_size)
+    page, size = page_controls(f"reasoning_{run_id}", len(entries), default_size=PAGE_SIZES[0])
+    start, end = page_slice(len(entries), page, size)
+    for position, entry in enumerate(reversed(entries[start:end])):
         heading, _, body = entry.partition("\n")
         parts = split_entry(body.strip())
         shown = [(key, label) for key, label in _PARTS if key in parts] or [("answer", "Answer")]

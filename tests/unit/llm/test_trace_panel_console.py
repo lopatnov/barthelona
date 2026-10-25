@@ -10,7 +10,7 @@ import pytest
 from barthelona.domain import LLMCallRecord
 from barthelona.llm.trace import ConsoleTrace, ReasoningLog, TraceAll, _entry
 from barthelona.llm.types import Completion
-from barthelona.ui.reasoning_panel import latest_entries
+from barthelona.ui.reasoning_panel import all_entries
 
 
 def _done(text: str = "answer text", reasoning: str = "thought text") -> Completion:
@@ -62,22 +62,26 @@ def test_trace_all_calls_every_trace_and_skips_none(tmp_path: Path) -> None:
     assert first.read_text(encoding="utf-8") == second.read_text(encoding="utf-8") != ""
 
 
-def test_the_panel_lists_the_newest_entries_first() -> None:
+def test_every_entry_of_the_log_is_listed_oldest_first() -> None:
     log = (
         "## a via m (1 in)\n\n### reasoning\n\nx\n\n### answer\n\nfirst\n\n"
         "## b via m (2 in)\n\n### answer\n\nsecond\n\n"
         "## c via m (3 in)\n\n### answer\n\nthird\n\n"
     )
 
-    entries = latest_entries(log, limit=2)
+    entries = all_entries(log)
 
-    assert [entry.splitlines()[0] for entry in entries] == ["## c via m (3 in)", "## b via m (2 in)"]
+    assert [entry.splitlines()[0] for entry in entries] == [
+        "## a via m (1 in)",
+        "## b via m (2 in)",
+        "## c via m (3 in)",
+    ]
 
 
 def test_a_markdown_heading_inside_an_answer_does_not_split_an_entry() -> None:
     log = "## a via m (1 in)\n\n### answer\n\n## Title of a README\n\ntext\n\n"
 
-    assert len(latest_entries(log)) == 1
+    assert len(all_entries(log)) == 1
 
 
 def test_a_trace_that_fails_does_not_stop_the_others(tmp_path: Path) -> None:
@@ -120,7 +124,7 @@ def test_an_entry_that_is_not_in_the_log_format_is_shown_whole_not_a_crash() -> 
 def test_a_heading_that_names_the_answering_model_starts_an_entry() -> None:
     log = "## worker via meterless_auto -> nvidia/some-model (1 in, 2 out, 1.0s)\n\n### answer\n\nok\n\n"
 
-    assert len(latest_entries(log)) == 1
+    assert len(all_entries(log)) == 1
 
 
 def test_console_progress_prints_a_timestamped_line(capsys: pytest.CaptureFixture[str]) -> None:

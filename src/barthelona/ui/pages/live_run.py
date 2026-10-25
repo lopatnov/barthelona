@@ -24,6 +24,7 @@ from barthelona.ui.continue_run import render_continue
 from barthelona.ui.danger_zone import render_danger_zone
 from barthelona.ui.event_text import describe
 from barthelona.ui.package_panel import render_package_panel
+from barthelona.ui.paging import page_controls, page_slice
 from barthelona.ui.reasoning_panel import render_reasoning_panel
 from barthelona.ui.run_info import render_parameters, render_run_files, render_stages, render_status_banner
 
@@ -154,39 +155,24 @@ def _render_event_log(run: Any, store: Store) -> bool:
         if st.button("🔄 Refresh Now"):
             st.rerun()
 
-    # Session state for event history and last seen sequence
-    history_key = f"event_history_{run.id}"
-    seq_key = f"last_seq_{run.id}"
-
-    if history_key not in st.session_state:
-        st.session_state[history_key] = []
-    if seq_key not in st.session_state:
-        st.session_state[seq_key] = -1
-
-    # Fetch new events
-    events = store.events_after(run.id, after_seq=st.session_state[seq_key], limit=100)
-
-    if events:
-        st.session_state[seq_key] = events[-1].seq
-        # Prepend new events to history (oldest first for display)
-        for event in events:
-            st.session_state[history_key].insert(0, event)
-        # Keep bounded history (last 500 events)
-        if len(st.session_state[history_key]) > 500:
-            st.session_state[history_key] = st.session_state[history_key][:500]
-
-    # Display accumulated event history (newest first)
-    history = st.session_state[history_key]
-    if history:
-        newest = history[0]
-        since = ago((datetime.now(UTC) - newest.ts).total_seconds())
-        st.info(f"**Now:** {describe(newest)} ({newest.ts.astimezone().strftime('%H:%M:%S')}, {since})")
-        for event in history:
-            st.markdown(_format_event(event, technical), unsafe_allow_html=technical)
-    else:
+    total = store.next_seq(run.id)  # sequence numbers run 0..total-1 without gaps
+    if not total:
         st.caption("No events yet...")
+        return auto_poll
+    newest = store.events_after(run.id, after_seq=total - 2, limit=1)[-1]
+    since = ago((datetime.now(UTC) - newest.ts).total_seconds())
+    st.info(f"**Now:** {describe(newest)} ({newest.ts.astimezone().strftime('%H:%M:%S')}, {since})")
 
-    return auto_poll
+    page, size = page_controls(f"events_{run.id}", total, default_size=50)
+    start, end = page_slice(total, page, size)
+    for event in reversed(store.events_after(run.id, after_seq=start - 1, limit=end - start)):
+        st.markdown(_format_event(event, technical), unsafe_allow_html=technical)
+    if page > 0:
+        st.caption(
+            "Refreshing is paused while you read an older page. Go back to the newest page to follow the run."
+        )
+
+    return auto_poll and page == 0
 
 
 def page_live_run() -> None:

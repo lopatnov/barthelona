@@ -12,7 +12,7 @@ from barthelona.domain import EventKind, Profile, Run, RunBudget, RunEvent, RunM
 from barthelona.domain.presets import builtin_presets
 from barthelona.persistence import open_store
 from barthelona.ui.activity import STALE_AFTER_S, activity_text, ago, last_activity
-from barthelona.ui.reasoning_panel import latest_entries
+from barthelona.ui.reasoning_panel import all_entries
 from barthelona.ui.run_info import queued_text
 
 
@@ -86,7 +86,7 @@ def test_a_queued_run_with_nothing_running_points_at_the_worker() -> None:
 def test_a_heading_with_a_time_starts_an_entry_too() -> None:
     log = "## 14:09:25 worker via meterless_auto -> m (1 in, 2 out, 1.0s, stop=stop)\n\n### answer\n\nok\n\n"
 
-    assert len(latest_entries(log)) == 1
+    assert len(all_entries(log)) == 1
 
 
 def _page() -> None:
