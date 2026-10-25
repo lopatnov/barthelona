@@ -88,3 +88,17 @@ def test_live_run_opens_on_the_run_that_was_just_created(
     app.run()
 
     assert app.selectbox[0].value == "run-1"  # not run-2, the newest
+
+
+def test_the_event_log_comes_before_the_reasoning_panel(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _run_waiting_for_g1(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_function(_page, default_timeout=30)
+    app.session_state["auto_poll"] = False
+
+    app.run()
+
+    titles = [item.value for item in app.subheader]
+    assert titles.index("📜 What happened") < titles.index("🧠 Model reasoning")
