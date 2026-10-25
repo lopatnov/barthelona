@@ -121,6 +121,33 @@ The [`docs/adr/`](docs/adr/) directory contains all architecture decisions (D-00
 - **D-050** — [Oracle-driven builder: assembly first, then more target families](docs/adr/D-050-oracle-driven-builder-assembly-first-then-more-target-families.md)
 - **D-056** — [V3/V4 emulator implementation approach](docs/adr/D-056-v3-v4-emulator-implementation-approach.md)
 
+### Technologies used and what for
+
+Versions are pinned in [`pyproject.toml`](pyproject.toml) and hash-locked in `requirements/` ([D-031](docs/adr/D-031-dependencies-in-pyproject-locked-per-platform.md)).
+
+| Area | Technology | What it does here |
+| --- | --- | --- |
+| Language | Python 3.13 | The engine, worker, CLI, verification and UI |
+| Orchestration | LangGraph (+ SQLite checkpointer) | The run graph (intake, spec, tests, code, gates); a crashed run continues from its last checkpoint |
+| Data models | Pydantic, ruamel.yaml, orjson | Typed documents (runs, events, contracts), YAML config and catalog, fast JSON |
+| Templates | Jinja2 | Prompt templates of the model benchmark |
+| Storage | SQLite (WAL) | Run state and events; the only channel between worker and UI (invariant 8) |
+| UI and CLI | Streamlit, Typer, Rich | The browser UI (new request, Live Run, approvals, package) and `python -m barthelona ...` |
+| Models | Meterless Nightshift, NVIDIA Nemotron (free endpoints) | Every model call: routes `meterless/auto`, `deep`, `fast` chosen by role |
+| Models, local | LM Studio, Ollama | Optional local fallback at the end of every role chain, possibly on another PC |
+| Model access | OpenAI SDK (chat API), httpx | One thin own gateway: retries, fail-over, budgets, reasoning log; no LiteLLM ([D-012](docs/adr/D-012-own-thin-modelgateway-over-the-official-openai-3.md)) |
+| Knowledge | Zetaris | SQL facts (syscalls, ABI) for the spec and test prompts; run history written back |
+| Memory | H-MEM and the Markovian chunk loop | Bounded prompts for long generations and memory across runs |
+| Assemblers | NASM, GNU as and ld | Real assembly and linking; the oracle that accepts or rejects code |
+| Emulation | Unicorn, Capstone, pyelftools | Running the built ELF in an emulator, checking syscalls, reading symbols and sections |
+| Sandbox | Docker (`bart-tc`, `bart-run`), WSL2 on Windows | Toolchain and test execution in hardened containers; generated code never runs on the host |
+| Retrieval (optional) | Qdrant, fastembed | Hybrid search over assembler manuals, enabled only if it measurably helps |
+| Quality | ruff, mypy, pytest, ShellCheck, PSScriptAnalyzer, yamllint, actionlint | Lint, types and tests in CI for Python, shell, PowerShell, YAML and workflows |
+| CI and security | GitHub Actions, SonarCloud, Socket | Checks on every PR, the code quality gate and dependency alerts; delivered projects get their own CI, release and Dependabot files ([D-048](docs/adr/D-048-ci-cd-templates-are-a-scaffold-output.md)) |
+| Development | Claude Code, Codex | Writing Barthelona itself (config in `.claude/` and `.codex/`); never part of the product |
+
+Declared for later phases and not used yet: networkx (topology rules), LIEF and pefile (object-file checks), tokenizers, BeautifulSoup and lxml (knowledge ingestion), the Anthropic and Google Gemini SDKs.
+
 ### Configuration & Source Code
 
 - **[`AGENTS.md`](AGENTS.md)**, **[`CLAUDE.md`](CLAUDE.md)**, **[`.claude/`](.claude/)** — Instructions and configuration for coding agents (Claude Code; Codex via a generated mirror)
