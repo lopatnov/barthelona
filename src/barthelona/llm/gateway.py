@@ -116,16 +116,21 @@ class Gateway:
                 continue
             done = build_completion(target, request, outcome, tuple(fallbacks))
             self._say(self._answered(target, done))
-            if self._trace is not None:
-                try:
-                    self._trace(role, done.model_copy(update={"prompt": request.as_text()}))
-                except OSError as exc:  # the log is optional: a model answer is never lost to it
-                    done = done.model_copy(
-                        update={"fallbacks": (*done.fallbacks, f"reasoning log not written: {exc}")}
-                    )
-            return done
+            return self._traced(role, request, done)
         self._say(f"FAILED no model of the {role!r} chain could answer")
         raise GatewayError(f"no model in the {role!r} chain could answer: " + "; ".join(fallbacks))
+
+    def _traced(self, role: str, request: CompletionRequest, done: Completion) -> Completion:
+        """Write the reasoning log entry; a log that cannot be written is noted, never a lost answer."""
+        if self._trace is None:
+            return done
+        try:
+            self._trace(role, done.model_copy(update={"prompt": request.as_text()}))
+        except OSError as exc:
+            return done.model_copy(
+                update={"fallbacks": (*done.fallbacks, f"reasoning log not written: {exc}")}
+            )
+        return done
 
     @staticmethod
     def _answered(target: ModelTarget, done: Completion) -> str:
