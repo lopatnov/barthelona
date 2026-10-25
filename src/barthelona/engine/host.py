@@ -8,6 +8,7 @@ the run, the engine writes `spec.json` and `tests.json` for gate G1. The names a
 from __future__ import annotations
 
 import os
+import shutil
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -92,9 +93,14 @@ class RunFolders:
         return self._workspace_root / self._store.get_run(run_id).workspace / DRAFTS_DIR
 
     def open(self, run_id: str) -> None:
-        """Create the project folder the moment the run starts, so it exists before any code does."""
-        if (folder := self._drafts(run_id)) is not None:
-            folder.mkdir(parents=True, exist_ok=True)
+        """Create the project folder when a run starts or restarts, and copy in drafts that predate it."""
+        if (folder := self._drafts(run_id)) is None:
+            return
+        folder.mkdir(parents=True, exist_ok=True)
+        source = run_dir(self._runs_dir, run_id)
+        for name in (*sorted(p.name for p in source.glob(ATTEMPT_FILE.format(n="*"))), SOURCE_FILE):
+            if (source / name).is_file() and not (folder / name).exists():
+                shutil.copyfile(source / name, folder / name)  # drafts a run wrote before this folder existed
 
     def write(self, run_id: str, name: str, source: str) -> None:
         """Write one source file into the run folder and, when enabled, into the project's drafts folder."""
