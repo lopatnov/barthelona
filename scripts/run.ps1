@@ -74,9 +74,12 @@ function ConvertTo-ChildCommand {
 
 # Stop a process and its entire child tree
 function Stop-ProcessTree {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param([int]$ProcessId)
     # taskkill /T kills the process tree, /F forces it
-    $null = taskkill /T /F /PID $ProcessId 2>$null
+    if ($PSCmdlet.ShouldProcess("process tree $ProcessId", "Stop process tree")) {
+        $null = taskkill /T /F /PID $ProcessId 2>$null
+    }
 }
 
 function Invoke-Worker {
