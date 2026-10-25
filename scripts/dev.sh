@@ -42,6 +42,11 @@ case "$(uname -s)" in
     export PATH="$prefix/bin:$PATH" ;;
 esac
 export PYTHONUTF8=1 WSL_UTF8=1
+# The env's editable install points at one checkout only; this checkout's src comes first (#268).
+src_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/src"
+sep=":"
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) src_dir="$(cygpath -m "$src_dir")"; sep=";" ;; esac
+export PYTHONPATH="$src_dir${PYTHONPATH:+$sep$PYTHONPATH}"
 
 if [[ "$load_env" = 1 ]]; then
   env_file="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.env"
