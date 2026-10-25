@@ -32,7 +32,9 @@ Answer with ONE JSON object and nothing else:
             "exit_code": 0},
            {"id": "T2", "requirement_ids": ["R2"], "stdin": "y\\n", "stdout_contains": ["<text>"],
             "exit_code": 0}]}
-Rules: every requirement id is covered by at least one test. Give "stdout" (the exact text, use \\n for
+Rules: every requirement id is covered by at least one test; a requirement the output cannot show (such as
+which syscalls are used) is listed in "requirement_ids" of the test that exercises the program most fully, and
+only ids that appear in the requirements are used. Give "stdout" (the exact text, use \\n for
 newlines) only when the specification fixes the whole output. When the program prints free text, such as
 prompts or messages, give "stdout_contains" instead: short texts that the output must hold, taken from the
 requirements (scores, result words, formats); end a fixed value with the newline that follows it, so that
