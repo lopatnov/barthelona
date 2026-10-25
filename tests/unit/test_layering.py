@@ -26,9 +26,11 @@ def _modules() -> list[tuple[str, Path]]:
 
 
 def _package(path: Path) -> str:
-    """The package a module belongs to; a module directly under `barthelona` counts as `__main__`."""
+    """The package a module belongs to; only `__main__.py` above the packages is the entry point."""
     parts = path.relative_to(SRC).parts
-    return parts[0] if len(parts) > 1 else ENTRY_POINT
+    if len(parts) == 1:
+        return ENTRY_POINT if path.name == "__main__.py" else "barthelona"
+    return parts[0]
 
 
 def _from_names(node: ast.ImportFrom, package: tuple[str, ...]) -> set[str]:
@@ -36,7 +38,9 @@ def _from_names(node: ast.ImportFrom, package: tuple[str, ...]) -> set[str]:
     if node.level:
         base = package[: max(0, len(package) - (node.level - 1))]
         parts = ["barthelona", *base, *([node.module] if node.module else [])]
-        return {".".join(parts)}
+        module = ".".join(parts)
+        # `from .engine import x` names one module; `from . import engine` names a sub-module per alias.
+        return {module} if node.module else {f"{module}.{alias.name}" for alias in node.names}
     if node.module == "barthelona":  # `from barthelona import cli`: the imported name is a package
         return {f"barthelona.{alias.name}" for alias in node.names}
     return {node.module} if node.module else set()
