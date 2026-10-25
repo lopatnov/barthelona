@@ -55,8 +55,13 @@ person hand-writes a demo's sources, tests, README, CI or release files.
   digits tasks fit in one chunk, so a second run cannot need fewer. An earlier hello run (2026-10-23) took 9 chunks
   and the next one chunk, but that second output did not assemble, so it does not count. FizzBuzz, the task long
   enough to need several chunks, has not passed on any profile yet (#246).
-- **The temperament questionnaire** (the English demo). The first run stopped at gate G1 because 3 of its 8 golden
-  tests had wrong expected results (#259). A fix to the test author is on the branch; the rerun is pending.
+- **The temperament questionnaire** (the English demo, `demos/simplest-demo`). Green on 2026-10-25 (run
+  `run-20261025-015357-d7cd`): a person wrote `task.txt` only; the specification, six tests, NASM source, README and
+  CI were generated on the Meterless Nemotron lanes, NASM assembled the source and the emulator ran all six tests.
+  It took 15 submissions: the earlier ones failed because the spec and test steps never saw the full request, a
+  token cap cut the code off, the repair report hid the end of the wrong output, and Nightshift returned 429 rate
+  limits. Each cause was fixed in the engine (see the commits of PR #274). The test author still counts mixed
+  answers unreliably (#259), which is why the prompt lists the six tests.
 - **A published demo.** The packaged English "digits" project is on the owner's PC only. No GitHub CI or release
   has run on it yet.
 

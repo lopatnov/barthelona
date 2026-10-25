@@ -289,7 +289,7 @@ for the packaged repository (a lowercase name that does not exist yet). `runs st
 `var/runs/<run id>/spec.json` and `tests.json` before approving G1, because the tests are frozen after it. After G4 the run
 ends `green`, and `runs package` writes source, tests, README, CI and a release workflow. All options, the defaults
 (limits 3600 s and 400000 tokens) and the environment variables are in [create-flow.md](create-flow.md).
-One-sentence programs went green this way on 2026-10-24; larger ones (an interactive quiz) did not.
+One-sentence programs went green this way on 2026-10-24. The 12-question temperament quiz also went green on 2026-10-25 (run `run-20261025-015357-d7cd`, `demos/simplest-demo`), but only on the 15th submission, after seven engine fixes: the spec and test steps now see the full request, larger token budgets, the tail of a wrong output in the repair report, four repair rounds.
 
 ### 2.8 The Streamlit UI
 
@@ -472,7 +472,7 @@ More symptoms: [runbook.md](runbook.md) section 8.
 | FASM, Win64, ELF32, other dialects and presets | Phase 4 |
 | Policy Lab, web research, OpenTelemetry | Phase 5 |
 | C family, web and 2D | Phase 6 |
-| A longer interactive program (a 12-question quiz) from the create flow | does not work yet (the test author wrote wrong expected results; see the hackathon guide) |
+| A longer interactive program (a 12-question quiz) from the create flow | works, but not reliably: 1 green run in 15 submissions (`demos/simplest-demo`); failures were model limits and Meterless 429 rate limits |
 
 ---
 
