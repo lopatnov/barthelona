@@ -25,6 +25,10 @@ class CompletionRequest(DomainModel):
     seed: int | None = None  # reproducible sampling on local servers; the bench varies it per run
     response_schema: dict[str, Any] | None = None  # JSON schema for small structured artifacts only
 
+    def as_text(self) -> str:
+        """The messages as one readable text, each under its role; this is what the reasoning log shows."""
+        return "\n\n".join(f"[{message.role}]\n{message.content}" for message in self.messages)
+
 
 class Completion(DomainModel):
     """A finished call: the text without `<think>` blocks, the ledger row and how the chain got here."""
@@ -35,6 +39,7 @@ class Completion(DomainModel):
     fallbacks: tuple[str, ...] = ()  # one reason per chain entry that was skipped or failed first
     answered_by: str = ""  # the model id the provider reported, e.g. the lane a router picked
     reasoning: str = ""  # what the model thought before answering; kept for the optional reasoning log only
+    prompt: str = ""  # the messages that were sent, as text; set only while a reasoning log is attached
 
 
 class GatewayError(RuntimeError):

@@ -22,6 +22,16 @@ def latest_entries(text: str, limit: int = MAX_ENTRIES) -> list[str]:
     return entries[-limit:][::-1]
 
 
+PROMPT_SHOWN_CHARS = 6000  # a prompt can hold a whole spec; the log file has all of it
+_PROMPT = re.compile(r"\A\s*### prompt\n\n(?P<prompt>.*?)\n\n(?=### reasoning\n)", re.DOTALL)
+
+
+def split_prompt(body: str) -> tuple[str, str]:
+    """The prompt section of an entry body and the rest; the prompt is empty for entries without one."""
+    found = _PROMPT.match(body)
+    return (found["prompt"], body[found.end() :]) if found else ("", body)
+
+
 def _read_tail(path: Path) -> str:
     with path.open("rb") as handle:
         handle.seek(0, 2)
@@ -43,4 +53,10 @@ def render_reasoning_panel(run_id: str) -> None:
     for position, entry in enumerate(entries):
         heading, _, body = entry.partition("\n")
         with st.expander(heading.removeprefix("## "), expanded=position == 0):
-            st.markdown(body)
+            prompt, rest = split_prompt(body)
+            if prompt:
+                st.caption("What was sent to the model")
+                cut = len(prompt) > PROMPT_SHOWN_CHARS
+                note = "\n... (cut; the whole prompt is in the log)" if cut else ""
+                st.code(prompt[:PROMPT_SHOWN_CHARS] + note, language=None)
+            st.markdown(rest)

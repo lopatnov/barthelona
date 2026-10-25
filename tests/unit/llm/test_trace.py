@@ -101,3 +101,9 @@ async def test_a_dash_prints_to_stderr_and_no_log_is_the_default(capsys: pytest.
     assert "thought" in capsys.readouterr().err
     await _gateway(_reply("hi", reasoning="secret thought"), None).complete("worker", _request())
     assert "secret thought" not in capsys.readouterr().err
+
+
+async def test_the_log_shows_what_was_sent_before_the_reasoning(tmp_path: Path) -> None:
+    log = tmp_path / "r.md"
+    await _gateway(_reply("ok", reasoning="thought"), ReasoningLog(log)).complete("worker", _request())
+    assert "### prompt\n\n[user]\nhi\n\n### reasoning\n\nthought" in log.read_text(encoding="utf-8")
