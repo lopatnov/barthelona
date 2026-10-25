@@ -36,6 +36,7 @@ Clock = Callable[[], datetime]
 
 CANCEL_POLL_S = 1.0  # how often a run in progress looks for a Cancel the UI has queued
 AUTO_APPROVE = "approve"
+BUDGET_STOPS = frozenset({StopReason.BUDGET_TIME, StopReason.BUDGET_TOKENS, StopReason.BUDGET_COST})
 
 
 def _utc_now() -> datetime:
@@ -62,6 +63,8 @@ class Worker:
         progressed = False
         for run in self._store.list_runs(RunStatus.WAITING_GATE):
             progressed = await self._answer_commands(run) or progressed
+        for run in self._store.runs_to_continue():
+            progressed = await self._continue(run) or progressed
         queued = self._store.claim_next_queued_run()
         if queued is not None:
             await self._drive(queued.id, {"run_id": queued.id})
@@ -91,6 +94,28 @@ class Worker:
             if await self._apply(run, command):
                 break  # the run left the waiting state; later commands belong to its next gate
         return bool(commands)
+
+    async def _continue(self, run: Run) -> bool:
+        """Give a run that stopped on a limit its new limits and restart the step it stopped in.
+
+        The run keeps its checkpoint: the stop is cleared as if the human gate before the code step had just
+        been passed, so only that step and the ones after it run again. Other stops are final.
+        """
+        extensions = [c for c in self._store.claim_commands(run.id) if c.kind is CommandKind.EXTEND_BUDGET]
+        if not extensions or extensions[-1].budget is None:
+            return False
+        if run.stop_reason not in BUDGET_STOPS:
+            reason = run.stop_reason.value if run.stop_reason else "none"
+            self._emit(
+                run.id, EventKind.ERROR, payload={"message": f"Cannot continue a run stopped by {reason}"}
+            )
+            return True
+        config = {"configurable": {"thread_id": run.id}}
+        await self._graph.aupdate_state(config, {"stop": ""}, as_node="g1_gate")
+        self._store.reopen_run(run.id, extensions[-1].budget)
+        self._emit(run.id, EventKind.PHASE, payload={"continued": run.stop_reason.value})
+        await self._drive(run.id, None)
+        return True
 
     async def _apply(self, run: Run, command: RunCommand) -> bool:
         if command.kind is CommandKind.CANCEL:
