@@ -6,7 +6,7 @@
 # Both processes share the same SQLite database (var/app.sqlite) for coordination.
 #
 # Usage: ./scripts/run.sh [--worker-only] [--ui-only] [--port 8501] [--trace-reasoning FILE]
-# The worker logs every model's reasoning and answer to var/logs/reasoning.md unless FILE is "".
+# The worker logs agent activity to var/activity.md by default; FILE picks another file, "off" disables it.
 
 set -euo pipefail
 
@@ -15,7 +15,7 @@ CHECKPOINTS_PATH="var/checkpoints.sqlite"
 RUNS_PATH="var/runs"
 CATALOG_PATH="config/models.yaml"
 FACTS_SQL=""
-TRACE_REASONING="var/logs/reasoning.md"  # agent activity log; --trace-reasoning "" turns it off
+TRACE_REASONING=""  # empty: the CLI default (var/activity.md)
 POLL_INTERVAL=1.0
 WORKER_ONLY=false
 UI_ONLY=false

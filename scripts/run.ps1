@@ -12,7 +12,7 @@
     .\scripts\run.ps1 -WorkerOnly
     .\scripts\run.ps1 -UiOnly
     .\scripts\run.ps1 -StreamlitPort 8502
-    .\scripts\run.ps1 -TraceReasoning ""      # no reasoning log (default: var/logs/reasoning.md)
+    .\scripts\run.ps1 -TraceReasoning ""      # pass a file; default: the CLI writes var/activity.md ("off" disables it)
 
 .NOTES
     Requires the conda environment 'barthelona' to be created (scripts/create_env.ps1).
@@ -25,7 +25,7 @@ param(
     [string]$RunsPath = "var/runs",
     [string]$CatalogPath = "config/models.yaml",
     [string]$FactsSql = "",
-    [string]$TraceReasoning = "var/logs/reasoning.md",
+    [string]$TraceReasoning = "",
     [float]$PollInterval = 1.0,
     [switch]$WorkerOnly,
     [switch]$UiOnly,

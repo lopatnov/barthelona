@@ -10,6 +10,7 @@ import typer
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from rich.console import Console
 
+from barthelona.cli._activity import ACTIVITY_HELP, DEFAULT_ACTIVITY_LOG, activity_log
 from barthelona.domain import Run
 from barthelona.engine.graph import build_graph
 from barthelona.engine.host import services_for, zetaris_facts
@@ -85,13 +86,8 @@ def worker_command(
         bool, typer.Option("--once", help="Run what is queued, then exit (for tests and CI).")
     ] = False,
     trace_reasoning: Annotated[
-        str | None,
-        typer.Option(
-            "--trace-reasoning",
-            help="Append every model's reasoning and answer to this file ('-' prints to stderr). Off by "
-            "default: the log holds the request text.",
-        ),
-    ] = None,
+        str, typer.Option("--trace-reasoning", help=ACTIVITY_HELP)
+    ] = DEFAULT_ACTIVITY_LOG,
 ) -> None:
     """Claim queued runs, run them to their next human gate and continue them when the UI resumes them."""
     try:
@@ -105,7 +101,7 @@ def worker_command(
                 memory or db.parent / "hmem.sqlite",
                 poll,
                 once,
-                ReasoningLog(trace_reasoning) if trace_reasoning else None,
+                activity_log(trace_reasoning),
             )
         )
     except (CatalogError, ZetarisError) as exc:

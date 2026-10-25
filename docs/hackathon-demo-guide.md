@@ -19,7 +19,7 @@ local Zetaris, the worker and the Unicorn emulator).
 6. [Layer 3: Meterless and Nemotron](#layer-3-power-meterless-and-nemotron)
 7. [Check that the layers work together](#check-that-the-layers-work-together)
 8. [Demos](#demos)
-9. [Answers for the hackathon form](#answers-for-the-hackathon-form-and-where-to-find-each-thing)
+9. [Hackathon form: what we integrated and where](#hackathon-form-what-we-integrated-and-where)
 10. [Troubleshooting](#troubleshooting)
 11. [Glossary](#glossary)
 
@@ -251,11 +251,16 @@ on the `lmstudio` provider (the file used in the live runs was `var/proof/models
 not in git). Then a run whose Nightshift calls all fail ends as
 `no_model_available` instead of calling a local model.
 
-### 3.3 Optional: a local fallback
+### 3.3 Local fallback
 
-Not used in the hackathon runs. If you want one: install LM Studio, load a coder model with a 16K context, start the
-local server on port 1234. On Windows cap WSL memory in `%UserProfile%\.wslconfig` (`memory=8GB`) and run
-`wsl --shutdown`.
+The default catalog, `config/models.yaml`, ends every role chain of the `meterless` profile with `local_main`
+(for example `worker: [meterless_auto, local_main]`), so when Nightshift fails a call falls through to a local model
+if one is running. To have one: install LM Studio, load a coder model with a 16K context, start the local server on
+port 1234. On Windows cap WSL memory in `%UserProfile%\.wslconfig` (`memory=8GB`) and run `wsl --shutdown`.
+
+The hackathon runs used a private copy of the catalog (`var/proof/models-free.yaml`) with the local model switched
+off, to keep the promise of free models only: with it a failed call stops the run instead of falling back. That copy
+is not in the repository; the committed catalog keeps the fallback.
 
 **Done with POWER when** `meterless status` prints `online`.
 
@@ -267,7 +272,7 @@ local server on port 1234. On Windows cap WSL memory in `%UserProfile%\.wslconfi
 python -m barthelona zetaris status          # online
 python -m barthelona meterless status        # online
 python -m barthelona verify tests/projects/nasm-triple --level V6 --dialect nasm --contracts tests/projects/nasm-triple/contracts.yaml --tests tests/projects/nasm-triple/tests.yaml --require "V0,V1,V2,V5,V6"
-python -m barthelona worker --once --trace-reasoning var/reasoning.md           # in a second terminal: processes what Demo A queues
+python -m barthelona worker --once --trace-reasoning var/proof/reasoning.md   # in a second terminal: processes what Demo A queues
 ```
 
 ---
@@ -307,7 +312,7 @@ failed run; with an explicit `--facts-sql` a failing Zetaris stops the run as `i
 `chunked run` accepts `--facts-sql` too:
 
 ```
-python -m barthelona chunked run "NASM program that prints Hello using sys_write" --profile meterless --facts-sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'" --assemble --repair 2 --expect-stdout "Hello\n" --expect-exit 0 --out var/proof/zeta.asm --trace-reasoning var/reasoning.md
+python -m barthelona chunked run "NASM program that prints Hello using sys_write" --profile meterless --facts-sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'" --assemble --repair 2 --expect-stdout "Hello\n" --expect-exit 0 --out var/proof/zeta.asm --trace-reasoning var/proof/zeta-reasoning.md --stats var/runs.sqlite
 ```
 
 ### Demo C: memory and long tasks (not proven yet)
@@ -328,43 +333,35 @@ assembles and passes the emulator check. If both runs finish in one chunk, say t
 
 ---
 
-## Answers for the hackathon form, and where to find each thing
+## Hackathon form: what we integrated and where
 
-The form asks what was integrated and how. The answers below are short enough to paste; the "where" lines say which
-file or command shows it, so a reader can check. Status words are the ones of "Where it stands".
+Answers for the submission form, each with the place in the repository where a reviewer can check it.
 
-**Which Meterless features have you actually integrated?**
+### Which Meterless features are integrated
 
-| Feature | Answer | Where |
-| --- | --- | --- |
-| Nightshift Runtime | Yes. It is the default model provider: every model call goes to it, by role, through the routes `meterless/auto`, `deep` and `fast`, with the real runtime token; the answering model is recorded per call | `config/models.yaml` (provider `meterless`, models `meterless_auto/deep/fast`, profile `meterless`); `src/barthelona/llm/meterless.py`, `llm/openai_chat.py`; `python -m barthelona meterless status`; `llm_calls` in `var/app.sqlite`, `answered by` in `chunked stats` |
-| H-MEM (persistent memory) | Yes, as a Python port of the spec: facts are recalled in every chunk, seeded from Zetaris, and written after a green run, in a SQLite file with an append-only ledger | `src/barthelona/llm/hmem.py`, `llm/zetaris_memory.py`; `--memory` of `chunked run` and `worker`; `python -m barthelona zetaris seed` |
-| Markovian Thinking (context optimization) | Yes, as a Python port: long generations run as bounded chunks with a carried state and the `[STATE_CHECKPOINT]` / `[TASK_COMPLETE]` markers; the summary prints the input tokens saved against a full history (70 to 75% in the multi-chunk runs, by the project's own cost model) | `src/barthelona/llm/markovian.py`; `python -m barthelona chunked run`; the worker's code step in `src/barthelona/engine/codegen.py` |
-| World Model (state and provenance) | Built, not integrated: a TypeScript implementation is in the repository, but the pipeline does not use it yet (it has no parallel agents), and the official conformance runner was not run against it. Tick "still working on integration" for this one | `engines/world-model/` |
-| Not used | Nothing else from Meterless (for example Scout Intent or the hotspot mode) is used | |
+| Feature | Integrated? | What it does here | Where |
+| --- | --- | --- | --- |
+| **Nightshift runtime** | Yes | Every model call of the `meterless` profile (the default) goes to Nightshift's OpenAI-compatible API. Routes `meterless/auto`, `deep` and `fast` are mapped to roles; each call records which model answered | Provider, models and role chains: `config/models.yaml` (`providers.meterless`, `meterless_auto`, `meterless_deep`, `meterless_fast`, profile `meterless`). Client and discovery: `src/barthelona/llm/meterless.py`, `src/barthelona/llm/openai_chat.py`. Probe: `python -m barthelona meterless status` (`src/barthelona/cli/meterless.py`) |
+| **H-MEM** (persistent memory) | Yes | A Python port of the memory spec. Before every chunk the best memories are recalled; after the assembler and emulator accept a program the lesson is written back; the knowledge tables seed it | `src/barthelona/llm/hmem.py`; recall in each code-generation chunk: `src/barthelona/engine/codegen.py`; seeding from Zetaris: `src/barthelona/llm/zetaris_memory.py` (`zetaris seed`) |
+| **Markovian Thinking** (context optimisation) | Yes | Long work runs in bounded chunks that carry a short summary instead of the whole history; the run prints the measured saving against a full history (single-chunk runs print "too short to compare") | `src/barthelona/llm/markovian.py`; used by `python -m barthelona chunked run` (`src/barthelona/cli/chunked.py`) and by code generation in the worker (`src/barthelona/engine/codegen.py`) |
+| **World Model** (state and provenance) | **No, still working on integration** | Event-sourced shared state for agents running in parallel, written in TypeScript. Nothing in the pipeline uses it yet and the official conformance runner has not been run against it | `engines/world-model/index.ts`, status in `engines/world-model/README.md` |
+| AI Hotspot | No | Not used | |
 
-**What types of AI intelligence do you plan to use Meterless Nightshift to power?** Language and reasoning only
-(intake, specification, test writing, code generation, repair and an advisory review). No vision, image, audio, video
-or 3D call exists in the project. Where: the roles and their routes in `config/models.yaml`, the steps in
-`src/barthelona/engine/` (`spec.py`, `tests_author.py`, `codegen.py`).
+If the form has "Still working on integration", tick it and name the World Model there.
 
-**Is agent activity logged?** Yes, at three levels: an event log of every step of a run (always on), a ledger of every
-model call with the model that answered, tokens and seconds (always on), and an optional reasoning log with what each
-model thought and answered (`--trace-reasoning FILE`, off by default because it holds the request text). Where:
-`runs status <run id>` and the Live Run page; tables `events` and `llm_calls` in `var/app.sqlite`; `src/barthelona/llm/trace.py`;
-[current-status.md section 2.9](current-status.md#29-what-is-logged-agent-activity).
+### What kinds of intelligence Nightshift powers
 
-**What is going well with the Zetaris part?** A local Zetaris holds two knowledge tables (37 Linux syscalls and 11 ABI
-facts) that are read over the REST API into the specification and test prompts and into the memory, and run history is
-published back as tables that can be queried with SQL; all of it was run end to end. Where: `knowledge/zetaris/`
-(the CSV files and how they are registered), `src/barthelona/llm/zetaris.py` (client), `llm/zetaris_memory.py` (`seed`),
-`llm/zetaris_publish.py` (`publish`), `src/barthelona/engine/host.py` (the default facts query),
-[zetaris-guide.md](zetaris-guide.md).
+**Language and reasoning only:** chat, analysis and coding. In the create flow the models read the request (intake), write the specification and the golden tests (`deep` route), write the NASM program in chunks (`auto` route) and repair it from the assembler's and emulator's reports. Code: `src/barthelona/engine/spec.py`, `tests_author.py`, `codegen.py`. No vision, image, audio, video or 3D call exists in the project. Vision, image generation and 3D appear only as possible later uses for the 2D and 3D demos (roadmap Phase 6).
 
-**What is not going well with the Zetaris part?** Getting our own data in is manual: files are copied into the
-containers' shared volume and registered with `CREATE LIGHTNING FILESTORE TABLE`, we found no documented way to insert
-rows over REST, and only two small tables exist (no assembler manuals yet). Where: section "Registering Assembler Facts"
-of [zetaris-guide.md](zetaris-guide.md), `knowledge/zetaris/README.md`.
+### What goes well with Zetaris
+
+A local Zetaris runs next to the engine. Two knowledge tables (37 Linux x86-64 system calls and 11 ABI rules) are registered as file tables and read over the REST API into the spec and test-author prompts; they seed H-MEM; and run history is written back as tables (`barthelona_runtime`) that can be queried with SQL. All of it was checked end to end on the owner's PC.
+
+Where: the REST client `src/barthelona/llm/zetaris.py` (`zetaris status`, `zetaris sql`, read-only), facts in prompts `worker --facts-sql` and `chunked run --facts-sql`, seeding `src/barthelona/llm/zetaris_memory.py`, publishing `src/barthelona/llm/zetaris_publish.py` (`zetaris publish`), the data in `knowledge/zetaris/*.csv`, and the table registration in [`zetaris-guide.md`](zetaris-guide.md) and [`zetaris-engines.md`](zetaris-engines.md).
+
+### What does not go well with Zetaris
+
+Getting our own data in was manual: files had to be copied into the container's shared volume and registered with `CREATE LIGHTNING FILESTORE TABLE`, and we found no documented way to insert rows over REST. The knowledge is only two small tables (no assembler manuals loaded yet), and the Zetaris event is never emitted by the engine (#256). No run has yet shown that the facts make code better or cheaper to produce.
 
 ---
 
@@ -510,7 +507,6 @@ is meant to be readable without knowing assemblers, SQL or agent frameworks.
 | **`dev.ps1`, `-LoadEnv`** | A wrapper that runs one command with the conda environment; `-LoadEnv` also exports the keys from `.env` for that one command |
 | **Catalog (`config/models.yaml`)** | Providers, models, roles, chains and profiles. A copy with `lmstudio` disabled is how a run is kept from using a local model (`--catalog`) |
 | **`var/`** | Runtime data, not in git: `app.sqlite` (runs, events, gates), `runs/<run id>/` (spec, tests, code), `hmem.sqlite`, `runs.sqlite` |
-| **Event log, call ledger, reasoning log** | The three records of agent activity: every step of a run with its time (`runs status`, Live Run page); every model call with model, tokens and seconds (`llm_calls`, `--stats`); and, with `--trace-reasoning FILE`, what each model thought and answered. See [current-status.md](current-status.md#29-what-is-logged-agent-activity) |
 | **`assemble: pass`** | The line `chunked run` prints when NASM assembled the program and, with `--expect-stdout`, the emulator saw the expected output |
 
 ---
@@ -523,6 +519,7 @@ is meant to be readable without knowing assemblers, SQL or agent frameworks.
 - [ ] A catalog copy with LM Studio disabled, if you promise free models only
 - [ ] NASM found (`python -m barthelona check` on a packaged project passes)
 - [ ] Demo A rehearsed once; you know which models served `auto` and `deep` (Nightshift run details)
+- [ ] **Agent activity is logged (required by the hackathon):** `worker` and `chunked run` write the reasoning log to `var/activity.md` by default (`--trace-reasoning FILE` picks another file, `off` disables it), and `chunked run` also needs `--stats var/runs.sqlite`; after a run, the file exists and `python -m barthelona chunked stats --db var/runs.sqlite` or the `llm_calls` query shows the calls ([how](current-status.md))
 - [ ] You can state what is not proven (compounding, temperament, published demo)
 
 ---

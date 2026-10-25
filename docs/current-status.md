@@ -195,7 +195,7 @@ exactly that and exit with that code. A rejected program goes back to the model 
 **The smallest useful command** (one line, copy it as it is):
 
 ```powershell
-python -m barthelona chunked run "Write a NASM program for Linux x86-64 that prints hello and a newline, then exits with code 0" --single-shot --assemble --expect-stdout "hello\n" --expect-exit 0 --out var/hello.asm --trace-reasoning var/reasoning.md
+python -m barthelona chunked run "Write a NASM program for Linux x86-64 that prints hello and a newline, then exits with code 0" --single-shot --assemble --expect-stdout "hello\n" --expect-exit 0 --out var/hello.asm --trace-reasoning var/hello-reasoning.md
 ```
 
 Expected: a one-row table, `stop_reason=green`, and `assemble: pass (it also ran in the emulator: stdout and exit code as expected)`.
@@ -203,13 +203,13 @@ Expected: a one-row table, `stop_reason=green`, and `assemble: pass (it also ran
 **With memory, repairs and statistics:**
 
 ```powershell
-python -m barthelona chunked run @demos/hello/task.txt --assemble --repair 2 --expect-stdout "Hello, Barthelona!\n" --expect-exit 0 --memory var/hmem.sqlite --stats var/runs.sqlite --out var/hello.asm --trace-reasoning var/reasoning.md
+python -m barthelona chunked run @demos/hello/task.txt --assemble --repair 2 --expect-stdout "Hello, Barthelona!\n" --expect-exit 0 --memory var/hmem.sqlite --stats var/runs.sqlite --out var/hello.asm --trace-reasoning var/hello-reasoning.md
 ```
 
 **With Zetaris facts for this one request:**
 
 ```powershell
-python -m barthelona chunked run "Write a NASM program that prints Hello using the write syscall" --assemble --expect-stdout "Hello\n" --expect-exit 0 --facts-sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'" --out var/zeta-hello.asm --trace-reasoning var/reasoning.md
+python -m barthelona chunked run "Write a NASM program that prints Hello using the write syscall" --assemble --expect-stdout "Hello\n" --expect-exit 0 --facts-sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'" --out var/zeta-hello.asm
 ```
 
 Then `python -m barthelona chunked stats --db var/runs.sqlite` prints the recent runs and the totals per model.
@@ -235,8 +235,22 @@ state came from. Then a summary line: `stop_reason` (`green` is done), `chunks`,
 | `--plan-role`, `--repair-role`, `--review-role` | Extra roles: a short plan first, the role for repairs, an advisory review afterwards (the oracles still decide) |
 | `--stats FILE` | Save per-chunk statistics to a SQLite file |
 | `--catalog FILE` | Use another model catalog (for example one with the local model disabled) |
-| `--trace-reasoning FILE` | Append every model's reasoning and answer to a file (`-` prints to the terminal); off by default, keep the file out of git |
+| `--trace-reasoning FILE` | Append every model's reasoning and answer to a file (`-` prints to the terminal); on by default (`var/activity.md`), `off` disables it; keep the file out of git |
 | `--nasm PATH` | The `nasm` program, if it is not found automatically |
+
+### Logging agent activity: what is recorded and how to switch it on
+
+Three records exist. The first two are on by default; run statistics need `--stats`.
+
+| What | How to switch it on | Where it ends up | How to read it |
+| --- | --- | --- | --- |
+| **Reasoning log**: for every answered model request the role, the model, tokens, seconds, what it thought and what it answered | on by default for `worker` and `chunked run`; `--trace-reasoning FILE` picks another file, `-` prints to the terminal, `off` disables it | `var/activity.md` | open it; it holds task text and model answers, so keep it out of git |
+| **Call ledger**: every model call of a run (provider, model, tokens in and out, time) | always on for the worker | table `llm_calls` in `var/app.sqlite` | `sqlite3 var/app.sqlite "SELECT model, COUNT(*), SUM(tokens_in), SUM(tokens_out) FROM llm_calls GROUP BY model"` |
+| **Run statistics** of `chunked run`: runs, and per chunk who answered, tokens, latency, fallbacks | add `--stats var/runs.sqlite` | the SQLite file you name | `python -m barthelona chunked stats --db var/runs.sqlite` |
+
+`runs status <run_id>` also shows a run's state, open gates and last events. `zetaris publish` copies the statistics
+and memory into Zetaris tables so they can be queried with SQL. The examples in this document and in the demo guide
+name `--trace-reasoning` and `--stats` explicitly so that the files land where the text says.
 
 ### 2.7 The create flow: `worker` and `runs`
 
@@ -244,7 +258,7 @@ A run takes a request through intake, specification, tests, gate **G1**, code ge
 **G4**. Start the worker, queue a request, answer the two gates:
 
 ```powershell
-python -m barthelona worker --trace-reasoning var/reasoning.md
+python -m barthelona worker --trace-reasoning var/run-reasoning.md
 python -m barthelona runs submit "Write a program that prints hello and a newline, then exits with code 0." --project hello-world
 python -m barthelona runs status
 python -m barthelona runs decide <run id> approve
@@ -279,28 +293,6 @@ you choose:
 
 This is a walking skeleton. Still missing: the sprint board, the review page, the models and provider-health page, a
 list of past runs, and packaging from the UI (use `runs package`).
-
-### 2.9 What is logged: agent activity
-
-Three records exist, from the plain to the detailed. Only the last needs a switch.
-
-| Record | What it shows | Where | How to see it |
-| --- | --- | --- | --- |
-| **Event log** (always on) | Each step of a run (`preflight`, `intake`, `spec`, `test_author`, gates requested and answered, `codegen`, the stop reason) with the time | table `events` in `var/app.sqlite` | `python -m barthelona runs status <run id>`; the **Live Run** page of the UI |
-| **Call ledger** (always on) | One row per model call: the route asked for, the model that answered, tokens in and out, seconds, repairs, stop. No prompt or answer text | table `llm_calls` in `var/app.sqlite`; for `chunked run` the `--stats` file | `chunked stats --db <file>`; the UI; any SQLite viewer |
-| **Reasoning log** (opt-in) | What each model thought and answered, one entry per request: the role, the route, tokens, seconds, then its reasoning and its answer | the file you name | add `--trace-reasoning FILE` to `worker` or `chunked run` |
-
-```powershell
-python -m barthelona worker --trace-reasoning var/reasoning.md
-```
-
-Every example on this page and in the guides that starts a worker or a `chunked run` carries the option. An entry looks
-like `## planner via meterless_deep (8500 in, 2087 out, 21.0s, stop=stop)`, followed by `### reasoning` and `### answer`;
-a model that sends no reasoning is shown as "(the model sent no reasoning)". `--trace-reasoning -` prints to the terminal
-instead. The file contains the request text and the models' answers, so it is not for git or for sharing (`var/` is not
-in git). `.\scripts\run.ps1` (and `scripts/run.sh`) start the worker **with the reasoning log on**, writing to
-`var/logs/reasoning.md`; `-TraceReasoning "other.md"` changes the file and `-TraceReasoning ""` turns it off
-(`--trace-reasoning FILE` in `run.sh`). Training data (section 4) is a separate, not yet connected record.
 
 ---
 
