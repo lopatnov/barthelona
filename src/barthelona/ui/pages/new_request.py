@@ -8,7 +8,7 @@ Phase 1a fields:
 - Profile: meterless / local-only / hybrid / cloud
 - Budget controls (wall time, tokens, optional USD cap)
 - Approve checkpoints automatically (on by default)
-- Write the project into demos/ when the run is green (on by default)
+- Write the project into demos/ when the run is green (off by default)
 - Collect training data checkbox (D-036)
 """
 
@@ -150,6 +150,26 @@ def page_new_request() -> None:
             ),
         )
 
+        st.markdown("**After you click Create Run**")
+        auto_approve = st.checkbox(
+            "Approve checkpoints automatically",
+            value=True,
+            help=(
+                "G1 (specification and tests) and G4 (the finished code) are approved by the worker "
+                "and logged as automatic. Untick to read and approve them yourself on the Approvals page. "
+                "The assembler and the emulator still decide whether the code is accepted."
+            ),
+        )
+
+        auto_package = st.checkbox(
+            "Write the project into demos/ when the run is green",
+            value=False,
+            help=(
+                "Tick to have the worker package the source, tests, README and CI into the project folder "
+                "as soon as the run is green. Unticked, use the Package button on Live Run."
+            ),
+        )
+
         st.divider()
 
         wall_s, tokens, usd = _limits_fields()
@@ -168,25 +188,6 @@ def page_new_request() -> None:
                 value=False,
                 help="Record code-producing attempts after the ladder for local-model training export",
             )
-
-        auto_approve = st.checkbox(
-            "Approve checkpoints automatically",
-            value=True,
-            help=(
-                "G1 (specification and tests) and G4 (the finished code) are approved by the worker "
-                "and logged as automatic. Untick to read and approve them yourself on the Approvals page. "
-                "The assembler and the emulator still decide whether the code is accepted."
-            ),
-        )
-
-        auto_package = st.checkbox(
-            "Write the project into demos/ when the run is green",
-            value=True,
-            help=(
-                "The worker packages the source, tests, README and CI into the project folder as soon "
-                "as the run is green. Untick to do it yourself with the Package button on Live Run."
-            ),
-        )
 
         submitted = st.form_submit_button("🚀 Create Run", type="primary", use_container_width=True)
 

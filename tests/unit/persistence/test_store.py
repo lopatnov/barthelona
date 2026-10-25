@@ -422,3 +422,20 @@ def test_llm_calls_are_recorded_per_run(store: Store) -> None:
     assert store.llm_calls("r1") == [record]
     with pytest.raises(NotFoundError):
         store.record_llm_call("ghost", record)
+
+
+def test_delete_run_removes_the_run_and_its_rows_but_not_a_running_one(store: Store) -> None:
+    store.append_events([_event(0)])
+    store.create_run(_run("r2"))
+
+    store.set_run_status("r1", RunStatus.RUNNING)
+    with pytest.raises(ConflictError, match="pause it first"):
+        store.delete_run("r1")
+
+    store.set_run_status("r1", RunStatus.STOPPED, StopReason.HUMAN_ABORT)
+    store.delete_run("r1")
+
+    assert [run.id for run in store.list_runs()] == ["r2"]
+    assert store.events_after("r1") == []
+    with pytest.raises(NotFoundError):
+        store.delete_run("r1")

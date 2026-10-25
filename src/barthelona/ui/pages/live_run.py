@@ -19,6 +19,7 @@ import streamlit as st
 from barthelona.domain import CommandKind, EventKind, RunCommand, RunStatus
 from barthelona.persistence import Store, open_store
 from barthelona.ui.continue_run import render_continue
+from barthelona.ui.danger_zone import render_danger_zone
 from barthelona.ui.event_text import describe
 from barthelona.ui.package_panel import render_package_panel
 from barthelona.ui.reasoning_panel import render_reasoning_panel
@@ -236,6 +237,9 @@ def page_live_run() -> None:
 
         st.divider()
         _render_topology(run.id, store)
+
+        st.divider()
+        render_danger_zone(run, store)
 
         # Refresh last: st.rerun stops the script, so everything above must already be drawn
         if auto_poll:
