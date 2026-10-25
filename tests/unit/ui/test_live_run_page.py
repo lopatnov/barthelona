@@ -102,3 +102,60 @@ def test_the_event_log_comes_before_the_reasoning_panel(
 
     titles = [item.value for item in app.subheader]
     assert titles.index("📜 What happened") < titles.index("🧠 Model reasoning")
+
+
+def test_the_reasoning_panel_shows_what_was_asked_the_thinking_and_the_answer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _run_waiting_for_g1(tmp_path)
+    entry = (
+        "## worker via meterless_auto -> some-model (1 in, 2 out, 1.0s, stop=stop)\n\n"
+        "### prompt\n\n[user]\nWrite hello.\n\n### reasoning\n\nthinking text\n\n"
+        "### answer\n\nhello code\n\n"
+    )
+    log = tmp_path / "var" / "runs" / "run-1" / "reasoning.md"
+    log.write_text(entry, encoding="utf-8", newline="\n")
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_function(_page, default_timeout=30)
+    app.session_state["auto_poll"] = False
+
+    app.run()
+
+    assert not app.exception and not app.error
+    assert [tab.label for tab in app.tabs] == ["Asked", "Thinking", "Answer"]
+    shown = " ".join(block.value for block in app.code)
+    assert "Write hello." in shown and "thinking text" in shown and "hello code" in shown
+
+
+def test_a_log_entry_in_the_wrong_format_does_not_break_the_page(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _run_waiting_for_g1(tmp_path)
+    log = tmp_path / "var" / "runs" / "run-1" / "reasoning.md"
+    log.write_text("## w via r (1 in)\n\nno section markers at all\n", encoding="utf-8", newline="\n")
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_function(_page, default_timeout=30)
+    app.session_state["auto_poll"] = False
+
+    app.run()
+
+    assert not app.exception and not app.error
+
+
+def test_the_panel_shows_a_long_prompt_whole(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _run_waiting_for_g1(tmp_path)
+    prompt = "[user]\n" + "line of the spec\n" * 2000 + "THE END OF THE PROMPT"
+    entry = (
+        "## worker via meterless_auto (1 in, 2 out, 1.0s, stop=stop)\n\n"
+        f"### prompt\n\n{prompt}\n\n### reasoning\n\nwhy\n\n### answer\n\nok\n\n"
+    )
+    log = tmp_path / "var" / "runs" / "run-1" / "reasoning.md"
+    log.write_text(entry, encoding="utf-8", newline="\n")
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_function(_page, default_timeout=30)
+    app.session_state["auto_poll"] = False
+
+    app.run()
+
+    assert not app.exception and not app.error
+    assert any(block.value.endswith("THE END OF THE PROMPT") for block in app.code)

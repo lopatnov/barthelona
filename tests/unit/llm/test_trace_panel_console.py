@@ -96,9 +96,27 @@ def test_the_heading_names_the_model_a_router_picked() -> None:
     assert "worker via meterless_auto -> nvidia/nemotron-x (10 in" in _entry("worker", done)
 
 
-def test_the_panel_splits_the_prompt_from_the_rest_of_an_entry() -> None:
-    from barthelona.ui.reasoning_panel import split_prompt
+def test_an_entry_is_split_into_prompt_thinking_and_answer() -> None:
+    from barthelona.ui.reasoning_panel import split_entry
 
-    body = "### prompt\n\n[user]\nhi\n\nmore\n\n### reasoning\n\nt\n\n### answer\n\na"
-    assert split_prompt(body) == ("[user]\nhi\n\nmore", "### reasoning\n\nt\n\n### answer\n\na")
-    assert split_prompt("### reasoning\n\nt") == ("", "### reasoning\n\nt")
+    body = "### prompt\n\n[user]\nhi\n\nmore\n\n### reasoning\n\nwhy\n\n### answer\n\nok"
+
+    assert split_entry(body) == {"prompt": "[user]\nhi\n\nmore", "reasoning": "why", "answer": "ok"}
+
+
+def test_an_older_entry_without_a_prompt_still_splits() -> None:
+    from barthelona.ui.reasoning_panel import split_entry
+
+    assert split_entry("### reasoning\n\nwhy\n\n### answer\n\nok") == {"reasoning": "why", "answer": "ok"}
+
+
+def test_an_entry_that_is_not_in_the_log_format_is_shown_whole_not_a_crash() -> None:
+    from barthelona.ui.reasoning_panel import split_entry
+
+    assert split_entry("text without markers") == {"answer": "text without markers"}
+
+
+def test_a_heading_that_names_the_answering_model_starts_an_entry() -> None:
+    log = "## worker via meterless_auto -> nvidia/some-model (1 in, 2 out, 1.0s)\n\n### answer\n\nok\n\n"
+
+    assert len(latest_entries(log)) == 1
