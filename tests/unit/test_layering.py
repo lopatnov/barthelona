@@ -13,8 +13,10 @@ from pathlib import Path
 SRC = Path(__file__).resolve().parents[2] / "src" / "barthelona"
 
 # D-045 gives the UI `domain`, `persistence` and `config`; F-115 (owner, 2026-10-24) adds `scaffold`, which
-# renders the Package panel in the UI process. A new entry here is an edit of that table first.
-UI_PACKAGES = frozenset({"domain", "persistence", "config", "scaffold"})
+# renders the Package panel in the UI process. D-058 (World Model) adds `world_model`: the UI reads the same
+# file-backed shared state the worker writes, without importing the engine. A new entry here is an edit of
+# that table first.
+UI_PACKAGES = frozenset({"domain", "persistence", "config", "scaffold", "world_model"})
 
 # The only module above `cli`, and the only one allowed to import it.
 ENTRY_POINT = "__main__"

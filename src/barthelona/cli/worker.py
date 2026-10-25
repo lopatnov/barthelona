@@ -24,6 +24,7 @@ from barthelona.llm.trace import ConsoleProgress, ConsoleTrace, ReasoningLog, Tr
 from barthelona.llm.zetaris import ZetarisError
 from barthelona.persistence import open_store
 from barthelona.scaffold import PackageError, current_commit, package_run
+from barthelona.world_model import DEFAULT_STORE, WorldModel
 
 _err = Console(stderr=True, soft_wrap=True, highlight=False)
 
@@ -42,6 +43,7 @@ async def _run(
     catalog_path: Path,
     facts_sql: str | None,
     memory: Path,
+    world_model: Path,
     poll: float,
     once: bool,
     trace: ReasoningLog | None,
@@ -72,15 +74,18 @@ async def _run(
 
     store = open_store(db)
     hmem = HMem(memory)
+    world = WorldModel(world_model)
     checkpoints.parent.mkdir(parents=True, exist_ok=True)
     try:
         async with AsyncSqliteSaver.from_conn_string(str(checkpoints)) as saver:
             worker = Worker(
                 store,
                 build_graph(
-                    services_for(store, runs, gateway_for, facts, hmem, workspace_root=Path()), saver
+                    services_for(store, runs, gateway_for, facts, hmem, workspace_root=Path(), world=world),
+                    saver,
                 ),
                 packager=lambda run_id: package_run(store, runs, run_id, _commit_or_fail()),
+                world=world,
             )
             if once:
                 await worker.recover()
@@ -89,6 +94,7 @@ async def _run(
             else:
                 await worker.serve(poll)
     finally:
+        world.close()
         hmem.close()
         store.close()
 
@@ -114,6 +120,10 @@ def worker_command(
         Path | None,
         typer.Option(help="H-MEM store recalled in every chunk (default: hmem.sqlite next to --db)."),
     ] = None,
+    world_model: Annotated[
+        Path,
+        typer.Option("--world-model", help="World Model shared-state file a run records into (D-058)."),
+    ] = DEFAULT_STORE,
     poll: Annotated[float, typer.Option(min=0.1, help="Seconds between polls when idle.")] = 1.0,
     once: Annotated[
         bool, typer.Option("--once", help="Run what is queued, then exit (for tests and CI).")
@@ -139,6 +149,7 @@ def worker_command(
                 catalog_path,
                 facts_sql,
                 memory or db.parent / "hmem.sqlite",
+                world_model,
                 poll,
                 once,
                 activity_log(trace_reasoning),

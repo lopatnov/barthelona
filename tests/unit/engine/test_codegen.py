@@ -151,7 +151,7 @@ async def test_every_attempt_is_handed_out_as_it_is_judged_even_when_rejected() 
         None,
         lambda _r: None,
         "r1",
-        lambda attempt, source: seen.append((attempt, source)),
+        lambda attempt, source, verdict, chunks: seen.append((attempt, source)),
     )
     assert [attempt for attempt, _ in seen] == [1, 2]
     assert "howdy" in seen[0][1] and "hello" in seen[1][1]

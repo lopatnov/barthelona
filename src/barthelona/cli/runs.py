@@ -31,6 +31,7 @@ from barthelona.domain import (
 from barthelona.domain.layout import REQUEST_FILE, RUNS_DIR, SOURCE_FILE, run_dir
 from barthelona.domain.presets import builtin_presets
 from barthelona.persistence import open_store
+from barthelona.world_model import DEFAULT_STORE, WorldModel, format_entities
 
 runs_app = typer.Typer(help="Queue runs and answer their gates (the UI does the same).", no_args_is_help=True)
 _out = Console(soft_wrap=True, highlight=False)
@@ -145,3 +146,22 @@ def decide(
         except ValueError as exc:
             raise typer.BadParameter(str(exc)) from exc
     _out.print(f"{gates[0].gate_id}: {decision}", markup=False)
+
+
+@runs_app.command("world")
+def world(
+    run_id: Annotated[str, typer.Argument(help="The run id.")],
+    world_store: Annotated[
+        Path, typer.Option("--world", help="World Model shared-state file.")
+    ] = DEFAULT_STORE,
+) -> None:
+    """List the run's World Model entities: its run, requirement, test and attempt records (D-058)."""
+    store = WorldModel(world_store)
+    try:
+        entities = store.entities(run_id=run_id)
+    finally:
+        store.close()
+    if not entities:
+        _out.print(f"no World Model entities for {run_id}", markup=False)
+        return
+    _out.print(format_entities(entities), markup=False)
