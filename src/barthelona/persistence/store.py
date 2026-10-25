@@ -104,8 +104,10 @@ class Store:
         with self._write():
             if self.get_run(run_id).status is RunStatus.RUNNING:
                 raise ConflictError(f"run {run_id!r} is running: pause it first")
-            for table in ("commands", "events", "gates", "llm_calls"):
-                self._conn.execute(f"DELETE FROM {table} WHERE run_id = ?", (run_id,))  # noqa: S608  # fixed names
+            self._conn.execute("DELETE FROM commands WHERE run_id = ?", (run_id,))
+            self._conn.execute("DELETE FROM events WHERE run_id = ?", (run_id,))
+            self._conn.execute("DELETE FROM gates WHERE run_id = ?", (run_id,))
+            self._conn.execute("DELETE FROM llm_calls WHERE run_id = ?", (run_id,))
             self._conn.execute("DELETE FROM runs WHERE id = ?", (run_id,))
 
     def claim_next_queued_run(self) -> Run | None:
