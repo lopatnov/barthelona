@@ -90,3 +90,14 @@ def test_a_run_is_created_with_auto_approve_on_unless_the_box_is_unticked(
     with closing(open_store(tmp_path / "var" / "app.sqlite")) as store:
         runs = store.list_runs()
     assert sorted(run.auto_approve for run in runs) == [False, True]
+
+
+def test_open_page_does_nothing_when_no_pages_are_registered() -> None:
+    from streamlit.testing.v1 import AppTest
+
+    def page() -> None:
+        from barthelona.ui.navigation import open_page
+
+        open_page("live_run")  # would raise if it tried to switch without a registered page
+
+    assert not AppTest.from_function(page).run().exception

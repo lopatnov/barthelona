@@ -71,3 +71,20 @@ def test_a_run_waiting_at_g1_says_what_it_waits_for_and_shows_its_parameters(
     text = " ".join(item.value for item in [*app.markdown, *app.code])
     assert "demos/hello-demo" in text and "Print hello." in text and "meterless" in text
     assert any("Understood the request" in item.value for item in app.markdown)
+
+
+def test_live_run_opens_on_the_run_that_was_just_created(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first = _run_waiting_for_g1(tmp_path)
+    store = open_store(tmp_path / "var" / "app.sqlite")
+    store.create_run(first.model_copy(update={"id": "run-2", "status": RunStatus.QUEUED}))
+    store.close()
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_function(_page, default_timeout=30)
+    app.session_state["auto_poll"] = False
+    app.session_state["active_run_id"] = "run-1"
+
+    app.run()
+
+    assert app.selectbox[0].value == "run-1"  # not run-2, the newest
