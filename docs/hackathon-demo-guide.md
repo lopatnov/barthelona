@@ -519,7 +519,7 @@ is meant to be readable without knowing assemblers, SQL or agent frameworks.
 - [ ] A catalog copy with LM Studio disabled, if you promise free models only
 - [ ] NASM found (`python -m barthelona check` on a packaged project passes)
 - [ ] Demo A rehearsed once; you know which models served `auto` and `deep` (Nightshift run details)
-- [ ] **Agent activity is logged (required by the hackathon):** every demo command carries `--trace-reasoning FILE` (worker and `chunked run`) and `chunked run` also `--stats var/runs.sqlite`; after a run, the file exists and `python -m barthelona chunked stats --db var/runs.sqlite` or the `llm_calls` query shows the calls ([how](current-status.md))
+- [ ] **Agent activity is logged (required by the hackathon):** `worker` and `chunked run` write the reasoning log to `var/activity.md` by default (`--trace-reasoning FILE` picks another file, `off` disables it), and `chunked run` also needs `--stats var/runs.sqlite`; after a run, the file exists and `python -m barthelona chunked stats --db var/runs.sqlite` or the `llm_calls` query shows the calls ([how](current-status.md))
 - [ ] You can state what is not proven (compounding, temperament, published demo)
 
 ---

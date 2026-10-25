@@ -46,7 +46,7 @@ answer today (`cloud` has no Anthropic, OpenAI or Gemini backend yet: F-111, #25
 role, the model, tokens, seconds, the model's reasoning and its answer. `--trace-reasoning -` prints the
 entries to stderr instead. `chunked run` has the same flag. The reasoning comes from the provider's separate
 reasoning stream or from `<think>` blocks in the reply; when a model sends neither, the entry says so.
-The log is off by default and holds the request text and the models' answers, so keep it out of git.
+The log is on by default and goes to `var/activity.md` (not in git); `--trace-reasoning off` switches it off. It holds the request text and the models' answers, so do not share it.
 
 ## Environment variables
 
