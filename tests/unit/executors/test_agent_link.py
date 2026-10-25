@@ -6,6 +6,7 @@ import asyncio
 import base64
 import io
 import json
+import os
 import queue
 import sys
 import tarfile
@@ -177,8 +178,6 @@ def _tar(files: dict[str, bytes]) -> bytes:
             archive.addfile(info, io.BytesIO(data))
     return buf.getvalue()
 
-
-import os
 
 async def test_local_agent_stages_and_collects_in_isolated_session_dirs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

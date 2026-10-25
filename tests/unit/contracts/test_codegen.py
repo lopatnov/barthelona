@@ -183,6 +183,7 @@ def test_symlink_in_gen_is_flagged_even_if_target_matches(tmp_path: Path) -> Non
     # Windows requires admin privileges for symlinks; skip if not available
     if sys.platform == "win32":
         import pytest
+
         pytest.skip("symlink creation requires admin on Windows")
     registry = _registry()
     _write_all(tmp_path, registry)
