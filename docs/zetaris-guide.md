@@ -6,6 +6,7 @@ Complete step-by-step guide to setting up and using Zetaris as a structured know
 
 ## Table of Contents
 
+0. [How Barthelona uses Zetaris (summary for sponsors)](#how-barthelona-uses-zetaris-summary-for-sponsors)
 1. [What is Zetaris?](#what-is-zetaris)
 2. [Prerequisites](#prerequisites)
 3. [Installation](#installation)
@@ -17,6 +18,21 @@ Complete step-by-step guide to setting up and using Zetaris as a structured know
 9. [Troubleshooting](#troubleshooting)
 10. [Advanced Usage](#advanced-usage)
 11. [References](#references)
+
+---
+
+## How Barthelona uses Zetaris (summary for sponsors)
+
+Facts as of 2026-10-25, checked against the repository and the local Zetaris build 2.4.3.
+
+| Question | Answer |
+| --- | --- |
+| Kind of data source | **Structured files** (CSV). No relational database and no open table format (Iceberg, Delta) is used. |
+| What is in it | Two knowledge tables, `barthelona_files.linux_x64_syscalls` (37 rows) and `barthelona_files.abi_facts` (11 rows), from `knowledge/zetaris/*.csv`; and our own `barthelona_runtime` tables (`runs`, `run_chunks`, `memories`, `memory_ledger`) that hold run history. |
+| How the objects were built | **Through the REST API, never in the GUI.** Each `CREATE LIGHTNING ...` statement is sent as its own `POST <rest url>/sql-editor/sqls/run` ([`knowledge/zetaris/README.md`](../knowledge/zetaris/README.md)); `zetaris publish` registers and fills the runtime tables the same way. The code that does it, and the agent that wrote the code (Claude Code), use the API only. |
+| How the run uses it | The worker reads the fact rows with read-only SQL (`llm/zetaris.py`, `--facts-sql`) and puts them into the intake, specification and test prompts as untrusted data; `zetaris seed` copies the verified rows into the local memory file. After a run, `zetaris publish` writes the run history back. |
+| How hard it was (1 easy, 5 extreme) | **3.** Registering a CSV file and querying it was one statement and plain `SELECT`s. The effort went into the setup: the Docker stack (about 8 GB of RAM), copying the CSVs into the volume the api and driver containers share (relative paths), finding the REST endpoint and sign-in, and quirks of the 2.4.3 build. |
+| Not tried | A **unified semantic layer** over several sources (shared business definitions, joins or views across sources), JDBC, Parquet, Iceberg or Delta, and loading the assembler manuals (`asm_doc/`) as tables. |
 
 ---
 
