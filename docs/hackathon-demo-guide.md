@@ -272,7 +272,7 @@ is not in the repository; the committed catalog keeps the fallback.
 python -m barthelona zetaris status          # online
 python -m barthelona meterless status        # online
 python -m barthelona verify tests/projects/nasm-triple --level V6 --dialect nasm --contracts tests/projects/nasm-triple/contracts.yaml --tests tests/projects/nasm-triple/tests.yaml --require "V0,V1,V2,V5,V6"
-python -m barthelona worker --once           # in a second terminal: processes what Demo A queues
+python -m barthelona worker --once --trace-reasoning var/proof/reasoning.md   # in a second terminal: processes what Demo A queues
 ```
 
 ---
@@ -312,7 +312,7 @@ failed run; with an explicit `--facts-sql` a failing Zetaris stops the run as `i
 `chunked run` accepts `--facts-sql` too:
 
 ```
-python -m barthelona chunked run "NASM program that prints Hello using sys_write" --profile meterless --facts-sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'" --assemble --repair 2 --expect-stdout "Hello\n" --expect-exit 0 --out var/proof/zeta.asm
+python -m barthelona chunked run "NASM program that prints Hello using sys_write" --profile meterless --facts-sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'" --assemble --repair 2 --expect-stdout "Hello\n" --expect-exit 0 --out var/proof/zeta.asm --trace-reasoning var/proof/zeta-reasoning.md --stats var/runs.sqlite
 ```
 
 ### Demo C: memory and long tasks (not proven yet)
@@ -519,6 +519,7 @@ is meant to be readable without knowing assemblers, SQL or agent frameworks.
 - [ ] A catalog copy with LM Studio disabled, if you promise free models only
 - [ ] NASM found (`python -m barthelona check` on a packaged project passes)
 - [ ] Demo A rehearsed once; you know which models served `auto` and `deep` (Nightshift run details)
+- [ ] **Agent activity is logged (required by the hackathon):** every demo command carries `--trace-reasoning FILE` (worker and `chunked run`) and `chunked run` also `--stats var/runs.sqlite`; after a run, the file exists and `python -m barthelona chunked stats --db var/runs.sqlite` or the `llm_calls` query shows the calls ([how](current-status.md))
 - [ ] You can state what is not proven (compounding, temperament, published demo)
 
 ---
