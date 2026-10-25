@@ -22,6 +22,8 @@ from barthelona.llm.gateway import ModelGateway
 from barthelona.llm.types import ChatMessage, CompletionRequest
 
 ATTEMPTS = 2
+# A reasoning model spends part of this on thinking; 2048 cut the test author off mid-JSON on a 10-test quiz.
+ARTIFACT_TOKENS = 8192
 INTAKE_ROLE = "main"
 SPEC_ROLE = "planner"
 
@@ -90,7 +92,7 @@ async def ask_json[Model: DomainModel](
     problem = ""
     for _ in range(ATTEMPTS):
         completion = await gateway.complete(
-            role, CompletionRequest(messages=tuple(messages), max_tokens=2048)
+            role, CompletionRequest(messages=tuple(messages), max_tokens=ARTIFACT_TOKENS)
         )
         on_call(completion.record)
         try:
