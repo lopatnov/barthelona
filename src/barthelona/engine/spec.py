@@ -41,7 +41,8 @@ Answer with ONE JSON object and nothing else:
  "requirements": [{"id": "R1", "text": "<one testable requirement>"}],
  "modules": [{"path": "src/<name>.asm", "purpose": "<one line>", "exports": ["<symbol>"]}],
  "constraints": [], "non_goals": [], "assumptions": []}
-Rules: 1-12 requirements, each checkable from the program's output or exit code; 1-6 modules; paths relative
+Rules: 1-12 requirements (a reply with more than 12 is rejected: merge related checks into one requirement),
+each checkable from the program's output or exit code; 1-6 modules; paths relative
 to the project, ending in the dialect's source suffix; keep it as small as the goal allows. When the program
 prints results, state the exact text or format of those lines in the requirements (for example
 "Extraversion: <n>"), so the tests and the code agree on them."""
