@@ -106,3 +106,24 @@ def test_the_activity_line_says_how_long_ago_the_run_last_did_anything() -> None
 
     assert "90 s ago" in activity_line(event, now)
     assert "No activity" in activity_line(None, now)
+
+
+def test_the_failure_line_counts_failed_requests_and_names_the_last_time() -> None:
+    from datetime import UTC, datetime
+
+    from barthelona.domain import EventKind, RunEvent
+    from barthelona.ui.run_info import failure_line
+
+    def event(seq: int, status: str) -> RunEvent:
+        return RunEvent(
+            run_id="r1",
+            seq=seq,
+            ts=datetime(2026, 10, 25, 18, 32, seq, tzinfo=UTC),
+            kind=EventKind.LLM_CALL,
+            payload={"status": status},
+        )
+
+    events = [event(1, "asking a"), event(2, "FAILED a gave up: x"), event(3, "FAILED b: y; retrying")]
+
+    assert failure_line(events[:1]) == "Model failures so far: none."
+    assert failure_line(events).startswith("Model failures so far: 2, last at ")

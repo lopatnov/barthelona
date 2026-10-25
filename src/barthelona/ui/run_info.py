@@ -71,6 +71,16 @@ def activity_line(last: RunEvent | None, now: datetime) -> str:
     )
 
 
+def failure_line(events: Iterable[RunEvent]) -> str:
+    """How many model requests failed or were repeated, and when the last one did."""
+    failed = [
+        e for e in events if e.kind is EventKind.LLM_CALL and "FAILED" in str(e.payload.get("status", ""))
+    ]
+    if not failed:
+        return "Model failures so far: none."
+    return f"Model failures so far: {len(failed)}, last at {failed[-1].ts.astimezone().strftime('%H:%M:%S')}."
+
+
 def stage_line(
     done_nodes: Iterable[str], active: bool, failed: str | None = None, automatic: bool = False
 ) -> str:
@@ -124,8 +134,10 @@ def render_status_banner(run: Run, store: Store) -> None:
         now = datetime.now(UTC)
         last_event = newest.ts if newest else None
         sentence, stale = activity_text(last_activity(run_dir(RUNS_DIR, run.id), last_event), now)
+        failures = failure_line(store.events_after(run.id, after_seq=-1, limit=5000))
         body = (
-            f"**Running.** {sentence} {_STALE_HINT if stale else _HOW_LONG}\n\n{activity_line(newest, now)}"
+            f"**Running.** {sentence} {_STALE_HINT if stale else _HOW_LONG}\n\n"
+            f"{activity_line(newest, now)}\n\n{failures}"
         )
         (st.warning if stale else st.info)(body)
     elif run.status is RunStatus.STOPPED and run.stop_reason is not None:
