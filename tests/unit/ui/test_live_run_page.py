@@ -159,3 +159,21 @@ def test_the_panel_shows_a_long_prompt_whole(tmp_path: Path, monkeypatch: pytest
 
     assert not app.exception and not app.error
     assert any(block.value.endswith("THE END OF THE PROMPT") for block in app.code)
+
+
+def test_run_files_shows_the_drafts_in_the_project_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _run_waiting_for_g1(tmp_path)
+    drafts = tmp_path / "demos" / "hello-demo" / "drafts"
+    drafts.mkdir(parents=True)
+    (drafts / "attempt-1.asm").write_text("mov rax, 1\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_function(_page, default_timeout=30)
+    app.session_state["auto_poll"] = False
+
+    app.run()
+
+    assert not app.exception and not app.error
+    assert any("Project folder:" in m.value and "hello-demo" in m.value for m in app.markdown)
+    assert any("attempt-1.asm" in str(table.value) for table in app.table)

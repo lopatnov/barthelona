@@ -72,3 +72,22 @@ def test_every_code_attempt_gets_its_own_row(tmp_path) -> None:  # type: ignore[
 
     assert names == ["attempt-1.asm", "attempt-2.asm"]
     assert ("attempt-N.asm", "not yet") not in [(n, s) for n, s, _ in file_rows(tmp_path)]
+
+
+def test_the_draft_rows_list_the_files_of_the_drafts_folder(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from barthelona.ui.run_info import draft_rows
+
+    (tmp_path / "attempt-2.asm").write_text("bb", encoding="utf-8")
+    (tmp_path / "attempt-1.asm").write_text("a", encoding="utf-8")
+    (tmp_path / "subfolder").mkdir()
+
+    rows = draft_rows(tmp_path)
+
+    assert [name for name, _ in rows] == ["attempt-1.asm", "attempt-2.asm"]
+    assert rows[0][1].startswith("1 bytes")
+
+
+def test_a_missing_drafts_folder_gives_no_rows(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from barthelona.ui.run_info import draft_rows
+
+    assert draft_rows(tmp_path / "nowhere") == []
