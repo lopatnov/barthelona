@@ -12,7 +12,6 @@
     .\scripts\run.ps1 -WorkerOnly
     .\scripts\run.ps1 -UiOnly
     .\scripts\run.ps1 -StreamlitPort 8502
-    .\scripts\run.ps1 -TraceReasoning ""      # pass a file; default: the CLI writes var/activity.md ("off" disables it)
 
 .NOTES
     Requires the conda environment 'barthelona' to be created (scripts/create_env.ps1).
@@ -31,6 +30,10 @@ param(
     [switch]$UiOnly,
     [int]$StreamlitPort = 8501
 )
+
+# Workaround: PowerShell has a built-in 'Db' alias for 'Debug' parameter
+# So we must use a different variable name internally to avoid conflict
+$DatabasePath = $DbPath
 
 # param() must be the first statement of the script, so these come after it
 $ErrorActionPreference = 'Stop'
@@ -54,14 +57,36 @@ if (-not (Test-Path $envScript)) {
 # One command line for a child PowerShell: dev.ps1 plus the arguments, each in single quotes
 function ConvertTo-ChildCommand {
     param([object[]]$Arguments)
-    $quoted = $Arguments | ForEach-Object { "'" + ([string]$_).Replace("'", "''") + "'" }
+    $quoted = $Arguments | ForEach-Object {
+        $s = [string]$_
+        # Replace regular single quotes and curly single quotes (U+2018, U+2019, U+201A, U+201B) by doubling them
+        # Use string overload of Replace to avoid char overload issues
+        $s = $s.Replace("'", "''")
+        $s = $s.Replace([string][char]0x2018, "''")  # '
+        $s = $s.Replace([string][char]0x2019, "''")  # '
+        $s = $s.Replace([string][char]0x201A, "''")  # '
+        $s = $s.Replace([string][char]0x201B, "''")  # '
+        # Escape double quotes for Windows command-line parsing
+        $s = $s.Replace('"', '""')
+        "'" + $s + "'"
+    }
     return "& '" + $envScript.Replace("'", "''") + "' " + ($quoted -join " ")
+}
+
+# Stop a process and its entire child tree
+function Stop-ProcessTree {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param([int]$ProcessId)
+    # taskkill /T kills the process tree, /F forces it
+    if ($PSCmdlet.ShouldProcess("process tree $ProcessId", "Stop process tree")) {
+        $null = taskkill /T /F /PID $ProcessId 2>$null
+    }
 }
 
 function Invoke-Worker {
     [CmdletBinding(SupportsShouldProcess = $true)]
     param(
-        [string]$DbFile,
+        [string]$Database,
         [string]$Checkpoints,
         [string]$Runs,
         [string]$Catalog,
@@ -73,7 +98,7 @@ function Invoke-Worker {
 
     $cmdArgs = @(
         "python", "-m", "barthelona", "worker",
-        "--db", $DbFile,
+        "--db", $Database,
         "--checkpoints", $Checkpoints,
         "--runs", $Runs,
         "--catalog", $Catalog,
@@ -113,7 +138,7 @@ $null = New-Item -ItemType Directory -Force -Path "var", "var/runs", "workspaces
 
 try {
     if (-not $UiOnly) {
-        $workerProcess = Invoke-Worker -DbFile $DbPath -Checkpoints $CheckpointsPath -Runs $RunsPath -Catalog $CatalogPath -Facts $FactsSql -Trace $TraceReasoning -Poll $PollInterval
+        $workerProcess = Invoke-Worker -Database $DatabasePath -Checkpoints $CheckpointsPath -Runs $RunsPath -Catalog $CatalogPath -Facts $FactsSql -Trace $TraceReasoning -Poll $PollInterval
         Start-Sleep -Seconds 2  # Give worker time to start
     }
 
@@ -135,10 +160,10 @@ try {
 
     if ($processes.Count -gt 0) {
         $exited = Wait-Process -Id $processes.Id -ErrorAction SilentlyContinue -PassThru
-        # Stop the remaining process
+        # Stop the remaining process and its child tree
         foreach ($p in $processes) {
             if (-not $p.HasExited) {
-                Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+                Stop-ProcessTree $p.Id
             }
         }
         if ($exited.ExitCode -ne 0) {
@@ -152,7 +177,7 @@ catch {
 }
 finally {
     Write-Host "Stopping processes..." -ForegroundColor Yellow
-    if ($workerProcess -and -not $workerProcess.HasExited) { Stop-Process -Id $workerProcess.Id -Force -ErrorAction SilentlyContinue }
-    if ($uiProcess -and -not $uiProcess.HasExited) { Stop-Process -Id $uiProcess.Id -Force -ErrorAction SilentlyContinue }
+    if ($workerProcess -and -not $workerProcess.HasExited) { Stop-ProcessTree $workerProcess.Id }
+    if ($uiProcess -and -not $uiProcess.HasExited) { Stop-ProcessTree $uiProcess.Id }
     Write-Host "Stopped." -ForegroundColor Yellow
 }
