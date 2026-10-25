@@ -150,25 +150,7 @@ def page_new_request() -> None:
             ),
         )
 
-        st.divider()
-
-        wall_s, tokens, usd = _limits_fields()
-
-        col6, col7 = st.columns(2)
-        with col6:
-            cloud_allowed = st.checkbox(
-                "Allow cloud providers",
-                value=(profile != Profile.LOCAL_ONLY),
-                disabled=(profile == Profile.LOCAL_ONLY),
-                help="Local-only profile cannot use cloud providers",
-            )
-        with col7:
-            collect_training = st.checkbox(
-                "Collect training data (D-036)",
-                value=False,
-                help="Record code-producing attempts after the ladder for local-model training export",
-            )
-
+        st.markdown("**After you click Create Run**")
         auto_approve = st.checkbox(
             "Approve checkpoints automatically",
             value=True,
@@ -187,6 +169,25 @@ def page_new_request() -> None:
                 "as the run is green. Untick to do it yourself with the Package button on Live Run."
             ),
         )
+
+        st.divider()
+
+        wall_s, tokens, usd = _limits_fields()
+
+        col6, col7 = st.columns(2)
+        with col6:
+            cloud_allowed = st.checkbox(
+                "Allow cloud providers",
+                value=(profile != Profile.LOCAL_ONLY),
+                disabled=(profile == Profile.LOCAL_ONLY),
+                help="Local-only profile cannot use cloud providers",
+            )
+        with col7:
+            collect_training = st.checkbox(
+                "Collect training data (D-036)",
+                value=False,
+                help="Record code-producing attempts after the ladder for local-model training export",
+            )
 
         submitted = st.form_submit_button("🚀 Create Run", type="primary", use_container_width=True)
 

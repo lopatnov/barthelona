@@ -99,6 +99,15 @@ class Store:
             self._save_run(updated)
         return updated
 
+    def delete_run(self, run_id: str) -> None:
+        """Remove a run and its commands, events, gates and model-call rows; `ConflictError` while it runs."""
+        with self._write():
+            if self.get_run(run_id).status is RunStatus.RUNNING:
+                raise ConflictError(f"run {run_id!r} is running: pause it first")
+            for table in ("commands", "events", "gates", "llm_calls"):
+                self._conn.execute(f"DELETE FROM {table} WHERE run_id = ?", (run_id,))  # noqa: S608  # fixed names
+            self._conn.execute("DELETE FROM runs WHERE id = ?", (run_id,))
+
     def claim_next_queued_run(self) -> Run | None:
         """Atomically move the oldest queued run to `running` and return it (the worker's claim)."""
         with self._write():

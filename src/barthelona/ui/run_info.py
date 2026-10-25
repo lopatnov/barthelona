@@ -148,6 +148,8 @@ def render_parameters(run: Run) -> None:
             f"{'allowed' if budget.cloud_allowed else 'not allowed'}\n"
             f"- **Limits:** {budget.wall_s:.0f} s, {budget.tokens} tokens, "
             f"{'cap $' + format(budget.usd, '.2f') if budget.usd else 'no money cap'}. {REAL_BOUNDS}\n"
+            f"- **Checkpoints G1 and G4:** "
+            f"{'approved automatically' if run.auto_approve else 'you approve them on the Approvals page'}\n"
             f"- **Training data collected:** {'yes' if run.collect_training_data else 'no'}\n"
             f"- **Where it runs:** in the worker process on this PC. It sends the model requests to the "
             f"provider of the profile (for Meterless: Nightshift), assembles with NASM and runs the tests in "
