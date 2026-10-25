@@ -16,9 +16,9 @@ _NODES = {
     "finalize": "Run finished",
 }
 
-_GATES = {"G1": "the specification and the tests", "G4": "the finished code"}
+GATES = {"G1": "the specification and the tests", "G4": "the finished code"}
 
-_STOPS = {
+STOPS = {
     "green": "Done: the program assembles and passes all its tests",
     "max_attempts": "Stopped: the models did not produce a valid result within the allowed attempts",
     "no_model_available": "Stopped: no model answered (provider down or rate-limited, for example HTTP 429)",
@@ -36,7 +36,12 @@ _STOPS = {
 def _gate_name(gate_id: str, fallback_kind: str = "") -> str:
     """'the specification and the tests' for ``<run>-G1``; the gate id's last part is its kind."""
     kind = fallback_kind or gate_id.rsplit("-", 1)[-1]
-    return _GATES.get(kind, f"gate {kind}")
+    return GATES.get(kind, f"gate {kind}")
+
+
+def stop_text(reason: str) -> str:
+    """The sentence for a stop reason."""
+    return STOPS.get(reason, f"Stopped: {reason or 'no reason given'}")
 
 
 def describe(event: RunEvent) -> str:
@@ -54,7 +59,7 @@ def describe(event: RunEvent) -> str:
             return f"You {verdict} {what}"
         case EventKind.STOP:
             reason = str(payload.get("stop_reason", ""))
-            return _STOPS.get(reason, f"Stopped: {reason or 'no reason given'}")
+            return stop_text(reason)
         case EventKind.ERROR:
             detail = payload.get("message") or payload.get("error") or payload.get("ignored_command") or ""
             return f"Problem: {detail}" if detail else "Problem (see the run's event details)"
