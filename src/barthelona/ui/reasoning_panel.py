@@ -1,4 +1,4 @@
-"""Live Run panel: what the models thought and answered during a run (the worker writes the file)."""
+"""Live Run panel: what the models were asked, thought and answered (the worker writes the file)."""
 
 from __future__ import annotations
 
@@ -10,10 +10,17 @@ import streamlit as st
 from barthelona.domain.layout import REASONING_FILE, RUNS_DIR, run_dir
 
 MAX_ENTRIES = 8  # newest first; the whole log stays in the run folder
-_TAIL_BYTES = 400_000  # read only the end of a long log
+_TAIL_BYTES = 800_000  # read only the end of a long log; an entry can hold a whole prompt
+PROMPT_SHOWN_CHARS = 6000  # a prompt can hold a whole spec; the log file has all of it
 
+# "## role via route -> model (usage)", as the log writes it; "-> model" only when the router names it
+_HEADING = re.compile(r"(?m)^(?=## \S+ via \S+(?: -> \S+)? \()")
 
-_HEADING = re.compile(r"(?m)^(?=## \S+ via \S+ \()")  # "## role via route (usage)", as the log writes it
+_PARTS = (
+    ("prompt", "Asked"),
+    ("reasoning", "Thinking"),
+    ("answer", "Answer"),
+)  # in the order the log has them
 
 
 def latest_entries(text: str, limit: int = MAX_ENTRIES) -> list[str]:
@@ -22,41 +29,54 @@ def latest_entries(text: str, limit: int = MAX_ENTRIES) -> list[str]:
     return entries[-limit:][::-1]
 
 
-PROMPT_SHOWN_CHARS = 6000  # a prompt can hold a whole spec; the log file has all of it
-_PROMPT = re.compile(r"\A\s*### prompt\n\n(?P<prompt>.*?)\n\n(?=### reasoning\n)", re.DOTALL)
+def split_entry(body: str) -> dict[str, str]:
+    """The parts of one log entry: prompt, reasoning, answer (an older entry has no prompt)."""
+    starts: list[tuple[str, int, int]] = []  # (part, where its marker starts, where its text starts)
+    position = 0
+    for name, _ in _PARTS:
+        marker = f"### {name}\n\n"
+        at = body.find(marker, position)
+        if at >= 0:
+            position = at + len(marker)
+            starts.append((name, at, position))
+    if not starts:
+        return {"answer": body.strip()}  # not in the log's format: show it whole rather than fail the page
+    ends = [at for _, at, _ in starts[1:]] + [len(body)]
+    return {name: body[text:end].strip() for (name, _, text), end in zip(starts, ends, strict=True)}
 
 
-def split_prompt(body: str) -> tuple[str, str]:
-    """The prompt section of an entry body and the rest; the prompt is empty for entries without one."""
-    found = _PROMPT.match(body)
-    return (found["prompt"], body[found.end() :]) if found else ("", body)
+def _shown(name: str, text: str) -> str:
+    if name == "prompt" and len(text) > PROMPT_SHOWN_CHARS:
+        return f"{text[:PROMPT_SHOWN_CHARS]}\n... (cut; the whole prompt is in the log)"
+    return text
 
 
 def _read_tail(path: Path) -> str:
     with path.open("rb") as handle:
         handle.seek(0, 2)
         handle.seek(max(0, handle.tell() - _TAIL_BYTES))
-        return handle.read().decode("utf-8", errors="replace")
+        return handle.read().decode("utf-8", errors="replace").replace("\r\n", "\n")
 
 
 def render_reasoning_panel(run_id: str) -> None:
-    """The newest model replies of one run, with the thinking and the answer; on by default."""
+    """The newest model calls of one run: what was asked, the thinking and the answer; on by default."""
     st.subheader("🧠 Model reasoning")
-    show = st.checkbox("Show what the models think and answer", value=True, key=f"show_reasoning_{run_id}")
+    show = st.checkbox(
+        "Show what was asked and what the models think and answer",
+        value=True,
+        key=f"show_reasoning_{run_id}",
+    )
     if not show:
         return
     path = run_dir(RUNS_DIR, run_id) / REASONING_FILE
     if not path.is_file():
-        st.caption("No model has answered yet. Each reply appears here as soon as it arrives.")
+        st.caption("No model has answered yet. Each call appears here as soon as its reply arrives.")
         return
-    entries = latest_entries(_read_tail(path))
-    for position, entry in enumerate(entries):
+    for position, entry in enumerate(latest_entries(_read_tail(path))):
         heading, _, body = entry.partition("\n")
+        parts = split_entry(body.strip())
+        shown = [(key, label) for key, label in _PARTS if key in parts] or [("answer", "Answer")]
         with st.expander(heading.removeprefix("## "), expanded=position == 0):
-            prompt, rest = split_prompt(body)
-            if prompt:
-                st.caption("What was sent to the model")
-                cut = len(prompt) > PROMPT_SHOWN_CHARS
-                note = "\n... (cut; the whole prompt is in the log)" if cut else ""
-                st.code(prompt[:PROMPT_SHOWN_CHARS] + note, language=None)
-            st.markdown(rest)
+            for tab, (key, _) in zip(st.tabs([label for _, label in shown]), shown, strict=True):
+                with tab:
+                    st.code(_shown(key, parts[key]), language="text", wrap_lines=True)
