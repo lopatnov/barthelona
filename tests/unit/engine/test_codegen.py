@@ -105,7 +105,18 @@ def test_the_task_names_the_requirements_the_tests_and_the_constraints() -> None
     assert "T1: stdin='' -> stdout='hello\\n', exit code 0" in text
     assert "- no libc" in text
     assert "Comment the code" in text
-    assert "only these syscalls" in text and "exit_group (231)" in text
+    for clause in (
+        "read from fd 0",
+        "write to fd 1 or 2",
+        "getpid",
+        "exit (60)",
+        "exit_group (231)",
+        "about a million instructions",
+        "no terminal, no file",
+        "no clock and no graphics",
+        "stderr works but is not checked",
+    ):
+        assert clause in text
 
 
 def test_check_all_passes_a_program_that_matches_every_test_and_names_the_failing_one() -> None:
