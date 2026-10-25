@@ -21,7 +21,7 @@ from barthelona.domain import (
     RunEvent,
     TestCase,
 )
-from barthelona.domain.layout import REQUEST_FILE, SOURCE_FILE, SPEC_FILE, TESTS_FILE, run_dir
+from barthelona.domain.layout import ATTEMPT_FILE, REQUEST_FILE, SOURCE_FILE, SPEC_FILE, TESTS_FILE, run_dir
 from barthelona.engine.graph import Services
 from barthelona.engine.preflight import preflight_for
 from barthelona.llm.gateway import ModelGateway
@@ -93,6 +93,11 @@ def services_for(
         folder.mkdir(parents=True, exist_ok=True)
         (folder / SOURCE_FILE).write_text(source + "\n", encoding="utf-8", newline="\n")
 
+    def save_attempt(run_id: str, attempt: int, source: str) -> None:
+        folder = run_dir(runs_dir, run_id)
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / ATTEMPT_FILE.format(n=attempt)).write_text(source + "\n", encoding="utf-8", newline="\n")
+
     def emit_zetaris_error(run_id: str, message: str) -> None:
         store.append_events(
             [
@@ -118,6 +123,7 @@ def services_for(
         save_spec=save_spec,
         facts=facts,
         save_source=save_source,
+        save_attempt=save_attempt,
         nasm=find_nasm(nasm),
         memory=memory,
     )

@@ -254,7 +254,7 @@ state came from. Then a summary line: `stop_reason` (`green` is done), `chunks`,
 | `--plan-role`, `--repair-role`, `--review-role` | Extra roles: a short plan first, the role for repairs, an advisory review afterwards (the oracles still decide) |
 | `--stats FILE` | Save per-chunk statistics to a SQLite file |
 | `--catalog FILE` | Use another model catalog (for example one with the local model disabled) |
-| `--trace-reasoning FILE` | Append every model's reasoning and answer to a file (`-` prints to the terminal); on by default (`var/activity.md`), `off` disables it; keep the file out of git |
+| `--trace-reasoning FILE` | Append every model request (the prompt that was sent), its reasoning and its answer to a file (`-` prints to the terminal); on by default (`var/activity.md`), `off` disables it; keep the file out of git |
 | `--nasm PATH` | The `nasm` program, if it is not found automatically |
 
 ### Logging agent activity: what is recorded and how to switch it on
@@ -263,7 +263,7 @@ Three records exist. The first two are on by default; run statistics need `--sta
 
 | What | How to switch it on | Where it ends up | How to read it |
 | --- | --- | --- | --- |
-| **Reasoning log**: for every answered model request the role, the model, tokens, seconds, what it thought and what it answered | on by default for `worker` and `chunked run`; `--trace-reasoning FILE` picks another file, `-` prints to the terminal, `off` disables it | `var/activity.md` | open it; it holds task text and model answers, so keep it out of git |
+| **Reasoning log**: for every answered model request the role, the model, tokens, seconds, the prompt that was sent, what it thought and what it answered | on by default for `worker` and `chunked run`; `--trace-reasoning FILE` picks another file, `-` prints to the terminal, `off` disables it | `var/activity.md` | open it; it holds task text and model answers, so keep it out of git |
 | **Call ledger**: every model call of a run (provider, model, tokens in and out, time) | always on for the worker | table `llm_calls` in `var/app.sqlite` | `sqlite3 var/app.sqlite "SELECT model, COUNT(*), SUM(tokens_in), SUM(tokens_out) FROM llm_calls GROUP BY model"` |
 | **Run statistics** of `chunked run`: runs, and per chunk who answered, tokens, latency, fallbacks | add `--stats var/runs.sqlite` | the SQLite file you name | `python -m barthelona chunked stats --db var/runs.sqlite` |
 
@@ -286,7 +286,7 @@ python -m barthelona runs package <run id> --barthelona-ref <full commit sha>
 
 Run the worker in its own terminal. `runs submit` prints the run id; `--project NAME` records `demos/NAME` as the folder
 for the packaged repository (a lowercase name that does not exist yet). `runs status` shows the open gate; read
-`var/runs/<run id>/spec.json` and `tests.json` before approving G1, because the tests are frozen after it (the gate itself also carries the spec and the tests). The worker answers G1 and G4 itself by default and logs every automatic answer (`--no-auto-approve`, or the unticked box in the UI, makes it wait for you); NASM and the emulator still decide whether the code is accepted. A queued Cancel stops a run even in the middle of a model call. When a run stops green the worker also writes the project into its `demos/` folder (source, golden tests, README, CI), using this checkout's commit for the generated CI; `--no-package`, or the unticked box in the UI, leaves that to the Package button or `runs package`. After G4 the run
+`var/runs/<run id>/spec.json` and `tests.json` before approving G1, because the tests are frozen after it (the gate itself also carries the spec and the tests). The worker answers G1 and G4 itself by default and logs every automatic answer (`--no-auto-approve`, or the unticked box in the UI, makes it wait for you); NASM and the emulator still decide whether the code is accepted. A queued Cancel stops a run even in the middle of a model call. While the code step works, each draft is saved as `var/runs/<run id>/attempt-N.asm` right after the assembler and the emulator judged it (rejected ones included); `main.asm` is the accepted program only. The prompt asks the models to comment the code. When a run stops green the worker also writes the project into its `demos/` folder (source, golden tests, README, CI), using this checkout's commit for the generated CI; `--no-package`, or the unticked box in the UI, leaves that to the Package button or `runs package`. After G4 the run
 ends `green`, and `runs package` writes source, tests, README, CI and a release workflow. All options, the defaults
 (limits 3600 s and 400000 tokens) and the environment variables are in [create-flow.md](create-flow.md).
 One-sentence programs went green this way on 2026-10-24; larger ones (an interactive quiz) did not.

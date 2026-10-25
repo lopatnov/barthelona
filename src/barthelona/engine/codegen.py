@@ -38,6 +38,7 @@ DOMAIN = "assembly"
 CHUNKS = MarkovianConfig(chunk_tokens=6000, carryover_tokens=128, max_chunks=8)
 
 OnCall = Callable[[LLMCallRecord], None]
+OnAttempt = Callable[[int, str], None]  # (attempt number from 1, its source), even when the oracles reject it
 
 
 @dataclass(frozen=True)
@@ -86,7 +87,9 @@ def task_text(spec: ProjectSpec, cases: list[TestCase]) -> str:
     constraints = "".join(f"\n- {line}" for line in spec.constraints)
     return (
         "Write a NASM program for Linux x86-64 (elf64, syscalls only, no libc, global _start, finish with "
-        "the exit syscall). Return one complete source file in a single code block.\n"
+        "the exit syscall). Return one complete source file in a single code block. "
+        "Comment the code with ';' comments: a header saying what the program does, one line for every "
+        "section and label, and a note on each syscall and any instruction whose purpose is not obvious.\n"
         f"Program: {spec.summary_en}\nRequirements:\n{requirements}\n"
         "Acceptance tests (run in an emulator; the exit code must match, stdout must match exactly "
         f"unless a test says it contains texts, which only have to appear in it):\n{examples}"
@@ -149,6 +152,7 @@ async def generate_source(
     nasm: str | None,
     on_call: OnCall,
     run_id: str,
+    on_attempt: OnAttempt | None = None,
 ) -> Codegen:
     """Write the source, let the oracles judge it, repair up to `REPAIRS` times, remember it if accepted."""
     recording = _Recording(gateway, on_call)
@@ -162,6 +166,8 @@ async def generate_source(
         result = await run_markovian(recording, role, prompt, CHUNKS, context, recall)
         chunks += len(result.chunks)
         source, verdict = await asyncio.to_thread(_judge, result, cases, nasm)  # subprocess and emulator
+        if on_attempt is not None and source.strip():
+            on_attempt(attempt + 1, source)  # a draft on disk now, not only when the whole step ends
         stop = _stop_for(verdict, result)
         if verdict.status != "fail" or stop is StopReason.NO_MODEL_AVAILABLE:
             break

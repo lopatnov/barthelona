@@ -107,7 +107,7 @@ class Gateway:
             done = build_completion(target, request, outcome, tuple(fallbacks))
             if self._trace is not None:
                 try:
-                    self._trace(role, done)
+                    self._trace(role, done.model_copy(update={"prompt": request.as_text()}))
                 except OSError as exc:  # the log is optional: a model answer is never lost to it
                     done = done.model_copy(
                         update={"fallbacks": (*done.fallbacks, f"reasoning log not written: {exc}")}

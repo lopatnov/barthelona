@@ -104,6 +104,7 @@ def test_the_task_names_the_requirements_the_tests_and_the_constraints() -> None
     assert "R1: Writes hello and a newline." in text
     assert "T1: stdin='' -> stdout='hello\\n', exit code 0" in text
     assert "- no libc" in text
+    assert "Comment the code" in text
 
 
 def test_check_all_passes_a_program_that_matches_every_test_and_names_the_failing_one() -> None:
@@ -125,6 +126,23 @@ async def test_a_rejected_program_is_repaired_with_the_checker_report() -> None:
     repair = gateway.calls[1][1].messages[1].content
     assert "stdout was 'howdy\\n'" in repair
     assert gateway.calls[1][0] == "planner"
+
+
+async def test_every_attempt_is_handed_out_as_it_is_judged_even_when_rejected() -> None:
+    seen: list[tuple[int, str]] = []
+    await generate_source(
+        FakeGateway([_reply(WRONG), _reply(HELLO)]),
+        _spec(),
+        _cases(),
+        "",
+        None,
+        None,
+        lambda _r: None,
+        "r1",
+        lambda attempt, source: seen.append((attempt, source)),
+    )
+    assert [attempt for attempt, _ in seen] == [1, 2]
+    assert "howdy" in seen[0][1] and "hello" in seen[1][1]
 
 
 async def test_repairs_are_bounded_and_the_run_stops_as_max_attempts() -> None:

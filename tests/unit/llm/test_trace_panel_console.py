@@ -92,3 +92,28 @@ def test_the_heading_names_the_model_a_router_picked() -> None:
     done = _done().model_copy(update={"answered_by": "nvidia/nemotron-x"})
 
     assert "worker via meterless_auto -> nvidia/nemotron-x (10 in" in _entry("worker", done)
+
+
+def test_the_panel_splits_the_prompt_from_the_rest_of_an_entry() -> None:
+    from barthelona.ui.reasoning_panel import split_prompt
+
+    body = "### prompt\n\n[user]\nhi\n\nmore\n\n### reasoning\n\nt\n\n### answer\n\na"
+    assert split_prompt(body) == ("[user]\nhi\n\nmore", "### reasoning\n\nt\n\n### answer\n\na")
+    assert split_prompt("### reasoning\n\nt") == ("", "### reasoning\n\nt")
+
+
+def test_the_console_shows_the_start_of_the_prompt() -> None:
+    done = _done().model_copy(update={"prompt": "p" * 5000})
+    from barthelona.llm.trace import CONSOLE_PROMPT_CHARS
+
+    assert "prompt: " + "p" * CONSOLE_PROMPT_CHARS + " ..." in _capture(done)
+
+
+def _capture(done: Completion) -> str:
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stderr(buffer):
+        ConsoleTrace()("worker", done)
+    return buffer.getvalue()
