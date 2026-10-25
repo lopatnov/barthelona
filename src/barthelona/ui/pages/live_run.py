@@ -4,7 +4,7 @@ Phase 1a features:
 - Event log tail (polling from SQLite events table)
 - Sprint topology DOT graph (from SprintTopology)
 - Run status and stop reason
-- Manual controls: cancel, extend budget
+- Manual controls: cancel, and continue a run that stopped on a limit
 """
 
 from __future__ import annotations
@@ -16,8 +16,9 @@ from typing import Any
 
 import streamlit as st
 
-from barthelona.domain import CommandKind, EventKind, RunBudget, RunCommand, RunStatus
+from barthelona.domain import CommandKind, EventKind, RunCommand, RunStatus
 from barthelona.persistence import Store, open_store
+from barthelona.ui.continue_run import render_continue
 from barthelona.ui.event_text import describe
 from barthelona.ui.package_panel import render_package_panel
 from barthelona.ui.reasoning_panel import render_reasoning_panel
@@ -97,29 +98,7 @@ def _render_run_controls(run_id: str, run: Any, store: Store) -> None:
             st.rerun()
 
     with col2:
-        if run.status in (RunStatus.RUNNING, RunStatus.WAITING_GATE):
-            with st.popover("📈 Extend Budget"):
-                st.write("Extend the run's budget limits:")
-                wall_s = st.number_input("Additional wall time (s)", min_value=10, value=300)
-                tokens = st.number_input("Additional tokens", min_value=1000, value=50000)
-                usd = st.number_input("Additional USD", min_value=0.0, value=0.0, step=0.1)
-
-                if st.button("Extend"):
-                    new_budget = RunBudget(
-                        wall_s=run.budget.wall_s + wall_s,
-                        tokens=run.budget.tokens + tokens,
-                        usd=(run.budget.usd or 0) + usd if usd > 0 else run.budget.usd,
-                        max_sprints=run.budget.max_sprints,
-                        cloud_allowed=run.budget.cloud_allowed,
-                    )
-                    command = RunCommand(
-                        run_id=run_id,
-                        kind=CommandKind.EXTEND_BUDGET,
-                        budget=new_budget,
-                    )
-                    store.enqueue_command(command)
-                    st.success("Budget extension queued")
-                    st.rerun()
+        render_continue(run, store)
 
     with col3:
         if run.status == RunStatus.WAITING_GATE:
