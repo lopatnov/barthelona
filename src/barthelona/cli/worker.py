@@ -62,7 +62,9 @@ async def _run(
         async with AsyncSqliteSaver.from_conn_string(str(checkpoints)) as saver:
             worker = Worker(
                 store,
-                build_graph(services_for(store, runs, gateway_for, facts, hmem), saver),
+                build_graph(
+                    services_for(store, runs, gateway_for, facts, hmem, workspace_root=Path()), saver
+                ),
                 packager=lambda run_id: package_run(store, runs, run_id, _commit_or_fail()),
             )
             if once:

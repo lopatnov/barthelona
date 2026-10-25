@@ -60,6 +60,7 @@ class Services:
     save_attempt: Callable[
         [str, int, str], None
     ]  # (run_id, attempt, source) -> a draft file, kept even if rejected
+    open_workspace: Callable[[str], None]  # (run_id) -> creates the project's demos/ folder at the start
     nasm: str | None  # the assembler binary, None when none was found (the oracle then stops the run)
     memory: HMem | None  # H-MEM: recalled in every chunk, written to when the oracle accepts
 
@@ -136,6 +137,7 @@ class _Nodes:
         return lambda record: self._services.record_call(run_id, record)
 
     async def preflight(self, state: RunState) -> dict[str, Any]:
+        self._services.open_workspace(state["run_id"])
         reason = self._services.preflight(state["run_id"])
         return {"stop": StopReason.UNSUPPORTED_TARGET.value} if reason else {}
 
