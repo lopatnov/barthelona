@@ -166,7 +166,7 @@ def page_new_request() -> None:
             value=False,
             help=(
                 "Tick to have the worker package the source, tests, README and CI into the project folder "
-                "as soon as the run is green. Unticked, you do it yourself with the Package button on Live Run."
+                "as soon as the run is green. Unticked, use the Package button on Live Run."
             ),
         )
 
