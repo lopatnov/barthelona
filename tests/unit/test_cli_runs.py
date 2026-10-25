@@ -77,3 +77,10 @@ def test_decide_without_an_open_gate_is_an_error(tmp_path: Path) -> None:
     result = _invoke(tmp_path, "decide", run_id, "approve")
     assert result.exit_code == 2
     assert "0 open gates" in result.output
+
+
+def test_a_run_waits_for_a_human_unless_auto_approve_is_asked_for(tmp_path: Path) -> None:
+    plain = _submit(tmp_path)
+    auto = _submit(tmp_path, "--auto-approve")
+    with closing(open_store(tmp_path / "app.sqlite")) as store:
+        assert (store.get_run(plain).auto_approve, store.get_run(auto).auto_approve) == (False, True)

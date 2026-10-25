@@ -176,7 +176,11 @@ async def test_approving_g1_writes_the_source_and_parks_at_g4_then_the_run_is_gr
     _decide(store, "approve")
     await worker.step()
     [gate] = store.pending_gates("r1")
-    assert (gate.gate_id, gate.kind.value, gate.payload) == ("r1-G4", "G4", {"source_file": "main.asm"})
+    assert (gate.gate_id, gate.kind.value, gate.payload) == (
+        "r1-G4",
+        "G4",
+        {"source_file": "main.asm", "verdict": "pass"},
+    )
     assert "mov rax, 60" in (runs_dir / "r1" / "main.asm").read_text(encoding="utf-8")
     _decide(store, "approve")
     await worker.step()
@@ -448,3 +452,55 @@ async def test_time_used_by_earlier_nodes_shortens_the_codegen_allowance(
     await worker.step()
     assert time.monotonic() - started < 0.7  # a fresh 1.0 s allowance would have lasted about 1.0 s
     assert store.get_run("r1").stop_reason == StopReason.BUDGET_TIME
+
+
+class _NeverAnswers(FakeGateway):
+    """Hangs on every model call, as a slow provider does."""
+
+    async def complete(self, role: str, request: CompletionRequest) -> Completion:
+        await asyncio.sleep(30)
+        return await super().complete(role, request)
+
+
+async def test_a_cancel_reaches_a_run_that_is_in_the_middle_of_a_model_call(
+    store: Store, runs_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("barthelona.engine.worker.CANCEL_POLL_S", 0.05)
+    _queue(store, runs_dir)
+    worker = _worker(store, runs_dir, gateway=_NeverAnswers(REPLIES))
+    driving = asyncio.create_task(worker.step())
+    while store.get_run("r1").status is not RunStatus.RUNNING:  # noqa: ASYNC110 - polls the store the worker task writes
+        await asyncio.sleep(0.01)
+    store.enqueue_command(RunCommand(run_id="r1", kind=CommandKind.CANCEL))
+    await asyncio.wait_for(driving, timeout=5)
+    run = store.get_run("r1")
+    assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.HUMAN_ABORT)
+
+
+async def test_an_auto_approve_run_answers_g1_itself_and_logs_it(store: Store, runs_dir: Path) -> None:
+    short = _run().model_copy(update={"budget": RunBudget(wall_s=0.5, tokens=100_000), "auto_approve": True})
+    store.create_run(short)
+    (runs_dir / "r1").mkdir(parents=True, exist_ok=True)
+    (runs_dir / "r1" / REQUEST_FILE).write_text("Print hello.", encoding="utf-8")
+    worker = _worker(store, runs_dir, gateway=_StallsAtCodegen(REPLIES))
+    await worker.step()  # no human answers: the run passes G1 and reaches the code step on its own
+    run = store.get_run("r1")
+    assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.BUDGET_TIME)
+    resolved = [e for e in store.events_after("r1") if e.kind is EventKind.GATE_RESOLVED]
+    assert [e.payload for e in resolved] == [{"gate_id": "r1-G1", "decision": "approve", "automatic": True}]
+
+
+async def test_node_end_events_say_what_the_node_produced(store: Store, runs_dir: Path) -> None:
+    _queue(store, runs_dir)
+    await _worker(store, runs_dir).step()
+    ended = {e.node_id: e.payload for e in store.events_after("r1") if e.kind is EventKind.NODE_END}
+    assert ended["spec"] == {"requirements": 1}
+    assert ended["test_author"] == {"requirements": 1, "tests": 1}
+
+
+async def test_the_g1_gate_carries_the_spec_and_the_tests_for_the_human(store: Store, runs_dir: Path) -> None:
+    _queue(store, runs_dir)
+    await _worker(store, runs_dir).step()
+    [gate] = store.pending_gates("r1")
+    assert gate.payload["project_spec"]["summary_en"] == "Prints hello."
+    assert [test["id"] for test in gate.payload["tests"]] == ["T1"]
