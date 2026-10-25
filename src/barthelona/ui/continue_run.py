@@ -1,4 +1,4 @@
-"""Live Run control: continue a run that stopped on a limit, with a larger limit."""
+"""Live Run control: continue a run stopped on a limit (with a bigger one) or resume any other stopped run."""
 
 from __future__ import annotations
 
@@ -7,19 +7,23 @@ import streamlit as st
 from barthelona.domain import CommandKind, Run, RunBudget, RunCommand, RunStatus, StopReason
 from barthelona.persistence import Store
 
-BUDGET_STOPS = frozenset({StopReason.BUDGET_TIME, StopReason.BUDGET_TOKENS, StopReason.BUDGET_COST})
+FINAL_STOPS = frozenset({StopReason.GREEN, StopReason.UNSUPPORTED_TARGET})  # nothing to resume
 EXTRA_WALL_S = 14400.0  # another 4 hours of work
 
-_WHAT_IT_ADDS = {
-    StopReason.BUDGET_TIME: "adds 4 hours of work time",
-    StopReason.BUDGET_TOKENS: "doubles the token limit",
-    StopReason.BUDGET_COST: "doubles the money cap",
+_CONTINUE_LABELS = {
+    StopReason.BUDGET_TIME: "▶️ Continue (adds 4 hours of work time)",
+    StopReason.BUDGET_TOKENS: "▶️ Continue (doubles the token limit)",
+    StopReason.BUDGET_COST: "▶️ Continue (doubles the money cap)",
+    StopReason.HUMAN_ABORT: "▶️ Resume (you cancelled it; the code step starts again)",
+    StopReason.MAX_ATTEMPTS: "▶️ Resume (try the code step again)",
 }
 
 
 def can_continue(run: Run) -> bool:
-    """True for a run that stopped because a limit ran out; every other stop is final."""
-    return run.status is RunStatus.STOPPED and run.stop_reason in BUDGET_STOPS
+    """True for a stopped run the worker can restart: every stop except a finished or an unsupported run."""
+    return (
+        run.status is RunStatus.STOPPED and run.stop_reason is not None and run.stop_reason not in FINAL_STOPS
+    )
 
 
 def extended_budget(run: Run) -> RunBudget:
@@ -36,15 +40,15 @@ def extended_budget(run: Run) -> RunBudget:
 
 
 def render_continue(run: Run, store: Store) -> None:
-    """The Continue button for a run that stopped on a limit; the worker restarts the code step."""
+    """The Continue / Resume button of a stopped run; the worker restarts the code step."""
     if not can_continue(run):
         return
     if any(waiting.id == run.id for waiting in store.runs_to_continue()):
-        st.info("Continue requested: the worker picks it up within a few seconds.")
+        st.info("Resume requested: the worker picks it up within a few seconds.")
         return
     reason = run.stop_reason
-    adds = _WHAT_IT_ADDS.get(reason, "raises the limit") if reason is not None else "raises the limit"
-    if st.button(f"▶️ Continue ({adds})", type="primary", use_container_width=True, key=f"continue_{run.id}"):
+    label = _CONTINUE_LABELS.get(reason, "▶️ Resume (the code step starts again)") if reason else "▶️ Resume"
+    if st.button(label, type="primary", use_container_width=True, key=f"continue_{run.id}"):
         store.enqueue_command(
             RunCommand(run_id=run.id, kind=CommandKind.EXTEND_BUDGET, budget=extended_budget(run))
         )
