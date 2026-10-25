@@ -9,9 +9,6 @@ from pathlib import Path
 from barthelona.llm.types import Completion
 
 STDERR = "-"
-CONSOLE_REASONING_CHARS = 1500  # the console shows the start of long thoughts and answers; the files hold all
-CONSOLE_ANSWER_CHARS = 500
-CONSOLE_PROMPT_CHARS = 800
 PROMPT_HEADING = "### prompt"
 
 Trace = Callable[[str, Completion], None]
@@ -29,10 +26,6 @@ def _entry(role: str, done: Completion) -> str:
     thought = done.reasoning or "(the model sent no reasoning)"
     asked = f"{PROMPT_HEADING}\n\n{done.prompt}\n\n" if done.prompt else ""
     return f"{_heading(role, done)}\n\n{asked}### reasoning\n\n{thought}\n\n### answer\n\n{done.text}\n\n"
-
-
-def _shortened(text: str, limit: int) -> str:
-    return text if len(text) <= limit else f"{text[:limit]} ... ({len(text) - limit} more characters)"
 
 
 class ReasoningLog:
@@ -60,13 +53,12 @@ class ReasoningLog:
 
 
 class ConsoleTrace:
-    """Prints each answered request to stderr, long thoughts and answers cut short: a live worker window."""
+    """Prints each answered request to stderr in full (prompt, thinking, answer): a live worker window."""
 
     def __call__(self, role: str, done: Completion) -> None:
-        thought = _shortened(done.reasoning or "(the model sent no reasoning)", CONSOLE_REASONING_CHARS)
-        answer = _shortened(done.text, CONSOLE_ANSWER_CHARS)
-        asked = f"prompt: {_shortened(done.prompt, CONSOLE_PROMPT_CHARS)}\n" if done.prompt else ""
-        text = f"\n{_heading(role, done)}\n{asked}thinking: {thought}\nanswer: {answer}\n"
+        thought = done.reasoning or "(the model sent no reasoning)"
+        asked = f"prompt: {done.prompt}\n" if done.prompt else ""
+        text = f"\n{_heading(role, done)}\n{asked}thinking: {thought}\nanswer: {done.text}\n"
         encoding = sys.stderr.encoding or "utf-8"  # a legacy console codepage must not crash a run
         sys.stderr.write(text.encode(encoding, "replace").decode(encoding))
         sys.stderr.flush()
