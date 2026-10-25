@@ -29,7 +29,7 @@ from barthelona.llm.types import Completion, CompletionRequest
 from barthelona.verification.asm_gate import AssembleResult, assemble_best
 from barthelona.verification.behavior_gate import Expectation, check_behavior
 
-# Each repair sees the checker report (assembler errors or the tail of the wrong output); a 12-question quiz needed more than 2.
+# Each repair sees the checker report (assembler errors, the tail of the wrong output); a quiz needed more than 2.
 REPAIRS = 4
 WRITE_ROLE = "worker"
 REPAIR_ROLE = "planner"
