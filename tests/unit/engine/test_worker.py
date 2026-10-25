@@ -558,3 +558,51 @@ def test_a_packaging_failure_is_an_event_and_the_run_stays_green(store: Store, r
     kind, payload = _events(store)[-1]
     assert kind is EventKind.ERROR and "not empty" in str(payload["message"])
     assert store.get_run("r1").stop_reason is StopReason.GREEN
+
+
+async def _stopped_on_time(store: Store, runs_dir: Path, wall_s: float = 0.5) -> Worker:
+    short = _run().model_copy(
+        update={"budget": RunBudget(wall_s=wall_s, tokens=100_000), "auto_approve": True}
+    )
+    store.create_run(short)
+    (runs_dir / "r1").mkdir(parents=True, exist_ok=True)
+    (runs_dir / "r1" / REQUEST_FILE).write_text("Print hello.", encoding="utf-8")
+    worker = _worker(store, runs_dir, gateway=_StallsAtCodegen(REPLIES))
+    await worker.step()
+    assert store.get_run("r1").stop_reason is StopReason.BUDGET_TIME
+    return worker
+
+
+def _extend(store: Store, wall_s: float) -> None:
+    budget = RunBudget(wall_s=wall_s, tokens=100_000)
+    store.enqueue_command(RunCommand(run_id="r1", kind=CommandKind.EXTEND_BUDGET, budget=budget))
+
+
+async def test_a_run_stopped_on_time_continues_with_new_limits_from_the_code_step(
+    store: Store, runs_dir: Path
+) -> None:
+    worker = await _stopped_on_time(store, runs_dir)
+    events_before = len(store.events_after("r1"))
+    _extend(store, 1.2)  # 0.5 s were spent: the code step gets about 0.7 s more, then stops again
+    assert await worker.step() is True
+    run = store.get_run("r1")
+    assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.BUDGET_TIME)
+    assert run.budget.wall_s == 1.2
+    new = store.events_after("r1", after_seq=events_before - 1)
+    assert [e.payload for e in new if e.kind is EventKind.PHASE] == [{"continued": "budget_time"}]
+    ended = [e.node_id for e in new if e.kind is EventKind.NODE_END]
+    assert ended == ["codegen", "finalize"]  # intake, spec and the gate are not repeated
+    assert store.pending_gates("r1") == []
+
+
+async def test_a_run_stopped_for_another_reason_cannot_be_continued(store: Store, runs_dir: Path) -> None:
+    _queue(store, runs_dir)
+    worker = _worker(store, runs_dir, reason="no toolchain")
+    await worker.step()
+    assert store.get_run("r1").stop_reason is StopReason.UNSUPPORTED_TARGET
+    _extend(store, 7200)
+    await worker.step()
+    run = store.get_run("r1")
+    assert run.status is RunStatus.STOPPED and run.budget.wall_s == 3600
+    errors = [e.payload for e in store.events_after("r1") if e.kind is EventKind.ERROR]
+    assert errors == [{"message": "Cannot continue a run stopped by unsupported_target"}]

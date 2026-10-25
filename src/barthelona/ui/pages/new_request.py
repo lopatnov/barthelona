@@ -79,7 +79,9 @@ def _limits_fields() -> tuple[float, int, float, int]:
     """The run limits, collapsed: every run is bounded (invariant 6), but nobody has to fill these in."""
     with st.expander("Limits (optional: the defaults shown here apply if you leave them as they are)"):
         st.caption(
-            "A run stops at the first limit it reaches. Money is metered, but capped only if you set a cap."
+            "No need to fill these in: a run may use up to 4 hours of work and 400,000 tokens. It stops at "
+            "the first limit it reaches, and a run that stopped on a limit can be continued from Live Run. "
+            "Money is metered, but capped only if you set a cap."
         )
         col_time, col_tokens, col_usd = st.columns(3)
         with col_time:
