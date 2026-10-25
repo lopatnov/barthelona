@@ -504,3 +504,57 @@ async def test_the_g1_gate_carries_the_spec_and_the_tests_for_the_human(store: S
     [gate] = store.pending_gates("r1")
     assert gate.payload["project_spec"]["summary_en"] == "Prints hello."
     assert [test["id"] for test in gate.payload["tests"]] == ["T1"]
+
+
+def _green_worker(
+    store: Store, runs_dir: Path, packager: Callable[[str], list[str]] | None, *, auto_package: bool = True
+) -> Worker:
+    store.create_run(_run().model_copy(update={"auto_package": auto_package}))
+    graph = build_graph(
+        replace(services_for(store, runs_dir, lambda _run: FakeGateway([])), preflight=lambda _id: None)
+    )
+    return Worker(store, graph, clock=lambda: NOW, packager=packager)
+
+
+def _events(store: Store) -> list[tuple[EventKind, dict[str, object]]]:
+    return [(event.kind, event.payload) for event in store.events_after("r1")]
+
+
+def test_a_green_run_that_asked_for_it_is_packaged_and_the_event_says_so(
+    store: Store, runs_dir: Path
+) -> None:
+    packaged: list[str] = []
+
+    def packager(run_id: str) -> list[str]:
+        packaged.append(run_id)
+        return ["a", "b"]
+
+    _green_worker(store, runs_dir, packager)._stop("r1", StopReason.GREEN)
+
+    assert packaged == ["r1"]
+    assert _events(store)[-1] == (EventKind.PHASE, {"packaged": "workspaces/demo", "files": 2})
+
+
+@pytest.mark.parametrize("reason", [StopReason.HUMAN_ABORT, StopReason.MAX_ATTEMPTS])
+def test_a_run_that_did_not_stop_green_is_not_packaged(
+    store: Store, runs_dir: Path, reason: StopReason
+) -> None:
+    worker = _green_worker(store, runs_dir, lambda _id: pytest.fail("must not package"))
+    worker._stop("r1", reason)
+
+
+def test_a_run_that_did_not_ask_for_packaging_is_not_packaged(store: Store, runs_dir: Path) -> None:
+    worker = _green_worker(store, runs_dir, lambda _id: pytest.fail("must not package"), auto_package=False)
+    worker._stop("r1", StopReason.GREEN)
+    assert store.get_run("r1").stop_reason is StopReason.GREEN
+
+
+def test_a_packaging_failure_is_an_event_and_the_run_stays_green(store: Store, runs_dir: Path) -> None:
+    def packager(run_id: str) -> list[str]:
+        raise ValueError("target folder is not empty")
+
+    _green_worker(store, runs_dir, packager)._stop("r1", StopReason.GREEN)
+
+    kind, payload = _events(store)[-1]
+    assert kind is EventKind.ERROR and "not empty" in str(payload["message"])
+    assert store.get_run("r1").stop_reason is StopReason.GREEN

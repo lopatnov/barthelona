@@ -10,7 +10,7 @@ only the variables already set in the shell. Secrets come only from environment 
 
 1. Start the worker and leave it running: `python -m barthelona worker --trace-reasoning var/reasoning.md` (the option is explained under "Watching what the models think"; drop it for no log).
 2. Queue a run: `python -m barthelona runs submit @prompt.txt --profile meterless`. It prints the run id.
-3. The worker writes the specification and the tests, then parks the run at gate **G1**. Read them with
+3. The worker writes the specification and the tests, then reaches gate **G1**. By default it approves G1 and G4 itself and logs each automatic answer; submit with `--no-auto-approve` to decide yourself, as below. Read them with
    `runs status <run_id>` (or in the Streamlit UI) and answer with `runs decide <run_id> approve` or
    `reject`. The tests are frozen after G1, so check them against the specification first.
 4. The worker generates the code, assembles it with NASM and runs the tests in the emulator. It parks at
@@ -23,7 +23,7 @@ only the variables already set in the shell. Secrets come only from environment 
 | Command | What it does | Flags |
 | --- | --- | --- |
 | `worker` | Claims queued runs, runs them to the next gate, continues them after a decision | `--db`, `--checkpoints`, `--runs`, `--catalog`, `--facts-sql`, `--memory`, `--poll`, `--once`, `--trace-reasoning` |
-| `runs submit REQUEST` | Queues a create-mode run (`@file` reads the request from a file) | `--profile`, `--preset`, `--wall-s`, `--tokens`, `--project`, `--db`, `--runs` |
+| `runs submit REQUEST` | Queues a create-mode run (`@file` reads the request from a file) | `--profile`, `--preset`, `--wall-s`, `--tokens`, `--project`, `--auto-approve/--no-auto-approve` (default on), `--package/--no-package` (default on: a green run is written into `demos/`), `--db`, `--runs` |
 | `runs status [RUN_ID]` | Lists runs, or shows one run's state, open gates and last events | `--db`, `--runs` |
 | `runs decide RUN_ID DECISION` | Answers the open gate (`approve` or `reject`) | `--db` |
 | `runs package RUN_ID` | Writes the repository files of a green single-module run | `--barthelona-ref` (required), `--out` (default: the run's `demos/` folder), `--force`, `--db`, `--runs` |

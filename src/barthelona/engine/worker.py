@@ -43,10 +43,17 @@ def _utc_now() -> datetime:
 
 
 class Worker:
-    def __init__(self, store: Store, graph: Any, clock: Clock = _utc_now) -> None:
+    def __init__(
+        self,
+        store: Store,
+        graph: Any,
+        clock: Clock = _utc_now,
+        packager: Callable[[str], list[str]] | None = None,
+    ) -> None:
         self._store = store
         self._graph = graph
         self._clock = clock
+        self._packager = packager  # writes a green run's project into its demos/ folder; None: never
 
     # --- one pass --------------------------------------------------------------------------------
 
@@ -203,6 +210,20 @@ class Worker:
     def _stop(self, run_id: str, reason: StopReason) -> None:
         self._emit(run_id, EventKind.STOP, payload={"stop_reason": reason.value})
         self._store.set_run_status(run_id, RunStatus.STOPPED, reason)
+        if reason is StopReason.GREEN:
+            self._package(run_id)
+
+    def _package(self, run_id: str) -> None:
+        """Write the project of a run that stopped green when it asked for that; a failure is an event."""
+        run = self._store.get_run(run_id)
+        if self._packager is None or not run.auto_package:
+            return
+        try:
+            written = self._packager(run_id)
+        except (ValueError, OSError) as exc:  # PackageError is a ValueError
+            self._emit(run_id, EventKind.ERROR, payload={"message": f"Could not package the project: {exc}"})
+            return
+        self._emit(run_id, EventKind.PHASE, payload={"packaged": run.workspace, "files": len(written)})
 
     def _emit(
         self, run_id: str, kind: EventKind, node_id: str | None = None, payload: dict[str, Any] | None = None

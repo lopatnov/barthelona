@@ -79,8 +79,15 @@ def test_decide_without_an_open_gate_is_an_error(tmp_path: Path) -> None:
     assert "0 open gates" in result.output
 
 
-def test_a_run_waits_for_a_human_unless_auto_approve_is_asked_for(tmp_path: Path) -> None:
-    plain = _submit(tmp_path)
-    auto = _submit(tmp_path, "--auto-approve")
+def test_a_run_approves_its_checkpoints_unless_no_auto_approve_is_asked_for(tmp_path: Path) -> None:
+    default = _submit(tmp_path)
+    waiting = _submit(tmp_path, "--no-auto-approve")
     with closing(open_store(tmp_path / "app.sqlite")) as store:
-        assert (store.get_run(plain).auto_approve, store.get_run(auto).auto_approve) == (False, True)
+        assert (store.get_run(default).auto_approve, store.get_run(waiting).auto_approve) == (True, False)
+
+
+def test_a_run_is_packaged_when_green_unless_no_package_is_asked_for(tmp_path: Path) -> None:
+    default = _submit(tmp_path)
+    manual = _submit(tmp_path, "--no-package")
+    with closing(open_store(tmp_path / "app.sqlite")) as store:
+        assert (store.get_run(default).auto_package, store.get_run(manual).auto_package) == (True, False)

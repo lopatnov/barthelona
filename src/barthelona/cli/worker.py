@@ -22,8 +22,16 @@ from barthelona.llm.hmem import HMem
 from barthelona.llm.trace import ConsoleTrace, ReasoningLog, TraceAll
 from barthelona.llm.zetaris import ZetarisError
 from barthelona.persistence import open_store
+from barthelona.scaffold import PackageError, current_commit, package_run
 
 _err = Console(stderr=True, soft_wrap=True, highlight=False)
+
+
+def _commit_or_fail() -> str:
+    """The commit of barthelona the generated CI installs: this checkout's HEAD."""
+    if not (sha := current_commit()):
+        raise PackageError("cannot read this checkout's commit; start the worker inside the git repository")
+    return sha
 
 
 async def _run(
@@ -52,7 +60,11 @@ async def _run(
     checkpoints.parent.mkdir(parents=True, exist_ok=True)
     try:
         async with AsyncSqliteSaver.from_conn_string(str(checkpoints)) as saver:
-            worker = Worker(store, build_graph(services_for(store, runs, gateway_for, facts, hmem), saver))
+            worker = Worker(
+                store,
+                build_graph(services_for(store, runs, gateway_for, facts, hmem), saver),
+                packager=lambda run_id: package_run(store, runs, run_id, _commit_or_fail()),
+            )
             if once:
                 await worker.recover()
                 while await worker.step():

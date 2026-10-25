@@ -90,6 +90,7 @@ def test_a_run_is_created_with_auto_approve_on_unless_the_box_is_unticked(
     with closing(open_store(tmp_path / "var" / "app.sqlite")) as store:
         runs = store.list_runs()
     assert sorted(run.auto_approve for run in runs) == [False, True]
+    assert all(run.auto_package for run in runs)  # ticked by default
 
 
 def test_open_page_does_nothing_when_no_pages_are_registered() -> None:
