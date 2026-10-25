@@ -224,6 +224,19 @@ async def test_progress_says_when_a_request_goes_out_is_repeated_and_fails_over(
     await gateway.complete("worker", _request())
 
     assert said[0] == "asking big, waiting for its reply"
-    assert any("asking again in" in line for line in said)
-    assert any("trying the next model" in line for line in said)
-    assert said[-1] == "asking local_main, waiting for its reply"
+    assert any(line.startswith("FAILED big:") and "retrying in" in line for line in said)
+    assert any(line.startswith("FAILED big gave up") for line in said)
+    assert said[-2] == "asking local_main, waiting for its reply"
+    assert said[-1].startswith("local_main answered in 2s after 2 failed or repeated attempt(s)")
+
+
+async def test_progress_names_a_skipped_model_and_a_chain_that_cannot_answer() -> None:
+    said: list[str] = []
+    gateway = _gateway(None, _Backend([ModelCallError("down")]), progress=said.append)
+
+    with pytest.raises(GatewayError):
+        await gateway.complete("worker", _request())
+
+    assert any(line.startswith("FAILED big skipped:") for line in said)
+    assert any(line.startswith("FAILED local_main gave up") for line in said)
+    assert said[-1] == "FAILED no model of the 'worker' chain could answer"
