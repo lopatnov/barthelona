@@ -195,7 +195,7 @@ exactly that and exit with that code. A rejected program goes back to the model 
 **The smallest useful command** (one line, copy it as it is):
 
 ```powershell
-python -m barthelona chunked run "Write a NASM program for Linux x86-64 that prints hello and a newline, then exits with code 0" --single-shot --assemble --expect-stdout "hello\n" --expect-exit 0 --out var/hello.asm
+python -m barthelona chunked run "Write a NASM program for Linux x86-64 that prints hello and a newline, then exits with code 0" --single-shot --assemble --expect-stdout "hello\n" --expect-exit 0 --out var/hello.asm --trace-reasoning var/hello-reasoning.md
 ```
 
 Expected: a one-row table, `stop_reason=green`, and `assemble: pass (it also ran in the emulator: stdout and exit code as expected)`.
@@ -203,7 +203,7 @@ Expected: a one-row table, `stop_reason=green`, and `assemble: pass (it also ran
 **With memory, repairs and statistics:**
 
 ```powershell
-python -m barthelona chunked run @demos/hello/task.txt --assemble --repair 2 --expect-stdout "Hello, Barthelona!\n" --expect-exit 0 --memory var/hmem.sqlite --stats var/runs.sqlite --out var/hello.asm
+python -m barthelona chunked run @demos/hello/task.txt --assemble --repair 2 --expect-stdout "Hello, Barthelona!\n" --expect-exit 0 --memory var/hmem.sqlite --stats var/runs.sqlite --out var/hello.asm --trace-reasoning var/hello-reasoning.md
 ```
 
 **With Zetaris facts for this one request:**
@@ -238,13 +238,27 @@ state came from. Then a summary line: `stop_reason` (`green` is done), `chunks`,
 | `--trace-reasoning FILE` | Append every model's reasoning and answer to a file (`-` prints to the terminal); off by default, keep the file out of git |
 | `--nasm PATH` | The `nasm` program, if it is not found automatically |
 
+### Logging agent activity: what is recorded and how to switch it on
+
+Three records exist. Only the first is off by default.
+
+| What | How to switch it on | Where it ends up | How to read it |
+| --- | --- | --- | --- |
+| **Reasoning log**: for every answered model request the role, the model, tokens, seconds, what it thought and what it answered | add `--trace-reasoning FILE` to `worker` or `chunked run` (`-` prints to the terminal instead) | the file you name, for example `var/run-reasoning.md` | open it; it holds task text and model answers, so keep it out of git |
+| **Call ledger**: every model call of a run (provider, model, tokens in and out, time) | always on for the worker | table `llm_calls` in `var/app.sqlite` | `sqlite3 var/app.sqlite "SELECT model, COUNT(*), SUM(tokens_in), SUM(tokens_out) FROM llm_calls GROUP BY model"` |
+| **Run statistics** of `chunked run`: runs, and per chunk who answered, tokens, latency, fallbacks | add `--stats var/runs.sqlite` | the SQLite file you name | `python -m barthelona chunked stats --db var/runs.sqlite` |
+
+`runs status <run_id>` also shows a run's state, open gates and last events. `zetaris publish` copies the statistics
+and memory into Zetaris tables so they can be queried with SQL. The examples in this document and in the demo guide
+carry `--trace-reasoning` and `--stats` for that reason; leave them off if you do not want the files.
+
 ### 2.7 The create flow: `worker` and `runs`
 
 A run takes a request through intake, specification, tests, gate **G1**, code generation, assembly and emulation, and gate
 **G4**. Start the worker, queue a request, answer the two gates:
 
 ```powershell
-python -m barthelona worker
+python -m barthelona worker --trace-reasoning var/run-reasoning.md
 python -m barthelona runs submit "Write a program that prints hello and a newline, then exits with code 0." --project hello-world
 python -m barthelona runs status
 python -m barthelona runs decide <run id> approve
