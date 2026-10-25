@@ -21,7 +21,7 @@ from barthelona.persistence import Store, open_store
 from barthelona.ui.event_text import describe
 from barthelona.ui.package_panel import render_package_panel
 from barthelona.ui.reasoning_panel import render_reasoning_panel
-from barthelona.ui.run_info import render_parameters, render_stages, render_status_banner
+from barthelona.ui.run_info import render_parameters, render_run_files, render_stages, render_status_banner
 
 _EVENT_KIND_ICONS = {
     EventKind.PHASE: "📍",
@@ -229,6 +229,7 @@ def page_live_run() -> None:
         render_status_banner(run, store)
         render_stages(run, store)
         render_parameters(run)
+        render_run_files(run)
 
         st.divider()
 
