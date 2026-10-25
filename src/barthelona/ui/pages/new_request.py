@@ -8,7 +8,7 @@ Phase 1a fields:
 - Profile: meterless / local-only / hybrid / cloud
 - Budget controls (wall time, tokens, optional USD cap)
 - Approve checkpoints automatically (on by default)
-- Write the project into demos/ when the run is green (on by default)
+- Write the project into demos/ when the run is green (off by default)
 - Collect training data checkbox (D-036)
 """
 
@@ -163,10 +163,10 @@ def page_new_request() -> None:
 
         auto_package = st.checkbox(
             "Write the project into demos/ when the run is green",
-            value=True,
+            value=False,
             help=(
-                "The worker packages the source, tests, README and CI into the project folder as soon "
-                "as the run is green. Untick to do it yourself with the Package button on Live Run."
+                "Tick to have the worker package the source, tests, README and CI into the project folder "
+                "as soon as the run is green. Unticked, you do it yourself with the Package button on Live Run."
             ),
         )
 
