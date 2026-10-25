@@ -9,11 +9,11 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
-from openai import AsyncOpenAI
+from openai import APITimeoutError, AsyncOpenAI
 
 from barthelona.llm import ChatMessage, CompletionRequest, FailureKind, ModelCallError, OpenAIChatBackend
 from barthelona.llm.catalog import ModelConfig, ModelTarget, ProviderConfig
-from barthelona.llm.openai_chat import _retry_after
+from barthelona.llm.openai_chat import _describe, _retry_after
 
 
 def _target(*, local: bool = True, structured: str = "json_schema") -> ModelTarget:
@@ -312,6 +312,22 @@ async def test_model_extra_body_reaches_the_request() -> None:
     seen: list[dict[str, object]] = []
     await _backend(_ok(seen)).complete(target, _request())
     assert seen[0]["chat_template_kwargs"] == {"enable_thinking": False}  # SDK merges extra_body in
+
+
+def test_the_client_waits_long_between_bytes_but_connects_fast() -> None:
+    target = _target()
+    timeout = OpenAIChatBackend(env={})._default_client(target).timeout
+
+    assert (timeout.read, timeout.write) == (target.provider.timeout_s, 60.0)
+    assert timeout.connect == 5.0  # a host that is off fails in seconds, not after the whole read bound
+
+
+def test_a_timeout_names_the_silent_gap_not_an_unreachable_runtime() -> None:
+    request = httpx.Request("POST", "http://127.0.0.1:8088/v1/chat/completions")
+    text = _describe(APITimeoutError(request=request), "http://127.0.0.1:8088/v1")
+
+    assert "no bytes arrived" in text
+    assert "isn't reachable" not in text and "start Nightshift" not in text
 
 
 def test_provider_headers_are_sent_with_every_request() -> None:

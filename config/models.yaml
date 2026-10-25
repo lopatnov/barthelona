@@ -13,6 +13,8 @@
 # Field conventions:
 #   context     total window in tokens (input + output) unless `max_input` is also given
 #   max_input   input cap when it is lower than `context`
+#   timeout_s   the silent gap the client waits for between streamed bytes, not the length of the call;
+#               `base_url` and `timeout_s` take ${VAR:-default}, so a slow or moved host needs no edit here
 #   price       {input, cached_input, output} per 1M tokens; optional:
 #               cache_write (per 1M written), long_context: {above_input_tokens, input, cached_input, output}
 #               (the WHOLE request is billed at these rates when its input exceeds the threshold),
@@ -93,13 +95,15 @@ providers:
     enabled: true                  # without the token the router skips it
     max_concurrency: 2
     structured_output: none
-    timeout_s: 180                 # contract v4: a model load can take minutes, but not longer than this
+    timeout_s: ${METERLESS_TIMEOUT_S:-300}   # a lane that queues, loads a model or thinks silently needs headroom
     headers: {meterless-app: barthelona, meterless-scope: user}
     notes: >-
       Provider keys (NVIDIA and others) live in Nightshift's Providers tab, never here. Contract: Bearer
       token, GET /v1/models for discovery, POST /v1/chat/completions. A healthy /healthz does not prove a
       model is connected. Model ids are meterless/<class> routes; meterless/auto may pick a non-NVIDIA
-      model, so pin a Nemotron-backed lane in Nightshift when the run must use Nemotron.
+      model, so pin a Nemotron-backed lane in Nightshift when the run must use Nemotron. The timeout bounds the
+      gap between bytes: calls run about two minutes, and 180 s stalled the reasoning lanes on this PC
+      (measured 2026-10-25: 5 stalls at 180.1-188.8 s while the local fallback took 485 s per call).
 
   # --- Cloud (paid, opt-in per run) --------------------------------------------------------------------
   anthropic:
@@ -567,12 +571,12 @@ budget:
 # Resilience (docs/architecture.md §16.6). Error classes are mapped per provider in code, by error
 # type/code/message substring, never by HTTP status alone.
 resilience:
-  retry:                           # transient errors only: rate limit, overloaded, 5xx, timeouts
-    max_attempts: 3
-    base_delay_s: 1.0
-    max_delay_s: 30.0
-    jitter: full
-    honor_retry_after: true        # Retry-After is a minimum, jitter is added on top
+  retry:                           # transient only: rate limit, overloaded, 5xx, reset, timeout
+    max_attempts: 3                # the first call plus two repeats on the same chain entry (a timeout: one)
+    base_delay_s: 1.0              # doubles per repeat, capped by max_delay_s
+    max_delay_s: 30.0              # also the longest Retry-After worth waiting for; a longer one moves the chain on
+    jitter: full                   # full | none
+    honor_retry_after: true        # Retry-After is the minimum wait, jitter is added on top
   circuit_breaker:
     transient: {failures_to_open: 3, window_s: 120, cooldown_s: 60}
     terminal: {cooldown_s: 1800}   # no credit / quota / spend limit / bad key: skip provider, re-probe later

@@ -1,7 +1,8 @@
 """Load ``config/models.yaml`` into a validated catalog and resolve a role chain (architecture §16.2).
 
-Only the parts the gateway acts on are modelled; prices, budgets and resilience settings are ignored until
-the ledger and the breakers land.
+Only the parts the gateway acts on are modelled: the providers, the models, the role chains and the retry
+policy of ``resilience``. Prices, budgets and the circuit breakers are ignored until the ledger and the
+breakers land.
 """
 
 from __future__ import annotations
@@ -31,6 +32,31 @@ class CatalogError(ValueError):
 
 class _Entry(BaseModel):
     model_config = ConfigDict(extra="ignore", frozen=True)
+
+
+class RetryConfig(_Entry):
+    """``resilience.retry``: how a transient failure is repeated on the same chain entry (§16.6)."""
+
+    max_attempts: int = Field(default=3, ge=1, le=10)  # the first call plus the repeats
+    base_delay_s: float = Field(default=1.0, gt=0)
+    max_delay_s: float = Field(default=30.0, gt=0)  # also the longest `Retry-After` worth waiting for
+    jitter: Literal["full", "none"] = "full"
+    honor_retry_after: bool = True  # the header is the minimum wait, the jitter is added on top
+
+    def delays(self) -> tuple[float, ...]:
+        """The wait cap before each repeat: the base, doubling, never above ``max_delay_s``."""
+        caps: list[float] = []
+        cap = min(self.base_delay_s, self.max_delay_s)
+        for _ in range(self.max_attempts - 1):
+            caps.append(cap)
+            cap = min(cap * 2, self.max_delay_s)
+        return tuple(caps)
+
+
+class ResilienceConfig(_Entry):
+    """The ``resilience`` block; the circuit breakers in it are not modelled yet."""
+
+    retry: RetryConfig = Field(default_factory=RetryConfig)
 
 
 class ProviderConfig(_Entry):
@@ -87,6 +113,7 @@ class Catalog(_Entry):
     models: dict[ModelKey, ModelConfig]
     profiles: dict[str, dict[str, list[ChainEntry]]]
     default_profile: str
+    resilience: ResilienceConfig = Field(default_factory=ResilienceConfig)
 
     @model_validator(mode="after")
     def _consistent(self) -> Self:
@@ -144,10 +171,19 @@ def expand_env(value: str, env: Mapping[str, str]) -> str:
     return _ENV_REFERENCE.sub(replace, value)
 
 
-def _expand_base_urls(data: dict[str, Any], env: Mapping[str, str]) -> None:
+# Provider fields that may point at another host or a slower machine, so an env var can override them.
+_ENV_FIELDS = ("base_url", "timeout_s")
+
+
+def _expand_env_values(data: dict[str, Any], env: Mapping[str, str]) -> None:
+    """Resolve ``${VAR}`` in the provider fields that name a host or bound a call."""
     for provider in data.get("providers", {}).values():
-        if isinstance(provider, dict) and isinstance(provider.get("base_url"), str):
-            provider["base_url"] = expand_env(provider["base_url"], env)
+        if not isinstance(provider, dict):
+            continue
+        for field in _ENV_FIELDS:
+            value = provider.get(field)
+            if isinstance(value, str):
+                provider[field] = expand_env(value, env)
 
 
 def _normalize_profiles(data: dict[str, Any]) -> None:
@@ -158,14 +194,17 @@ def _normalize_profiles(data: dict[str, Any]) -> None:
 
 
 def load_catalog(path: Path, env: Mapping[str, str] | None = None) -> Catalog:
-    """Read and validate the catalog. `env` defaults to the process environment (only for ``base_url``)."""
+    """Read and validate the catalog. `env` defaults to the process environment.
+
+    Only `base_url` and `timeout_s` read environment variables.
+    """
     try:
         data = YAML(typ="safe").load(path.read_text(encoding="utf-8"))
     except (OSError, YAMLError) as exc:
         raise CatalogError(f"cannot read {path}: {exc}") from exc
     if not isinstance(data, dict):
         raise CatalogError(f"{path}: expected a mapping at the top level")
-    _expand_base_urls(data, os.environ if env is None else env)
+    _expand_env_values(data, os.environ if env is None else env)
     try:
         _normalize_profiles(data)
         return Catalog.model_validate(data)
