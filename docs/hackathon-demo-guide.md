@@ -19,8 +19,9 @@ local Zetaris, the worker and the Unicorn emulator).
 6. [Layer 3: Meterless and Nemotron](#layer-3-power-meterless-and-nemotron)
 7. [Check that the layers work together](#check-that-the-layers-work-together)
 8. [Demos](#demos)
-9. [Troubleshooting](#troubleshooting)
-10. [Glossary](#glossary)
+9. [Answers for the hackathon form](#answers-for-the-hackathon-form-and-where-to-find-each-thing)
+10. [Troubleshooting](#troubleshooting)
+11. [Glossary](#glossary)
 
 ---
 
@@ -266,7 +267,7 @@ local server on port 1234. On Windows cap WSL memory in `%UserProfile%\.wslconfi
 python -m barthelona zetaris status          # online
 python -m barthelona meterless status        # online
 python -m barthelona verify tests/projects/nasm-triple --level V6 --dialect nasm --contracts tests/projects/nasm-triple/contracts.yaml --tests tests/projects/nasm-triple/tests.yaml --require "V0,V1,V2,V5,V6"
-python -m barthelona worker --once           # in a second terminal: processes what Demo A queues
+python -m barthelona worker --once --trace-reasoning var/reasoning.md           # in a second terminal: processes what Demo A queues
 ```
 
 ---
@@ -306,7 +307,7 @@ failed run; with an explicit `--facts-sql` a failing Zetaris stops the run as `i
 `chunked run` accepts `--facts-sql` too:
 
 ```
-python -m barthelona chunked run "NASM program that prints Hello using sys_write" --profile meterless --facts-sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'" --assemble --repair 2 --expect-stdout "Hello\n" --expect-exit 0 --out var/proof/zeta.asm
+python -m barthelona chunked run "NASM program that prints Hello using sys_write" --profile meterless --facts-sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'" --assemble --repair 2 --expect-stdout "Hello\n" --expect-exit 0 --out var/proof/zeta.asm --trace-reasoning var/reasoning.md
 ```
 
 ### Demo C: memory and long tasks (not proven yet)
@@ -324,6 +325,46 @@ assembles and passes the emulator check. If both runs finish in one chunk, say t
 | A, create flow | Green run, package, `check` pass, per-model table | That the result is ABI-checked, fuzzed or multi-module |
 | B, Zetaris | Facts in the prompt and in the reasoning log, `seed` and `publish` tables | That the tables are verified against the kernel source |
 | C, memory | The mechanism and the published tables | That a second run is cheaper: not shown |
+
+---
+
+## Answers for the hackathon form, and where to find each thing
+
+The form asks what was integrated and how. The answers below are short enough to paste; the "where" lines say which
+file or command shows it, so a reader can check. Status words are the ones of "Where it stands".
+
+**Which Meterless features have you actually integrated?**
+
+| Feature | Answer | Where |
+| --- | --- | --- |
+| Nightshift Runtime | Yes. It is the default model provider: every model call goes to it, by role, through the routes `meterless/auto`, `deep` and `fast`, with the real runtime token; the answering model is recorded per call | `config/models.yaml` (provider `meterless`, models `meterless_auto/deep/fast`, profile `meterless`); `src/barthelona/llm/meterless.py`, `llm/openai_chat.py`; `python -m barthelona meterless status`; `llm_calls` in `var/app.sqlite`, `answered by` in `chunked stats` |
+| H-MEM (persistent memory) | Yes, as a Python port of the spec: facts are recalled in every chunk, seeded from Zetaris, and written after a green run, in a SQLite file with an append-only ledger | `src/barthelona/llm/hmem.py`, `llm/zetaris_memory.py`; `--memory` of `chunked run` and `worker`; `python -m barthelona zetaris seed` |
+| Markovian Thinking (context optimization) | Yes, as a Python port: long generations run as bounded chunks with a carried state and the `[STATE_CHECKPOINT]` / `[TASK_COMPLETE]` markers; the summary prints the input tokens saved against a full history (70 to 75% in the multi-chunk runs, by the project's own cost model) | `src/barthelona/llm/markovian.py`; `python -m barthelona chunked run`; the worker's code step in `src/barthelona/engine/codegen.py` |
+| World Model (state and provenance) | Built, not integrated: a TypeScript implementation is in the repository, but the pipeline does not use it yet (it has no parallel agents), and the official conformance runner was not run against it. Tick "still working on integration" for this one | `engines/world-model/` |
+| Not used | Nothing else from Meterless (for example Scout Intent or the hotspot mode) is used | |
+
+**What types of AI intelligence do you plan to use Meterless Nightshift to power?** Language and reasoning only
+(intake, specification, test writing, code generation, repair and an advisory review). No vision, image, audio, video
+or 3D call exists in the project. Where: the roles and their routes in `config/models.yaml`, the steps in
+`src/barthelona/engine/` (`spec.py`, `tests_author.py`, `codegen.py`).
+
+**Is agent activity logged?** Yes, at three levels: an event log of every step of a run (always on), a ledger of every
+model call with the model that answered, tokens and seconds (always on), and an optional reasoning log with what each
+model thought and answered (`--trace-reasoning FILE`, off by default because it holds the request text). Where:
+`runs status <run id>` and the Live Run page; tables `events` and `llm_calls` in `var/app.sqlite`; `src/barthelona/llm/trace.py`;
+[current-status.md section 2.9](current-status.md#29-what-is-logged-agent-activity).
+
+**What is going well with the Zetaris part?** A local Zetaris holds two knowledge tables (37 Linux syscalls and 11 ABI
+facts) that are read over the REST API into the specification and test prompts and into the memory, and run history is
+published back as tables that can be queried with SQL; all of it was run end to end. Where: `knowledge/zetaris/`
+(the CSV files and how they are registered), `src/barthelona/llm/zetaris.py` (client), `llm/zetaris_memory.py` (`seed`),
+`llm/zetaris_publish.py` (`publish`), `src/barthelona/engine/host.py` (the default facts query),
+[zetaris-guide.md](zetaris-guide.md).
+
+**What is not going well with the Zetaris part?** Getting our own data in is manual: files are copied into the
+containers' shared volume and registered with `CREATE LIGHTNING FILESTORE TABLE`, we found no documented way to insert
+rows over REST, and only two small tables exist (no assembler manuals yet). Where: section "Registering Assembler Facts"
+of [zetaris-guide.md](zetaris-guide.md), `knowledge/zetaris/README.md`.
 
 ---
 
@@ -469,6 +510,7 @@ is meant to be readable without knowing assemblers, SQL or agent frameworks.
 | **`dev.ps1`, `-LoadEnv`** | A wrapper that runs one command with the conda environment; `-LoadEnv` also exports the keys from `.env` for that one command |
 | **Catalog (`config/models.yaml`)** | Providers, models, roles, chains and profiles. A copy with `lmstudio` disabled is how a run is kept from using a local model (`--catalog`) |
 | **`var/`** | Runtime data, not in git: `app.sqlite` (runs, events, gates), `runs/<run id>/` (spec, tests, code), `hmem.sqlite`, `runs.sqlite` |
+| **Event log, call ledger, reasoning log** | The three records of agent activity: every step of a run with its time (`runs status`, Live Run page); every model call with model, tokens and seconds (`llm_calls`, `--stats`); and, with `--trace-reasoning FILE`, what each model thought and answered. See [current-status.md](current-status.md#29-what-is-logged-agent-activity) |
 | **`assemble: pass`** | The line `chunked run` prints when NASM assembled the program and, with `--expect-stdout`, the emulator saw the expected output |
 
 ---

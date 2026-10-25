@@ -195,7 +195,7 @@ exactly that and exit with that code. A rejected program goes back to the model 
 **The smallest useful command** (one line, copy it as it is):
 
 ```powershell
-python -m barthelona chunked run "Write a NASM program for Linux x86-64 that prints hello and a newline, then exits with code 0" --single-shot --assemble --expect-stdout "hello\n" --expect-exit 0 --out var/hello.asm
+python -m barthelona chunked run "Write a NASM program for Linux x86-64 that prints hello and a newline, then exits with code 0" --single-shot --assemble --expect-stdout "hello\n" --expect-exit 0 --out var/hello.asm --trace-reasoning var/reasoning.md
 ```
 
 Expected: a one-row table, `stop_reason=green`, and `assemble: pass (it also ran in the emulator: stdout and exit code as expected)`.
@@ -203,13 +203,13 @@ Expected: a one-row table, `stop_reason=green`, and `assemble: pass (it also ran
 **With memory, repairs and statistics:**
 
 ```powershell
-python -m barthelona chunked run @demos/hello/task.txt --assemble --repair 2 --expect-stdout "Hello, Barthelona!\n" --expect-exit 0 --memory var/hmem.sqlite --stats var/runs.sqlite --out var/hello.asm
+python -m barthelona chunked run @demos/hello/task.txt --assemble --repair 2 --expect-stdout "Hello, Barthelona!\n" --expect-exit 0 --memory var/hmem.sqlite --stats var/runs.sqlite --out var/hello.asm --trace-reasoning var/reasoning.md
 ```
 
 **With Zetaris facts for this one request:**
 
 ```powershell
-python -m barthelona chunked run "Write a NASM program that prints Hello using the write syscall" --assemble --expect-stdout "Hello\n" --expect-exit 0 --facts-sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'" --out var/zeta-hello.asm
+python -m barthelona chunked run "Write a NASM program that prints Hello using the write syscall" --assemble --expect-stdout "Hello\n" --expect-exit 0 --facts-sql "SELECT name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls WHERE name = 'write'" --out var/zeta-hello.asm --trace-reasoning var/reasoning.md
 ```
 
 Then `python -m barthelona chunked stats --db var/runs.sqlite` prints the recent runs and the totals per model.
@@ -244,7 +244,7 @@ A run takes a request through intake, specification, tests, gate **G1**, code ge
 **G4**. Start the worker, queue a request, answer the two gates:
 
 ```powershell
-python -m barthelona worker
+python -m barthelona worker --trace-reasoning var/reasoning.md
 python -m barthelona runs submit "Write a program that prints hello and a newline, then exits with code 0." --project hello-world
 python -m barthelona runs status
 python -m barthelona runs decide <run id> approve
@@ -279,6 +279,28 @@ you choose:
 
 This is a walking skeleton. Still missing: the sprint board, the review page, the models and provider-health page, a
 list of past runs, and packaging from the UI (use `runs package`).
+
+### 2.9 What is logged: agent activity
+
+Three records exist, from the plain to the detailed. Only the last needs a switch.
+
+| Record | What it shows | Where | How to see it |
+| --- | --- | --- | --- |
+| **Event log** (always on) | Each step of a run (`preflight`, `intake`, `spec`, `test_author`, gates requested and answered, `codegen`, the stop reason) with the time | table `events` in `var/app.sqlite` | `python -m barthelona runs status <run id>`; the **Live Run** page of the UI |
+| **Call ledger** (always on) | One row per model call: the route asked for, the model that answered, tokens in and out, seconds, repairs, stop. No prompt or answer text | table `llm_calls` in `var/app.sqlite`; for `chunked run` the `--stats` file | `chunked stats --db <file>`; the UI; any SQLite viewer |
+| **Reasoning log** (opt-in) | What each model thought and answered, one entry per request: the role, the route, tokens, seconds, then its reasoning and its answer | the file you name | add `--trace-reasoning FILE` to `worker` or `chunked run` |
+
+```powershell
+python -m barthelona worker --trace-reasoning var/reasoning.md
+```
+
+Every example on this page and in the guides that starts a worker or a `chunked run` carries the option. An entry looks
+like `## planner via meterless_deep (8500 in, 2087 out, 21.0s, stop=stop)`, followed by `### reasoning` and `### answer`;
+a model that sends no reasoning is shown as "(the model sent no reasoning)". `--trace-reasoning -` prints to the terminal
+instead. The file contains the request text and the models' answers, so it is not for git or for sharing (`var/` is not
+in git). `.\scripts\run.ps1` does not pass the option yet: start the worker yourself with it
+(`.\scripts\run.ps1 -UiOnly` in one terminal, the command above in another). Training data (section 4) is a separate,
+not yet connected record.
 
 ---
 

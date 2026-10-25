@@ -8,7 +8,7 @@ only the variables already set in the shell. Secrets come only from environment 
 
 ## The steps
 
-1. Start the worker and leave it running: `python -m barthelona worker`.
+1. Start the worker and leave it running: `python -m barthelona worker --trace-reasoning var/reasoning.md` (the option is explained under "Watching what the models think"; drop it for no log).
 2. Queue a run: `python -m barthelona runs submit @prompt.txt --profile meterless`. It prints the run id.
 3. The worker writes the specification and the tests, then parks the run at gate **G1**. Read them with
    `runs status <run_id>` (or in the Streamlit UI) and answer with `runs decide <run_id> approve` or

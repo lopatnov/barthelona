@@ -57,7 +57,7 @@ Windows 11 with PowerShell is the tested host (Linux is supported by design, D-0
 terminal, as one command (`--assemble` and `--repair 2` are options of the same line):
 
 ```powershell
-python -m barthelona chunked run @demos/hello/task.txt --profile meterless --assemble --repair 2 --expect-stdout "Hello, Barthelona!\n" --expect-exit 0 --memory var/hmem.sqlite --stats var/runs.sqlite --out demos/hello/hello.asm
+python -m barthelona chunked run @demos/hello/task.txt --profile meterless --assemble --repair 2 --expect-stdout "Hello, Barthelona!\n" --expect-exit 0 --memory var/hmem.sqlite --stats var/runs.sqlite --out demos/hello/hello.asm --trace-reasoning var/reasoning.md
 ```
 
 - `--assemble` runs NASM on the code (`nasm -f elf64`, never linked or run on the host); the run is green only if it
@@ -93,7 +93,7 @@ in chunks, NASM decides whether it is valid. You write no assembly.
    the repository root:
 
    ```powershell
-   python -m barthelona chunked run @demos/myprog/task.txt --profile meterless --assemble --repair 2 --expect-stdout "<the exact output>\n" --expect-exit 0 --memory var/hmem.sqlite --stats var/runs.sqlite --out demos/myprog/myprog.asm
+   python -m barthelona chunked run @demos/myprog/task.txt --profile meterless --assemble --repair 2 --expect-stdout "<the exact output>\n" --expect-exit 0 --memory var/hmem.sqlite --stats var/runs.sqlite --out demos/myprog/myprog.asm --trace-reasoning var/reasoning.md
    ```
 
    - `@file` reads the task from the file; plain text in quotes works too.
