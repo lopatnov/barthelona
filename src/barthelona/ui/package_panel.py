@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import streamlit as st
@@ -10,25 +9,9 @@ import streamlit as st
 from barthelona.domain import Run, StopReason
 from barthelona.domain.layout import RUNS_DIR
 from barthelona.persistence import Store
-from barthelona.scaffold import PackageError, package_run, target_folder
+from barthelona.scaffold import PackageError, current_commit, package_run, target_folder
 
-_SHA_LENGTH = 40
-
-
-def current_commit() -> str:
-    """The checked-out commit of this repository, or an empty string when it cannot be read."""
-    try:
-        done = subprocess.run(
-            ["git", "rev-parse", "HEAD"],  # noqa: S607 - git from PATH, fixed argv, no shell
-            capture_output=True,
-            text=True,
-            timeout=10,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return ""
-    sha = done.stdout.strip()
-    return sha if done.returncode == 0 and len(sha) == _SHA_LENGTH else ""
+_SHA_LENGTH = 40  # a full git commit sha
 
 
 def existing_files(folder: Path) -> list[str]:

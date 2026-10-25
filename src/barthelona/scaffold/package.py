@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 from barthelona.domain import DEMOS_DIR, ProjectSpec, Run, StopReason, TestCase
@@ -10,6 +11,8 @@ from barthelona.domain.layout import REQUEST_FILE, SOURCE_FILE, SPEC_FILE, TESTS
 from barthelona.persistence import Store
 from barthelona.scaffold.ci import UnsupportedCiTarget
 from barthelona.scaffold.project import render_project
+
+_SHA_LENGTH = 40
 
 
 class PackageError(ValueError):
@@ -61,3 +64,19 @@ def package_run(
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text, encoding="utf-8", newline="\n")
     return list(files)
+
+
+def current_commit() -> str:
+    """The checked-out commit of this repository, or an empty string when it cannot be read."""
+    try:
+        done = subprocess.run(
+            ["git", "rev-parse", "HEAD"],  # noqa: S607 - git from PATH, fixed argv, no shell
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    sha = done.stdout.strip()
+    return sha if done.returncode == 0 and len(sha) == _SHA_LENGTH else ""

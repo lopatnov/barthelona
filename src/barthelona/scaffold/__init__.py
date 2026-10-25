@@ -9,7 +9,7 @@ from barthelona.scaffold.ci import (
     render_ci,
     render_golden_ci,
 )
-from barthelona.scaffold.package import PackageError, package_run, target_folder
+from barthelona.scaffold.package import PackageError, current_commit, package_run, target_folder
 from barthelona.scaffold.project import render_project
 
 __all__ = [
@@ -19,6 +19,7 @@ __all__ = [
     "UnsupportedCiTarget",
     "build_commands",
     "ci_family",
+    "current_commit",
     "package_run",
     "render_ci",
     "render_golden_ci",

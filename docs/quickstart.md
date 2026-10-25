@@ -286,7 +286,7 @@ python -m barthelona runs package <run id> --barthelona-ref <full commit sha>
 
 Run the worker in its own terminal. `runs submit` prints the run id; `--project NAME` records `demos/NAME` as the folder
 for the packaged repository (a lowercase name that does not exist yet). `runs status` shows the open gate; read
-`var/runs/<run id>/spec.json` and `tests.json` before approving G1, because the tests are frozen after it (the gate itself also carries the spec and the tests). `--auto-approve` lets the worker answer G1 and G4 itself and logs every automatic answer; NASM and the emulator still decide whether the code is accepted. A queued Cancel stops a run even in the middle of a model call. After G4 the run
+`var/runs/<run id>/spec.json` and `tests.json` before approving G1, because the tests are frozen after it (the gate itself also carries the spec and the tests). `--auto-approve` lets the worker answer G1 and G4 itself and logs every automatic answer; NASM and the emulator still decide whether the code is accepted. A queued Cancel stops a run even in the middle of a model call. When a run stops green the worker also writes the project into its `demos/` folder (source, golden tests, README, CI), using this checkout's commit for the generated CI; `--no-package`, or the unticked box in the UI, leaves that to the Package button or `runs package`. After G4 the run
 ends `green`, and `runs package` writes source, tests, README, CI and a release workflow. All options, the defaults
 (limits 3600 s and 400000 tokens) and the environment variables are in [create-flow.md](create-flow.md).
 One-sentence programs went green this way on 2026-10-24; larger ones (an interactive quiz) did not.

@@ -8,6 +8,7 @@ Phase 1a fields:
 - Profile: meterless / local-only / hybrid / cloud
 - Budget controls (wall time, tokens, optional USD cap)
 - Approve checkpoints automatically (on by default)
+- Write the project into demos/ when the run is green (on by default)
 - Collect training data checkbox (D-036)
 """
 
@@ -175,6 +176,15 @@ def page_new_request() -> None:
             ),
         )
 
+        auto_package = st.checkbox(
+            "Write the project into demos/ when the run is green",
+            value=True,
+            help=(
+                "The worker packages the source, tests, README and CI into the project folder as soon "
+                "as the run is green. Untick to do it yourself with the Package button on Live Run."
+            ),
+        )
+
         submitted = st.form_submit_button("🚀 Create Run", type="primary", use_container_width=True)
 
     if submitted:
@@ -204,6 +214,7 @@ def page_new_request() -> None:
             composition_level=CompositionLevel.L0,
             collect_training_data=collect_training,
             auto_approve=auto_approve,
+            auto_package=auto_package,
         )
 
         try:

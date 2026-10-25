@@ -63,6 +63,8 @@ def describe(event: RunEvent) -> str:
         case EventKind.ERROR:
             detail = payload.get("message") or payload.get("error") or payload.get("ignored_command") or ""
             return f"Problem: {detail}" if detail else "Problem (see the run's event details)"
+        case EventKind.PHASE if payload.get("packaged"):
+            return f"Wrote the project ({payload.get('files')} files) into {payload['packaged']}"
         case EventKind.PHASE if payload.get("recovered"):
             return "The worker restarted and picked this run up again"
     keys = ", ".join(payload) or "no details"

@@ -55,6 +55,13 @@ def submit(
     auto_approve: Annotated[
         bool, typer.Option("--auto-approve", help="The worker approves the checkpoints G1 and G4 itself.")
     ] = False,
+    package: Annotated[
+        bool,
+        typer.Option(
+            "--package/--no-package",
+            help="The worker writes the project into demos/ when the run is green (default).",
+        ),
+    ] = True,
     db: Annotated[Path, _DB] = _DEFAULT_DB,
     runs: Annotated[Path, _RUNS] = RUNS_DIR,
 ) -> None:
@@ -78,6 +85,7 @@ def submit(
         policy_version="v1",
         budget=RunBudget(wall_s=wall_s, tokens=tokens, cloud_allowed=profile is not Profile.LOCAL_ONLY),
         auto_approve=auto_approve,
+        auto_package=package,
     )
     folder = run_dir(runs, run_id)
     folder.mkdir(parents=True, exist_ok=True)
