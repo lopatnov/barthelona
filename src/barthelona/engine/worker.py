@@ -36,11 +36,28 @@ Clock = Callable[[], datetime]
 
 CANCEL_POLL_S = 1.0  # how often a run in progress looks for a Cancel the UI has queued
 AUTO_APPROVE = "approve"
-BUDGET_STOPS = frozenset({StopReason.BUDGET_TIME, StopReason.BUDGET_TOKENS, StopReason.BUDGET_COST})
+FINAL_STOPS = frozenset(
+    {StopReason.GREEN, StopReason.UNSUPPORTED_TARGET}
+)  # nothing to resume: done or impossible
 
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def _resume_point(state: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    """The node whose output the run keeps, and the decisions to forget, so the next node is the one to retry.
+
+    Resuming is the owner's explicit choice to go on, so a G1 that was rejected or never answered counts as
+    approved now (a gate id is asked only once); the PHASE event says where the run restarted.
+    """
+    if "tests" in state:
+        return "g1_gate", {"g1": "approve", "g4": ""}  # the code step again
+    if "spec" in state:
+        return "spec", {}
+    if "intake" in state:
+        return "intake", {}
+    return "preflight", {}
 
 
 class Worker:
@@ -96,24 +113,29 @@ class Worker:
         return bool(commands)
 
     async def _continue(self, run: Run) -> bool:
-        """Give a run that stopped on a limit its new limits and restart the step it stopped in.
+        """Give a stopped run its limits again and restart it from the last step that worked.
 
-        The run keeps its checkpoint: the stop is cleared as if the human gate before the code step had just
-        been passed, so only that step and the ones after it run again. Other stops are final.
+        The run keeps its checkpoint. The stop is cleared as if the last good step had just finished, so only
+        the step that stopped it and the ones after it run again. A green run and an unsupported target are
+        final.
         """
         extensions = [c for c in self._store.claim_commands(run.id) if c.kind is CommandKind.EXTEND_BUDGET]
         if not extensions or extensions[-1].budget is None:
             return False
-        if run.stop_reason not in BUDGET_STOPS:
+        if run.stop_reason is None or run.stop_reason in FINAL_STOPS:
             reason = run.stop_reason.value if run.stop_reason else "none"
             self._emit(
                 run.id, EventKind.ERROR, payload={"message": f"Cannot continue a run stopped by {reason}"}
             )
             return True
         config = {"configurable": {"thread_id": run.id}}
-        await self._graph.aupdate_state(config, {"stop": ""}, as_node="g1_gate")
+        values = (await self._graph.aget_state(config)).values
+        node, cleared = _resume_point(values)
+        if node == "g1_gate" and values.get("g1") != "approve":
+            self._emit(run.id, EventKind.PHASE, payload={"g1": "approved by resume"})
+        await self._graph.aupdate_state(config, {"stop": ""} | cleared, as_node=node)
         self._store.reopen_run(run.id, extensions[-1].budget)
-        self._emit(run.id, EventKind.PHASE, payload={"continued": run.stop_reason.value})
+        self._emit(run.id, EventKind.PHASE, payload={"continued": run.stop_reason.value, "from": node})
         await self._drive(run.id, None)
         return True
 
