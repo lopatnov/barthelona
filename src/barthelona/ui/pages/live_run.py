@@ -152,8 +152,8 @@ def _render_run_header(run: Any) -> None:
         st.metric("Stop Reason", run.stop_reason.value if run.stop_reason else "—")
 
 
-def _render_event_log(run: Any, store: Store) -> None:
-    """Render the event log with polling controls."""
+def _render_event_log(run: Any, store: Store) -> bool:
+    """Render the event log with polling controls; True when the page should refresh itself."""
     st.subheader("📜 What happened")
 
     # Polling controls
@@ -196,10 +196,7 @@ def _render_event_log(run: Any, store: Store) -> None:
     else:
         st.caption("No events yet...")
 
-    # Auto-refresh
-    if auto_poll:
-        time.sleep(1)
-        st.rerun()
+    return auto_poll
 
 
 def page_live_run() -> None:
@@ -240,21 +237,24 @@ def page_live_run() -> None:
 
         st.divider()
 
-        # What the models think and answer, as it arrives
-        render_reasoning_panel(run.id)
-
-        st.divider()
-
         # Package a green run
         render_package_panel(run, store)
 
-        # Topology
-        _render_topology(run.id, store)
-
         st.divider()
 
-        # Event log
-        _render_event_log(run, store)
+        # What happened, then the details: what the models think and answer, and the sprint graph
+        auto_poll = _render_event_log(run, store)
+
+        st.divider()
+        render_reasoning_panel(run.id)
+
+        st.divider()
+        _render_topology(run.id, store)
+
+        # Refresh last: st.rerun stops the script, so everything above must already be drawn
+        if auto_poll:
+            time.sleep(1)
+            st.rerun()
 
     except Exception as e:
         st.error(f"Error loading live run: {e}")
