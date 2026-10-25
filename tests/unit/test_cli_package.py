@@ -32,8 +32,7 @@ from barthelona.domain import (
     TestKind,
     TestOrigin,
 )
-from barthelona.engine.graph import SOURCE_FILE
-from barthelona.engine.host import SPEC_FILE, TESTS_FILE
+from barthelona.domain.layout import SOURCE_FILE, SPEC_FILE, TESTS_FILE
 from barthelona.persistence import open_store
 
 REF = "d76afc5ed3f5611bff1f7594035a1fbc4ac65686"

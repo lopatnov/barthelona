@@ -27,6 +27,7 @@ from langgraph.types import interrupt
 
 from barthelona.domain import GateKind, LLMCallRecord, ProjectSpec, Run, StopReason, TestCase
 from barthelona.domain._base import DomainModel
+from barthelona.domain.layout import SOURCE_FILE
 from barthelona.engine.codegen import generate_source
 from barthelona.engine.spec import Intake, SpecError, draft_spec, run_intake
 from barthelona.engine.tests_author import author_tests, validate_spec
@@ -38,7 +39,6 @@ APPROVE = "approve"
 REJECT = "reject"
 G1_OPTIONS = [APPROVE, REJECT]
 G4_OPTIONS = [APPROVE, REJECT]
-SOURCE_FILE = "main.asm"
 
 # Why the target cannot run on this host, or None when it can (the toolchain resolver plugs in here).
 Preflight = Callable[[str], str | None]

@@ -12,6 +12,7 @@ from rich.console import Console
 
 from barthelona.cli._activity import ACTIVITY_HELP, DEFAULT_ACTIVITY_LOG, activity_log
 from barthelona.domain import Run
+from barthelona.domain.layout import RUNS_DIR
 from barthelona.engine.graph import build_graph
 from barthelona.engine.host import services_for, zetaris_facts
 from barthelona.engine.worker import Worker
@@ -65,7 +66,7 @@ def worker_command(
     checkpoints: Annotated[Path, typer.Option(help="The LangGraph checkpoint database.")] = Path(
         "var/checkpoints.sqlite"
     ),
-    runs: Annotated[Path, typer.Option(help="The per-run files folder.")] = Path("var/runs"),
+    runs: Annotated[Path, typer.Option(help="The per-run files folder.")] = RUNS_DIR,
     catalog_path: Annotated[Path, typer.Option("--catalog", help="Model catalog.")] = Path(
         "config/models.yaml"
     ),

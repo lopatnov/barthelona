@@ -28,9 +28,8 @@ from barthelona.domain import (
     RunMode,
     project_workspace,
 )
+from barthelona.domain.layout import REQUEST_FILE, RUNS_DIR, SOURCE_FILE, run_dir
 from barthelona.domain.presets import builtin_presets
-from barthelona.engine.graph import SOURCE_FILE
-from barthelona.engine.host import REQUEST_FILE, run_dir
 from barthelona.persistence import open_store
 
 runs_app = typer.Typer(help="Queue runs and answer their gates (the UI does the same).", no_args_is_help=True)
@@ -54,7 +53,7 @@ def submit(
         str | None, typer.Option(help="Name of the demos/ subfolder the project is for (a lowercase slug).")
     ] = None,
     db: Annotated[Path, _DB] = _DEFAULT_DB,
-    runs: Annotated[Path, _RUNS] = Path("var/runs"),
+    runs: Annotated[Path, _RUNS] = RUNS_DIR,
 ) -> None:
     """Queue a create-mode run; the worker picks it up and parks it at gate G1."""
     target = next((p for p in builtin_presets() if p.preset == preset), None)
@@ -88,7 +87,7 @@ def submit(
 def status(
     run_id: Annotated[str | None, typer.Argument(help="A run id; without it, every run is listed.")] = None,
     db: Annotated[Path, _DB] = _DEFAULT_DB,
-    runs: Annotated[Path, _RUNS] = Path("var/runs"),
+    runs: Annotated[Path, _RUNS] = RUNS_DIR,
 ) -> None:
     """Show a run's state, its open gates and its last events, or list all runs."""
     with closing(open_store(db)) as store:

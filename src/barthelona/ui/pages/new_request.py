@@ -28,8 +28,8 @@ from barthelona.domain import (
     RunMode,
     project_workspace,
 )
+from barthelona.domain.layout import REQUEST_FILE, RUNS_DIR, run_dir
 from barthelona.domain.presets import builtin_presets
-from barthelona.engine.host import REQUEST_FILE, run_dir
 from barthelona.persistence import open_store
 
 NEW_FOLDER = "+ New folder..."
@@ -194,9 +194,8 @@ def page_new_request() -> None:
             store = open_store(Path("var/app.sqlite"))
             store.create_run(run)
 
-            # Persist the prompt where the worker expects it (invariant 8 + host.load_request)
-            runs_dir = Path("var/runs")
-            req_path = run_dir(runs_dir, run.id) / REQUEST_FILE
+            # The prompt goes where the worker reads it: same folder and file name as `runs submit` uses.
+            req_path = run_dir(RUNS_DIR, run.id) / REQUEST_FILE
             req_path.parent.mkdir(parents=True, exist_ok=True)
             req_path.write_text(prompt.strip(), encoding="utf-8", newline="\n")
 

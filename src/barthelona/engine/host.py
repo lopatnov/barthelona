@@ -1,7 +1,8 @@
 """The worker's host-side services: where requests and specs live on disk, and the store behind the nodes.
 
 A run's files sit in `runs/<run_id>/` (docs/architecture.md §18): the UI writes `request.txt` when it queues
-the run, the engine writes `spec.json` and `tests.json` for gate G1.
+the run, the engine writes `spec.json` and `tests.json` for gate G1. The names and the folder come from
+`barthelona.domain.layout`, which the UI also reads, so nothing here is the UI's only copy (invariant 8).
 """
 
 from __future__ import annotations
@@ -20,22 +21,14 @@ from barthelona.domain import (
     RunEvent,
     TestCase,
 )
-from barthelona.engine.graph import SOURCE_FILE, Services
+from barthelona.domain.layout import REQUEST_FILE, SOURCE_FILE, SPEC_FILE, TESTS_FILE, run_dir
+from barthelona.engine.graph import Services
 from barthelona.engine.preflight import preflight_for
 from barthelona.llm.gateway import ModelGateway
 from barthelona.llm.hmem import HMem
 from barthelona.llm.zetaris import ZetarisConfig, ZetarisError, facts_block, run_sql
 from barthelona.persistence import Store
 from barthelona.verification.asm_gate import find_nasm
-
-REQUEST_FILE = "request.txt"
-SPEC_FILE = "spec.json"
-TESTS_FILE = "tests.json"
-
-
-def run_dir(runs_dir: Path, run_id: str) -> Path:
-    return runs_dir / run_id
-
 
 DEFAULT_FACTS_SQL = (
     "SELECT number, name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls"
