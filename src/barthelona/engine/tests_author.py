@@ -28,10 +28,11 @@ TEST_ROLE = "worker"  # the non-thinking lane: reasoning ate the output budget o
 
 _PROMPT = """You write acceptance tests for an assembly-language program from its specification.
 Answer with ONE JSON object and nothing else:
-{"tests": [{"id": "T1", "requirement_ids": ["R1"], "stdin": "", "stdout": "<exact expected stdout>",
+{"tests": [{"id": "T1", "requirement_ids": ["R1"], "stdin": "", "stdout": "1\\n2\\n3\\n",
             "exit_code": 0},
-           {"id": "T2", "requirement_ids": ["R2"], "stdin": "y\\n", "stdout_contains": ["<text>"],
+           {"id": "T2", "requirement_ids": ["R2"], "stdin": "y\\n", "stdout_contains": ["Total: 6\\n"],
             "exit_code": 0}]}
+That example only shows the shape; the values come from the specification.
 Rules: every requirement id is covered by at least one test; a requirement the output cannot show (such as
 which syscalls are used) is listed in "requirement_ids" of the test that exercises the program most fully, and
 only ids that appear in the requirements are used. Give "stdout" (the exact text, use \\n for
