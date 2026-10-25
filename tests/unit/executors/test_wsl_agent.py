@@ -295,7 +295,13 @@ def test_mount_must_be_under_runs() -> None:
     assert agent._validate_request(argv, None, f"{agent._CACHE_ROOT}/other") is not None
 
 
+import sys
+
 def test_mount_symlink_escaping_the_cache_root_is_rejected(tmp_path: Path) -> None:
+    # Windows requires admin privileges for symlinks; skip if not available
+    if sys.platform == "win32":
+        import pytest
+        pytest.skip("symlink creation requires admin on Windows")
     runs = Path(agent._CACHE_ROOT) / "runs"
     runs.mkdir(parents=True, exist_ok=True)
     link = runs / "symlink-escape-test"

@@ -178,12 +178,19 @@ def _tar(files: dict[str, bytes]) -> bytes:
     return buf.getvalue()
 
 
+import os
+
 async def test_local_agent_stages_and_collects_in_isolated_session_dirs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The real stdlib agent over LocalTransport: only `tar` is needed, not Docker."""
-    monkeypatch.setenv("HOME", str(tmp_path))
-    exc = AgentExecutor(LocalTransport(env={"HOME": str(tmp_path), "PATH": "/usr/bin:/bin"}))
+    # On Windows, Python uses USERPROFILE for expanduser(); set both to be safe.
+    home_env = {"HOME": str(tmp_path), "USERPROFILE": str(tmp_path)}
+    for k, v in home_env.items():
+        monkeypatch.setenv(k, v)
+    # Use a PATH that includes tar on the current platform
+    path = os.environ.get("PATH", "")
+    exc = AgentExecutor(LocalTransport(env={**home_env, "PATH": path}))
     try:
         one = await exc.open_session("run", 0)
         two = await exc.open_session("run", 1)
@@ -195,7 +202,8 @@ async def test_local_agent_stages_and_collects_in_isolated_session_dirs(
     assert "./a.asm" in names_one
     assert "./b.asm" not in names_one
     assert "./b.asm" in names_two
-    assert one.work_dir.startswith(str(tmp_path))
+    # Agent returns POSIX paths; normalize both sides for comparison
+    assert one.work_dir.replace("\\", "/").startswith(str(tmp_path).replace("\\", "/"))
 
 
 async def test_sandbox_session_runs_in_bart_run_with_a_read_only_mount() -> None:

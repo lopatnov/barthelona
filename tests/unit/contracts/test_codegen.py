@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -179,6 +180,10 @@ def test_absent_gen_dir_fails(tmp_path: Path) -> None:
 
 
 def test_symlink_in_gen_is_flagged_even_if_target_matches(tmp_path: Path) -> None:
+    # Windows requires admin privileges for symlinks; skip if not available
+    if sys.platform == "win32":
+        import pytest
+        pytest.skip("symlink creation requires admin on Windows")
     registry = _registry()
     _write_all(tmp_path, registry)
     real = tmp_path / "elsewhere.inc"
