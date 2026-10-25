@@ -85,6 +85,7 @@ class Run(Document):
     status: RunStatus = RunStatus.QUEUED
     stop_reason: StopReason | None = None
     collect_training_data: bool = False  # pinned at run start from the setting (D-036)
+    auto_approve: bool = False  # the worker answers the checkpoints G1 and G4 itself; each answer is logged
 
     @model_validator(mode="after")
     def _stop_has_reason(self) -> Run:

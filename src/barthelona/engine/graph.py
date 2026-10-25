@@ -29,6 +29,7 @@ from barthelona.domain import GateKind, LLMCallRecord, ProjectSpec, Run, StopRea
 from barthelona.domain._base import DomainModel
 from barthelona.domain.layout import SOURCE_FILE
 from barthelona.engine.codegen import generate_source
+from barthelona.engine.gates import g1_payload, g4_payload
 from barthelona.engine.spec import Intake, SpecError, draft_spec, run_intake
 from barthelona.engine.tests_author import author_tests, validate_spec
 from barthelona.llm.gateway import ModelGateway
@@ -179,7 +180,7 @@ class _Nodes:
         return {}
 
     async def g1_gate(self, state: RunState) -> dict[str, Any]:
-        return _ask(state, GateKind.G1_SPEC, G1_OPTIONS)
+        return _ask(state, GateKind.G1_SPEC, G1_OPTIONS, g1_payload(state["spec"], state["tests"]))
 
     @_timed
     async def codegen(self, state: RunState) -> dict[str, Any]:
@@ -208,7 +209,7 @@ class _Nodes:
         return update if done.accepted else update | {"stop": done.stop.value}
 
     async def g4_gate(self, state: RunState) -> dict[str, Any]:
-        return _ask(state, GateKind.G4_FINAL, G4_OPTIONS, {"source_file": SOURCE_FILE})
+        return _ask(state, GateKind.G4_FINAL, G4_OPTIONS, g4_payload(SOURCE_FILE, state.get("verdict")))
 
     async def finalize(self, state: RunState) -> dict[str, Any]:
         if state.get("stop"):
