@@ -51,6 +51,8 @@ def _format_event(event: Any, technical: bool = False) -> str:
     icon = _EVENT_KIND_ICONS.get(event.kind, "•")
     if event.kind is EventKind.STOP and event.payload.get("stop_reason") == "green":
         icon = "🏁"
+    if event.kind is EventKind.LLM_CALL and str(event.payload.get("status", "")).startswith("FAILED"):
+        icon = "⚠️"
     line = f"{icon} `{event.ts.astimezone().strftime('%H:%M:%S')}` {describe(event)}"  # local time
     if not technical:
         return line

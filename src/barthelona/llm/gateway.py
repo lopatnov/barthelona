@@ -97,7 +97,7 @@ class Gateway:
                     exc.retry_after or 0.0, self._jitter(cap)
                 )  # full jitter; Retry-After is the minimum
                 notes.append(f"{target.key}: retry in {delay:.1f}s: {reason}")
-                self._say(f"{target.key} failed ({reason}); asking again in {delay:.0f}s")
+                self._say(f"FAILED {target.key}: {reason}; retrying in {delay:.0f}s")
                 await self._sleep(delay)
         raise AssertionError("unreachable: the last delay is None")  # pragma: no cover
 
@@ -106,14 +106,16 @@ class Gateway:
         for target in self._catalog.resolve(role, self._profile):
             if (reason := self._unusable(target)) is not None:
                 fallbacks.append(f"{target.key}: {reason}")
+                self._say(f"FAILED {target.key} skipped: {reason}")
                 continue
             outcome, notes = await self._call(target, request)
             fallbacks.extend(notes)
             if isinstance(outcome, str):
                 fallbacks.append(f"{target.key}: {outcome}")
-                self._say(f"{target.key} gave up ({outcome}); trying the next model")
+                self._say(f"FAILED {target.key} gave up: {outcome}")
                 continue
             done = build_completion(target, request, outcome, tuple(fallbacks))
+            self._say(self._answered(target, done))
             if self._trace is not None:
                 try:
                     self._trace(role, done.model_copy(update={"prompt": request.as_text()}))
@@ -122,4 +124,12 @@ class Gateway:
                         update={"fallbacks": (*done.fallbacks, f"reasoning log not written: {exc}")}
                     )
             return done
+        self._say(f"FAILED no model of the {role!r} chain could answer")
         raise GatewayError(f"no model in the {role!r} chain could answer: " + "; ".join(fallbacks))
+
+    @staticmethod
+    def _answered(target: ModelTarget, done: Completion) -> str:
+        """The progress line for a reply: who answered, how fast, and whether earlier models failed first."""
+        seconds = done.record.latency_ms / 1000
+        earlier = f" after {len(done.fallbacks)} failed or repeated attempt(s)" if done.fallbacks else ""
+        return f"{target.key} answered in {seconds:.0f}s{earlier}"
