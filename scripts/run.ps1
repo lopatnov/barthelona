@@ -12,6 +12,7 @@
     .\scripts\run.ps1 -WorkerOnly
     .\scripts\run.ps1 -UiOnly
     .\scripts\run.ps1 -StreamlitPort 8502
+    .\scripts\run.ps1 -TraceReasoning ""      # no reasoning log (default: var/logs/reasoning.md)
 
 .NOTES
     Requires the conda environment 'barthelona' to be created (scripts/create_env.ps1).
@@ -24,6 +25,7 @@ param(
     [string]$RunsPath = "var/runs",
     [string]$CatalogPath = "config/models.yaml",
     [string]$FactsSql = "",
+    [string]$TraceReasoning = "var/logs/reasoning.md",
     [float]$PollInterval = 1.0,
     [switch]$WorkerOnly,
     [switch]$UiOnly,
@@ -59,24 +61,26 @@ function ConvertTo-ChildCommand {
 function Invoke-Worker {
     [CmdletBinding(SupportsShouldProcess = $true)]
     param(
-        [string]$Db,
+        [string]$DbFile,
         [string]$Checkpoints,
         [string]$Runs,
         [string]$Catalog,
         [string]$Facts,
+        [string]$Trace,
         [float]$Poll,
         [switch]$Once
     )
 
     $cmdArgs = @(
         "python", "-m", "barthelona", "worker",
-        "--db", $Db,
+        "--db", $DbFile,
         "--checkpoints", $Checkpoints,
         "--runs", $Runs,
         "--catalog", $Catalog,
         "--poll", $Poll
     )
     if ($Facts) { $cmdArgs += "--facts-sql", $Facts }
+    if ($Trace) { $cmdArgs += "--trace-reasoning", $Trace }
     if ($Once) { $cmdArgs += "--once" }
 
     if ($PSCmdlet.ShouldProcess("worker process", "Start worker")) {
@@ -109,7 +113,7 @@ $null = New-Item -ItemType Directory -Force -Path "var", "var/runs", "workspaces
 
 try {
     if (-not $UiOnly) {
-        $workerProcess = Invoke-Worker -Db $DbPath -Checkpoints $CheckpointsPath -Runs $RunsPath -Catalog $CatalogPath -Facts $FactsSql -Poll $PollInterval
+        $workerProcess = Invoke-Worker -DbFile $DbPath -Checkpoints $CheckpointsPath -Runs $RunsPath -Catalog $CatalogPath -Facts $FactsSql -Trace $TraceReasoning -Poll $PollInterval
         Start-Sleep -Seconds 2  # Give worker time to start
     }
 

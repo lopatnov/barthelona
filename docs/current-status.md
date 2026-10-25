@@ -298,9 +298,9 @@ Every example on this page and in the guides that starts a worker or a `chunked 
 like `## planner via meterless_deep (8500 in, 2087 out, 21.0s, stop=stop)`, followed by `### reasoning` and `### answer`;
 a model that sends no reasoning is shown as "(the model sent no reasoning)". `--trace-reasoning -` prints to the terminal
 instead. The file contains the request text and the models' answers, so it is not for git or for sharing (`var/` is not
-in git). `.\scripts\run.ps1` does not pass the option yet: start the worker yourself with it
-(`.\scripts\run.ps1 -UiOnly` in one terminal, the command above in another). Training data (section 4) is a separate,
-not yet connected record.
+in git). `.\scripts\run.ps1` (and `scripts/run.sh`) start the worker **with the reasoning log on**, writing to
+`var/logs/reasoning.md`; `-TraceReasoning "other.md"` changes the file and `-TraceReasoning ""` turns it off
+(`--trace-reasoning FILE` in `run.sh`). Training data (section 4) is a separate, not yet connected record.
 
 ---
 
