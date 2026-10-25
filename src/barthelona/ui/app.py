@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from barthelona.ui.navigation import PAGES_KEY
 from barthelona.ui.pages.approvals import page_approvals
 from barthelona.ui.pages.live_run import page_live_run
 from barthelona.ui.pages.new_request import page_new_request
@@ -32,16 +33,13 @@ def main() -> None:
         st.session_state.event_poll_interval = 1.0  # seconds
 
     # Define pages using st.Page for proper multipage navigation
-    pages = {
-        "Navigation": [
-            st.Page(page_new_request, title="New Request", icon="📝"),
-            st.Page(page_approvals, title="Approvals", icon="✅"),
-            st.Page(page_live_run, title="Live Run", icon="📊"),
-        ]
-    }
+    new_request = st.Page(page_new_request, title="New Request", icon="📝")
+    approvals = st.Page(page_approvals, title="Approvals", icon="✅")
+    live_run = st.Page(page_live_run, title="Live Run", icon="📊")
+    # Pages jump to each other with st.switch_page, which needs the Page objects.
+    st.session_state[PAGES_KEY] = {"approvals": approvals, "live_run": live_run}
 
-    # Configure navigation
-    pg = st.navigation(pages)
+    pg = st.navigation({"Navigation": [new_request, approvals, live_run]})
     pg.run()
 
 

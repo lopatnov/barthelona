@@ -32,6 +32,7 @@ from barthelona.domain import (
 from barthelona.domain.layout import REQUEST_FILE, RUNS_DIR, run_dir
 from barthelona.domain.presets import builtin_presets
 from barthelona.persistence import open_store
+from barthelona.ui.navigation import open_page
 
 _PROFILE_NOTE = (
     "Nightshift (Meterless) is the model router: every request goes to one of its lanes (auto, deep, fast). "
@@ -216,17 +217,13 @@ def page_new_request() -> None:
 
             store.close()
 
-            st.success(f"Run created: `{run_id}`")
-            st.info(f"Project folder: `{run.workspace}`")
-            st.info("Switch to the **Approvals** page to review gates, or **Live Run** to watch execution.")
-
-            # Offer to switch pages - use query params or callback
-            if st.button("Go to Approvals →", key="goto_approvals"):
-                st.query_params["page"] = "Approvals"
-                st.rerun()
-
         except Exception as e:
             st.error(f"Failed to create run: {e}")
+            return
+
+        st.session_state["active_run_id"] = run_id  # Live Run opens on this run
+        st.success(f"Run created: `{run_id}`. Project folder: `{run.workspace}`")
+        open_page("live_run")
 
 
 if __name__ == "__main__":

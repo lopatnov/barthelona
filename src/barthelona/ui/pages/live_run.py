@@ -215,13 +215,17 @@ def page_live_run() -> None:
             return
 
         # Run selector
-        run_options = {f"{r.id} ({r.status.value})": r for r in active_runs}
-        selected_key = st.selectbox(
+        by_id = {r.id: r for r in reversed(active_runs)}  # newest first
+        ids = list(by_id)
+        active = st.session_state.get("active_run_id")
+        selected_id = st.selectbox(
             "Select Run",
-            options=list(run_options.keys()),
-            index=0,
+            options=ids,
+            index=ids.index(active) if active in by_id else 0,
+            format_func=lambda run_id: f"{run_id} ({by_id[run_id].status.value})",
         )
-        run = run_options[selected_key]
+        st.session_state["active_run_id"] = selected_id  # keeps this run selected across refreshes
+        run = by_id[selected_id]
 
         # Run status header, what it waits for, the stages and what it was started with
         _render_run_header(run)
