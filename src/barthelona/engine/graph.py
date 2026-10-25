@@ -190,6 +190,7 @@ class _Nodes:
     @_timed
     async def codegen(self, state: RunState) -> dict[str, Any]:
         run_id = state["run_id"]
+        self._services.open_workspace(run_id)  # a run that began before the folder existed gets it here
         wall_s = self._services.load_run(run_id).budget.wall_s
         remaining = wall_s - state.get("spent_s", 0.0)  # earlier nodes have already used part of the budget
         if remaining <= 0:

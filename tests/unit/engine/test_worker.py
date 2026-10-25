@@ -606,3 +606,25 @@ async def test_a_run_stopped_for_another_reason_cannot_be_continued(store: Store
     assert run.status is RunStatus.STOPPED and run.budget.wall_s == 3600
     errors = [e.payload for e in store.events_after("r1") if e.kind is EventKind.ERROR]
     assert errors == [{"message": "Cannot continue a run stopped by unsupported_target"}]
+
+
+async def test_the_code_step_opens_the_project_folder_for_a_run_that_began_without_it(
+    store: Store, runs_dir: Path, tmp_path: Path
+) -> None:
+    short = _run().model_copy(
+        update={
+            "budget": RunBudget(wall_s=0.5, tokens=100_000),
+            "auto_approve": True,
+            "workspace": "demos/snake",
+        }
+    )
+    store.create_run(short)
+    (runs_dir / "r1").mkdir(parents=True, exist_ok=True)
+    (runs_dir / "r1" / REQUEST_FILE).write_text("Print hello.", encoding="utf-8")
+    gateway = _StallsAtCodegen(REPLIES)
+    services = services_for(store, runs_dir, lambda _run: gateway, no_facts, workspace_root=tmp_path)
+    opened: list[str] = []
+    services = replace(services, open_workspace=opened.append, preflight=lambda _id: None)
+    worker = Worker(store, build_graph(services, InMemorySaver()), clock=lambda: NOW)
+    await worker.step()
+    assert opened == ["r1", "r1"]  # preflight and the code step
