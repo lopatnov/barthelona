@@ -57,6 +57,9 @@ class Services:
     save_spec: Callable[[str, ProjectSpec, list[TestCase]], None]
     facts: Callable[[], str]  # the knowledge-store block for the prompts ('' when none is configured)
     save_source: Callable[[str, str], None]  # (run_id, source) -> the file gate G4 shows
+    save_attempt: Callable[
+        [str, int, str], None
+    ]  # (run_id, attempt, source) -> a draft file, kept even if rejected
     nasm: str | None  # the assembler binary, None when none was found (the oracle then stops the run)
     memory: HMem | None  # H-MEM: recalled in every chunk, written to when the oracle accepts
 
@@ -200,6 +203,7 @@ class _Nodes:
                     self._services.nasm,
                     self._recorder(run_id),
                     run_id,
+                    lambda attempt, source: self._services.save_attempt(run_id, attempt, source),
                 )
         except TimeoutError:
             return {"stop": StopReason.BUDGET_TIME.value}

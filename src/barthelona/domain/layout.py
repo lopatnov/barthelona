@@ -13,6 +13,7 @@ from pathlib import Path
 
 RUNS_DIR = Path("var/runs")
 SOURCE_FILE = "main.asm"  # the source gate G4 shows and packaging copies
+ATTEMPT_FILE = "attempt-{n}.asm"  # every draft of the code step, kept even when the oracles reject it
 REQUEST_FILE = "request.txt"
 SPEC_FILE = "spec.json"
 TESTS_FILE = "tests.json"
