@@ -35,12 +35,33 @@ def _run(reason: StopReason | None, usd: float | None = None) -> Run:
     )
 
 
-def test_only_a_run_stopped_by_a_limit_can_be_continued() -> None:
-    assert can_continue(_run(StopReason.BUDGET_TIME))
-    assert can_continue(_run(StopReason.BUDGET_TOKENS))
-    assert not can_continue(_run(StopReason.MAX_ATTEMPTS))
-    assert not can_continue(_run(StopReason.HUMAN_ABORT))
-    assert not can_continue(_run(None))
+@pytest.mark.parametrize(
+    "reason",
+    [
+        StopReason.BUDGET_TIME,
+        StopReason.BUDGET_TOKENS,
+        StopReason.BUDGET_COST,
+        StopReason.MAX_ATTEMPTS,
+        StopReason.HUMAN_ABORT,
+        StopReason.NO_MODEL_AVAILABLE,
+        StopReason.INFRA_ERROR,
+        StopReason.REFUSAL,
+    ],
+)
+def test_a_stopped_run_can_be_resumed_whatever_stopped_it(reason: StopReason) -> None:
+    assert can_continue(_run(reason))
+
+
+@pytest.mark.parametrize("reason", [StopReason.GREEN, StopReason.UNSUPPORTED_TARGET, None])
+def test_a_finished_unsupported_or_running_run_has_nothing_to_resume(reason: StopReason | None) -> None:
+    assert not can_continue(_run(reason))
+
+
+@pytest.mark.parametrize("reason", [StopReason.MAX_ATTEMPTS, StopReason.HUMAN_ABORT])
+def test_resuming_a_run_that_did_not_hit_a_limit_keeps_its_budget(reason: StopReason) -> None:
+    run = _run(reason)
+
+    assert extended_budget(run) == run.budget
 
 
 def test_the_limit_that_ran_out_is_raised_and_the_others_stay() -> None:
@@ -101,3 +122,35 @@ def test_a_running_run_has_no_extend_or_continue_control(
 
     assert not [b for b in app.button if "Continue" in b.label or "Extend" in b.label]
     assert not app.exception
+
+
+def test_a_cancelled_run_gets_a_resume_button_that_keeps_its_limits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _store_with(tmp_path, _run(StopReason.HUMAN_ABORT))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_function(_page, default_timeout=30)
+    app.session_state["auto_poll"] = False
+    app.run()
+
+    button = next(b for b in app.button if b.label.startswith("▶️ Resume"))
+    assert "cancelled" in button.label
+    button.click().run()
+
+    store = open_store(tmp_path / "var" / "app.sqlite")
+    commands = store.claim_commands("run-1")
+    store.close()
+    assert [c.kind for c in commands] == [CommandKind.EXTEND_BUDGET]
+    assert commands[0].budget is not None and commands[0].budget.wall_s == 3600  # unchanged
+    assert not app.exception
+
+
+def test_a_finished_run_has_no_resume_button(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _store_with(tmp_path, _run(StopReason.GREEN))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_function(_page, default_timeout=30)
+    app.session_state["auto_poll"] = False
+
+    app.run()
+
+    assert not [b for b in app.button if "Resume" in b.label or "Continue" in b.label]

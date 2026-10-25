@@ -322,6 +322,12 @@ writes the same text to `var/runs/<run id>/reasoning.md` (per run) and to `var/a
 own terminal window, with the model that answered (the whole prompt, thinking and answer). `worker` and `chunked run` do this
 by default; `--no-show-reasoning` turns it off.
 
+**Continue and Resume (Live Run).** A stopped run has a button in Run Controls. After a limit (time, tokens or money)
+it reads "Continue" and queues a bigger limit (+4 hours, or double); after any other stop (you cancelled it, the
+models gave no valid program, no model answered, an error) it reads "Resume" and keeps the limits. The worker restarts
+the code step from the run's checkpoint. A finished (green) run and an unsupported target have no button. A run that
+was still going when the worker or the PC stopped needs no button: it continues when the worker starts again.
+
 **Package panel (Live Run).** Select a green run: the panel shows the `demos/` folder it will write, a field for the full
 commit sha of barthelona that the generated CI installs (filled from `git rev-parse HEAD`), and the button **Package into
 demos/**. It writes the same files as `runs package` and lists them. It refuses a folder that already has files (pick
