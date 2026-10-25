@@ -21,7 +21,15 @@ from barthelona.domain import (
     RunEvent,
     TestCase,
 )
-from barthelona.domain.layout import ATTEMPT_FILE, REQUEST_FILE, SOURCE_FILE, SPEC_FILE, TESTS_FILE, run_dir
+from barthelona.domain.layout import (
+    ATTEMPT_FILE,
+    DRAFTS_DIR,
+    REQUEST_FILE,
+    SOURCE_FILE,
+    SPEC_FILE,
+    TESTS_FILE,
+    run_dir,
+)
 from barthelona.engine.graph import Services
 from barthelona.engine.preflight import preflight_for
 from barthelona.llm.gateway import ModelGateway
@@ -70,6 +78,32 @@ def zetaris_facts(sql: str) -> Callable[[], str]:
     return lambda: facts_block(run_sql(config, sql), sql)
 
 
+class RunFolders:
+    """Where a run's source files go: `var/runs/<id>/` and, when enabled, `<workspace>/drafts`."""
+
+    def __init__(self, store: Store, runs_dir: Path, workspace_root: Path | None) -> None:
+        self._store = store
+        self._runs_dir = runs_dir
+        self._workspace_root = workspace_root  # None: no copy in the project folder
+
+    def _drafts(self, run_id: str) -> Path | None:
+        if self._workspace_root is None:
+            return None
+        return self._workspace_root / self._store.get_run(run_id).workspace / DRAFTS_DIR
+
+    def open(self, run_id: str) -> None:
+        """Create the project folder the moment the run starts, so it exists before any code does."""
+        if (folder := self._drafts(run_id)) is not None:
+            folder.mkdir(parents=True, exist_ok=True)
+
+    def write(self, run_id: str, name: str, source: str) -> None:
+        """Write one source file into the run folder and, when enabled, into the project's drafts folder."""
+        for folder in (run_dir(self._runs_dir, run_id), self._drafts(run_id)):
+            if folder is not None:
+                folder.mkdir(parents=True, exist_ok=True)
+                (folder / name).write_text(source + "\n", encoding="utf-8", newline="\n")
+
+
 def services_for(
     store: Store,
     runs_dir: Path,
@@ -77,6 +111,7 @@ def services_for(
     facts: Callable[[], str] | None = None,
     memory: HMem | None = None,
     nasm: str | None = None,
+    workspace_root: Path | None = None,
 ) -> Services:
     def load_request(run_id: str) -> str:
         return (run_dir(runs_dir, run_id) / REQUEST_FILE).read_text(encoding="utf-8")
@@ -88,15 +123,13 @@ def services_for(
         tests = [case.model_dump(mode="json") for case in cases]
         (folder / TESTS_FILE).write_bytes(orjson.dumps(tests, option=orjson.OPT_INDENT_2) + b"\n")
 
+    folders = RunFolders(store, runs_dir, workspace_root)
+
     def save_source(run_id: str, source: str) -> None:
-        folder = run_dir(runs_dir, run_id)
-        folder.mkdir(parents=True, exist_ok=True)
-        (folder / SOURCE_FILE).write_text(source + "\n", encoding="utf-8", newline="\n")
+        folders.write(run_id, SOURCE_FILE, source)
 
     def save_attempt(run_id: str, attempt: int, source: str) -> None:
-        folder = run_dir(runs_dir, run_id)
-        folder.mkdir(parents=True, exist_ok=True)
-        (folder / ATTEMPT_FILE.format(n=attempt)).write_text(source + "\n", encoding="utf-8", newline="\n")
+        folders.write(run_id, ATTEMPT_FILE.format(n=attempt), source)
 
     def emit_zetaris_error(run_id: str, message: str) -> None:
         store.append_events(
@@ -124,6 +157,7 @@ def services_for(
         facts=facts,
         save_source=save_source,
         save_attempt=save_attempt,
+        open_workspace=folders.open,
         nasm=find_nasm(nasm),
         memory=memory,
     )
