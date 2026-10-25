@@ -31,23 +31,28 @@ OnCall = Callable[[LLMCallRecord], None]
 
 _INTAKE_PROMPT = """You prepare a request for an assembly-language project.
 The request may be in any language. Answer with ONE JSON object and nothing else:
-{"lang": "<ISO 639 code of the request, e.g. en>",
- "goal_en": "<the request restated in English, 1-3 sentences>",
- "entities": ["<inputs, outputs, syscalls, constraints named in the request>"],
- "assumptions": ["<what you assume where the request is silent>"]}"""
+{"lang": "de",
+ "goal_en": "Print the numbers 1 to 3, one per line.",
+ "entities": ["stdout", "numbers 1 to 3"],
+ "assumptions": ["Linux x86-64", "no input is read"]}
+That example only shows the shape. Write your own values for the request: "lang" is its ISO 639 language
+code, "goal_en" restates it in English in 1-3 sentences, "entities" lists the inputs, outputs, syscalls and
+constraints it names, "assumptions" lists what you assume where it is silent."""
 
 _SPEC_PROMPT = """You write the specification of an assembly-language project from an English goal.
 Answer with ONE JSON object and nothing else:
-{"slug": "<lowercase-words-with-dashes>",
- "summary_en": "<what the program does, 1-3 sentences>",
- "requirements": [{"id": "R1", "text": "<one testable requirement>"}],
- "modules": [{"path": "src/<name>.asm", "purpose": "<one line>", "exports": ["<symbol>"]}],
+{"slug": "count-to-three",
+ "summary_en": "Prints the numbers 1 to 3, one per line.",
+ "requirements": [{"id": "R1", "text": "Writes 1, 2 and 3 to stdout, each followed by a newline."}],
+ "modules": [{"path": "src/count.asm", "purpose": "entry point and output", "exports": ["_start"]}],
  "constraints": [], "non_goals": [], "assumptions": []}
+That example only shows the shape: write your own slug (lowercase words with dashes), summary, requirements
+and modules for the goal.
 Rules: 1-12 requirements (a reply with more than 12 is rejected: merge related checks into one requirement),
 each checkable from the program's output or exit code; 1-6 modules; paths relative
 to the project, ending in the dialect's source suffix; keep it as small as the goal allows. When the program
 prints results, state the exact text or format of those lines in the requirements (for example
-"Extraversion: <n>"), so the tests and the code agree on them."""
+"Extraversion: 42"), so the tests and the code agree on them."""
 
 
 class SpecError(RuntimeError):
