@@ -6,7 +6,7 @@ import re
 
 from barthelona.engine import spec, tests_author
 
-PLACEHOLDER = re.compile(r'"<[^"]*>"|\{"slug": "<|src/<')
+PLACEHOLDER = re.compile(r"<[^<>\n]+>")
 
 
 def test_no_prompt_shows_an_angle_bracket_placeholder() -> None:

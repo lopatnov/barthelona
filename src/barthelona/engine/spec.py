@@ -52,7 +52,7 @@ Rules: 1-12 requirements (a reply with more than 12 is rejected: merge related c
 each checkable from the program's output or exit code; 1-6 modules; paths relative
 to the project, ending in the dialect's source suffix; keep it as small as the goal allows. When the program
 prints results, state the exact text or format of those lines in the requirements (for example
-"Extraversion: <n>"), so the tests and the code agree on them."""
+"Extraversion: 42"), so the tests and the code agree on them."""
 
 
 class SpecError(RuntimeError):
