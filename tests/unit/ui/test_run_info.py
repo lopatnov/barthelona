@@ -22,3 +22,14 @@ def test_a_finished_run_shows_every_stage_done() -> None:
     line = stage_line(nodes | {"finalize"}, active=False)
 
     assert "◻️" not in line and line.count("✅") == 9
+
+
+def test_the_file_rows_say_which_files_exist_and_which_are_not_yet(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from barthelona.ui.run_info import file_rows
+
+    (tmp_path / "request.txt").write_text("hi", encoding="utf-8")
+
+    rows = {name: state for name, state, _ in file_rows(tmp_path)}
+
+    assert rows["request.txt"].startswith("2 bytes")
+    assert rows["main.asm"] == "not yet" and rows["spec.json"] == "not yet"

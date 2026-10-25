@@ -3,11 +3,21 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import datetime
+from pathlib import Path
 
 import streamlit as st
 
 from barthelona.domain import EventKind, Run, RunEvent, RunStatus, StopReason
-from barthelona.domain.layout import REQUEST_FILE, RUNS_DIR, run_dir
+from barthelona.domain.layout import (
+    REASONING_FILE,
+    REQUEST_FILE,
+    RUNS_DIR,
+    SOURCE_FILE,
+    SPEC_FILE,
+    TESTS_FILE,
+    run_dir,
+)
 from barthelona.persistence import Store
 from barthelona.ui.event_text import GATES, stop_text
 
@@ -113,3 +123,48 @@ def render_parameters(run: Run) -> None:
         )
         st.caption("The request, as the worker reads it:")
         st.code(_request_text(run), language="text", wrap_lines=True)
+
+
+RUN_FILES = (
+    (REQUEST_FILE, "your request, as the form saved it"),
+    (SPEC_FILE, "the specification; appears after the spec step"),
+    (TESTS_FILE, "the acceptance tests; appear with the specification"),
+    (
+        SOURCE_FILE,
+        "the generated program; appears only when the code step ends, which can take 10 to 20 minutes",
+    ),
+    (REASONING_FILE, "what the models thought and answered; grows with every reply"),
+)
+
+
+def file_rows(folder: Path) -> list[tuple[str, str, str]]:
+    """(name, state, meaning) for each file a run writes: its size and time when it exists, else 'not yet'."""
+    rows = []
+    for name, meaning in RUN_FILES:
+        path = folder / name
+        if path.is_file():
+            info = path.stat()
+            when = datetime.fromtimestamp(info.st_mtime).strftime("%H:%M:%S")
+            rows.append((name, f"{info.st_size} bytes, {when}", meaning))
+        else:
+            rows.append((name, "not yet", meaning))
+    return rows
+
+
+def render_run_files(run: Run) -> None:
+    """Where the run's files are and which of them exist yet."""
+    folder = run_dir(RUNS_DIR, run.id)
+    with st.expander("Run files: what this run has written so far", expanded=True):
+        st.markdown(f"Folder: `{folder.resolve()}`")
+        rows = file_rows(folder)
+        st.table(
+            {
+                "File": [row[0] for row in rows],
+                "State": [row[1] for row in rows],
+                "What it is": [row[2] for row in rows],
+            }
+        )
+        st.caption(
+            f"The project folder `{run.workspace}` is written only when the run is green and you press "
+            "**Package into demos/** (see below)."
+        )
