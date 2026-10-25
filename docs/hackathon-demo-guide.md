@@ -363,6 +363,18 @@ Where: the REST client `src/barthelona/llm/zetaris.py` (`zetaris status`, `zetar
 
 Getting our own data in was manual: files had to be copied into the container's shared volume and registered with `CREATE LIGHTNING FILESTORE TABLE`, and we found no documented way to insert rows over REST. The knowledge is only two small tables (no assembler manuals loaded yet), and the Zetaris event is never emitted by the engine (#256). No run has yet shown that the facts make code better or cheaper to produce.
 
+### Which kind of data source we use through Zetaris
+
+**Structured files (CSV).** The assembler facts are two CSV files, `knowledge/zetaris/linux_x64_syscalls.csv` (37 rows) and `abi_facts.csv` (11 rows), registered as Zetaris file tables and read as `barthelona_files.linux_x64_syscalls` and `barthelona_files.abi_facts`. We use no relational database (PostgreSQL, MariaDB) and no open table format (Iceberg, Delta) as a source. Run history written back with `zetaris publish` (`barthelona_runtime`: `runs`, `run_chunks`, `memories`, ...) is output, not a data source. Where: [`zetaris-guide.md`](zetaris-guide.md) and `knowledge/zetaris/README.md`.
+
+### How we built the Zetaris objects
+
+**By code, through the REST API.** The table registration is a list of SQL statements, each sent as its own `POST <rest url>/sql-editor/sqls/run` (the API key is accepted for `CREATE`). Reading (`zetaris sql`, `--facts-sql`), seeding H-MEM (`zetaris seed`) and writing back (`zetaris publish`) are our own REST client, `src/barthelona/llm/zetaris.py`. The repository contains nothing that depends on the Zetaris GUI.
+
+### How hard it was
+
+Registering the files and querying them was easy: one `CREATE LIGHTNING FILESTORE TABLE` per file, then plain `SELECT` statements. The effort went into the setup (the Docker stack needs about 8 GB of RAM), copying the files into the volume that the api and driver containers share (relative paths), finding the REST endpoint and how it authenticates, and quirks of the 2.4.3 build that we found by trial. We did not build a multi-source semantic layer (shared business definitions, joins or views across sources), so we cannot rate that part.
+
 ---
 
 ## Troubleshooting
