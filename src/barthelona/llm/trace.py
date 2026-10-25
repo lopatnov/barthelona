@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 
 from barthelona.llm.types import Completion
@@ -52,16 +53,32 @@ class ReasoningLog:
             handle.write(entry)
 
 
+def _stamp() -> str:
+    return datetime.now().astimezone().strftime("%H:%M:%S")  # the worker window's local time
+
+
+def _to_stderr(text: str) -> None:
+    encoding = sys.stderr.encoding or "utf-8"  # a legacy console codepage must not crash a run
+    sys.stderr.write(text.encode(encoding, "replace").decode(encoding))
+    sys.stderr.flush()
+
+
+class ConsoleProgress:
+    """Prints one timestamped line when a model request goes out, is repeated or fails over."""
+
+    def __call__(self, message: str) -> None:
+        _to_stderr(f"[{_stamp()}] {message}\n")
+
+
 class ConsoleTrace:
     """Prints each answered request to stderr in full (prompt, thinking, answer): a live worker window."""
 
     def __call__(self, role: str, done: Completion) -> None:
         thought = done.reasoning or "(the model sent no reasoning)"
         asked = f"prompt: {done.prompt}\n" if done.prompt else ""
-        text = f"\n{_heading(role, done)}\n{asked}thinking: {thought}\nanswer: {done.text}\n"
-        encoding = sys.stderr.encoding or "utf-8"  # a legacy console codepage must not crash a run
-        sys.stderr.write(text.encode(encoding, "replace").decode(encoding))
-        sys.stderr.flush()
+        _to_stderr(
+            f"\n[{_stamp()}] {_heading(role, done)}\n{asked}thinking: {thought}\nanswer: {done.text}\n"
+        )
 
 
 class TraceAll:

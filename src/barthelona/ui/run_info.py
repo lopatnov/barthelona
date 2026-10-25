@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import streamlit as st
@@ -21,7 +21,7 @@ from barthelona.domain.layout import (
 )
 from barthelona.persistence import Store
 from barthelona.ui.bounds import REAL_BOUNDS
-from barthelona.ui.event_text import GATES, stop_text
+from barthelona.ui.event_text import GATES, describe, stop_text
 
 STAGES = (
     ("preflight", "Preflight"),
@@ -51,6 +51,17 @@ _HOW_LONG = (
     "On the free Nemotron lanes the first checkpoint usually comes after 2 to 5 minutes, and writing the "
     "program takes 5 to 20 minutes, more when it needs repair rounds."
 )
+
+
+def activity_line(last: RunEvent | None, now: datetime) -> str:
+    """When the run last wrote anything and what that was: tells a long model wait from a hang."""
+    if last is None:
+        return "No activity recorded yet."
+    seconds = max(0, int((now - last.ts).total_seconds()))
+    return (
+        f"Last activity at {last.ts.astimezone().strftime('%H:%M:%S')} ({seconds} s ago): {describe(last)}. "
+        "A model request can take many minutes; if it fails or is repeated, a line here says so."
+    )
 
 
 def stage_line(
@@ -105,7 +116,10 @@ def render_status_banner(run: Run, store: Store) -> None:
             "the models: it is started by `scripts/run.ps1`, or by hand with `python -m barthelona worker`."
         )
     elif run.status is RunStatus.RUNNING:
-        st.info(f"**Running.** {_HOW_LONG}")
+        newest = store.events_after(run.id, after_seq=store.next_seq(run.id) - 2, limit=1)
+        st.info(
+            f"**Running.** {_HOW_LONG}\n\n{activity_line(newest[-1] if newest else None, datetime.now(UTC))}"
+        )
     elif run.status is RunStatus.STOPPED and run.stop_reason is not None:
         text = stop_text(run.stop_reason.value)
         if run.stop_reason is StopReason.GREEN:

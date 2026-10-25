@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -120,3 +121,11 @@ def test_a_heading_that_names_the_answering_model_starts_an_entry() -> None:
     log = "## worker via meterless_auto -> nvidia/some-model (1 in, 2 out, 1.0s)\n\n### answer\n\nok\n\n"
 
     assert len(latest_entries(log)) == 1
+
+
+def test_console_progress_prints_a_timestamped_line(capsys: pytest.CaptureFixture[str]) -> None:
+    from barthelona.llm.trace import ConsoleProgress
+
+    ConsoleProgress()("asking m, waiting for its reply")
+
+    assert re.match(r"\[\d\d:\d\d:\d\d\] asking m, waiting for its reply\n", capsys.readouterr().err)

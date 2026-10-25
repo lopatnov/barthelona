@@ -91,3 +91,18 @@ def test_a_missing_drafts_folder_gives_no_rows(tmp_path) -> None:  # type: ignor
     from barthelona.ui.run_info import draft_rows
 
     assert draft_rows(tmp_path / "nowhere") == []
+
+
+def test_the_activity_line_says_how_long_ago_the_run_last_did_anything() -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from barthelona.domain import EventKind, RunEvent
+    from barthelona.ui.run_info import activity_line
+
+    now = datetime.now(UTC)
+    event = RunEvent(
+        run_id="r1", seq=0, ts=now - timedelta(seconds=90), kind=EventKind.LLM_CALL, payload={"status": "x"}
+    )
+
+    assert "90 s ago" in activity_line(event, now)
+    assert "No activity" in activity_line(None, now)
