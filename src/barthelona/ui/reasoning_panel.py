@@ -13,7 +13,7 @@ MAX_ENTRIES = 8  # newest first; the whole log stays in the run folder
 _TAIL_BYTES = 800_000  # read only the end of a long log; an entry can hold a whole prompt
 
 # "## role via route -> model (usage)", as the log writes it; "-> model" only when the router names it
-_HEADING = re.compile(r"(?m)^(?=## \S+ via \S+(?: -> \S+)? \()")
+_HEADING = re.compile(r"(?m)^(?=## (?:\d\d:\d\d:\d\d )?\S+ via \S+(?: -> \S+)? \()")
 
 _PARTS = (
     ("prompt", "Asked"),
