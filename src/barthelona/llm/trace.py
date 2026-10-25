@@ -29,7 +29,8 @@ class ReasoningLog:
         seconds = record.latency_ms / 1000
         thought = done.reasoning or "(the model sent no reasoning)"
         usage = f"{record.tokens_in} in, {record.tokens_out} out, {seconds:.1f}s, stop={record.stop_reason}"
-        entry = f"## {role} via {done.served_by} ({usage})\n\n### reasoning\n\n{thought}\n\n"
+        model = f"{done.served_by} -> {done.answered_by}" if done.answered_by else done.served_by
+        entry = f"## {role} via {model} ({usage})\n\n### reasoning\n\n{thought}\n\n"
         entry += f"### answer\n\n{done.text}\n\n"
         if self._target == STDERR or self._echo:
             sys.stderr.write(entry)

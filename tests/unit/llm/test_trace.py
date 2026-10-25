@@ -116,3 +116,17 @@ async def test_an_echoing_log_writes_the_file_and_prints_once(
         "worker", _request()
     )
     assert capsys.readouterr().err.count("dash thought") == 1  # '-' plus echo does not print twice
+
+
+async def test_the_entry_names_the_model_the_provider_says_answered(tmp_path: Path) -> None:
+    log = tmp_path / "r.md"
+    reply = RawReply(
+        text="hi",
+        tokens_in=1,
+        tokens_out=1,
+        stop_reason="stop",
+        latency_ms=1000,
+        answered_by="nemotron-lane-7",
+    )
+    await _gateway(reply, ReasoningLog(log)).complete("worker", _request())
+    assert "## worker via local_main -> nemotron-lane-7 (" in log.read_text(encoding="utf-8")
