@@ -33,6 +33,7 @@ from barthelona.domain import (
 from barthelona.domain.layout import REQUEST_FILE, RUNS_DIR, run_dir
 from barthelona.domain.presets import builtin_presets
 from barthelona.persistence import open_store
+from barthelona.ui.bounds import REAL_BOUNDS
 from barthelona.ui.navigation import open_page
 
 _PROFILE_NOTE = (
@@ -75,7 +76,7 @@ def _form_problem(prompt: str, folder: str) -> str | None:
     return None
 
 
-def _limits_fields() -> tuple[float, int, float, int]:
+def _limits_fields() -> tuple[float, int, float]:
     """The run limits, collapsed: every run is bounded (invariant 6), but nobody has to fill these in."""
     with st.expander("Limits (optional: the defaults shown here apply if you leave them as they are)"):
         st.caption(
@@ -96,8 +97,8 @@ def _limits_fields() -> tuple[float, int, float, int]:
             usd = st.number_input(
                 "USD cap (0 = none)", min_value=0.0, max_value=1000.0, value=0.0, step=0.1, format="%.2f"
             )
-        max_sprints = st.number_input("Max sprints", min_value=1, max_value=50, value=10, step=1)
-    return float(wall_s), int(tokens), float(usd), int(max_sprints)
+        st.caption(REAL_BOUNDS)
+    return float(wall_s), int(tokens), float(usd)
 
 
 def page_new_request() -> None:
@@ -151,7 +152,7 @@ def page_new_request() -> None:
 
         st.divider()
 
-        wall_s, tokens, usd, max_sprints = _limits_fields()
+        wall_s, tokens, usd = _limits_fields()
 
         col6, col7 = st.columns(2)
         with col6:
@@ -201,7 +202,6 @@ def page_new_request() -> None:
             wall_s=float(wall_s),
             tokens=int(tokens),
             usd=usd if usd > 0 else None,
-            max_sprints=int(max_sprints),
             cloud_allowed=cloud_allowed,
         )
 

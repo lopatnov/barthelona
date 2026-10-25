@@ -177,3 +177,19 @@ def test_run_files_shows_the_drafts_in_the_project_folder(
     assert not app.exception and not app.error
     assert any("Project folder:" in m.value and "hello-demo" in m.value for m in app.markdown)
     assert any("attempt-1.asm" in str(table.value) for table in app.table)
+
+
+def test_run_parameters_state_the_real_bounds_not_sprints(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from barthelona.ui.bounds import REAL_BOUNDS
+
+    _run_waiting_for_g1(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_function(_page, default_timeout=30)
+    app.session_state["auto_poll"] = False
+
+    app.run()
+
+    text = " ".join(item.value for item in app.markdown)
+    assert REAL_BOUNDS in text and " sprints," not in text
