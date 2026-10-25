@@ -121,6 +121,39 @@ The [`docs/adr/`](docs/adr/) directory contains all architecture decisions (D-00
 - **D-050** — [Oracle-driven builder: assembly first, then more target families](docs/adr/D-050-oracle-driven-builder-assembly-first-then-more-target-families.md)
 - **D-056** — [V3/V4 emulator implementation approach](docs/adr/D-056-v3-v4-emulator-implementation-approach.md)
 
+#### Technologies we use, and for what
+
+Checked against the imports in `src/` and the files in the repository on 2026-10-25. "Used" means the code runs it
+today; "declared" means it is in `pyproject.toml` but nothing imports it yet.
+
+| Area | Technology | What it does here | State |
+| --- | --- | --- | --- |
+| Models | **Meterless Nightshift** | OpenAI-compatible model router (routes `auto`, `deep`, `fast`) that sends every call of the default profile to free NVIDIA Nemotron lanes | used |
+| Models | **LM Studio / Ollama** | Local model, the last link of every role chain (works offline) | used (fallback) |
+| Models | **`openai` SDK** | The one real backend: Chat Completions to Nightshift, LM Studio and Ollama | used |
+| Models | `anthropic`, `google-genai` SDKs | Planned backends for Claude and Gemini (#252) | declared |
+| Data | **Zetaris** | SQL platform: two CSV file tables of assembler facts (syscalls, ABI) go into the prompts; run history is written back to `barthelona_runtime` tables over REST | used |
+| Memory | **H-MEM** (Python port) and **Markovian chunking** | Facts recalled before each chunk; long answers produced in bounded chunks with a small carried state | used |
+| Engine | **LangGraph** (+ SQLite checkpoints) | The run graph: intake, spec, tests, human gates, code step, finalize; a run resumes from its checkpoint | used |
+| Engine | **SQLite (WAL)** | `var/app.sqlite`: runs, events, gates, commands and the call ledger; the only channel between worker and UI | used |
+| Oracles | **NASM**, **GNU as**, `ld` | Assemble and link; the assembler decides whether code is accepted | used |
+| Oracles | **Unicorn** (CPU emulator) | Runs the assembled program on golden input and compares output and exit code, never on the host | used |
+| Oracles | **Capstone**, **pyelftools** | Static ABI checks and object-file reading (V3/V4 libraries) | used |
+| Sandbox | **Docker** (WSL2 on Windows), `bart-tc` and `bart-run` images | Pinned toolchains and the hardened runner for verification | used |
+| UI / CLI | **Streamlit** | Walking-skeleton UI: New Request, Approvals, Live Run (reasoning, events, files, Continue/Resume) | used |
+| UI / CLI | **Typer**, **Rich** | The `python -m barthelona` commands and their tables | used |
+| Data models | **Pydantic v2**, `pydantic-settings`, `orjson`, **ruamel.yaml**, **Jinja2**, **httpx** | Typed domain models, JSON and YAML (model catalog), prompt templates, HTTP clients for Nightshift and Zetaris | used |
+| Knowledge | `qdrant-client`, `fastembed`, Qdrant container | Planned hybrid retrieval over assembler manuals (D-034); the container exists, the pipeline does not use it | declared |
+| Planned | `networkx`, `lief`, `pefile`, `beautifulsoup4`, `lxml`, `tokenizers`, `psutil`, `platformdirs`, OpenTelemetry | Topology validation, PE/ELF analysis, manual ingestion, observability | declared |
+| Side project | **TypeScript World Model** (`engines/world-model`) | Event-sourced shared state for parallel agents (Meterless track); not used by the pipeline | not wired |
+| Quality | **pytest**, **Hypothesis**, **ruff**, **mypy --strict** | Unit and property tests, lint, format and types | used |
+| Quality | **GitHub Actions**, SonarCloud, Socket | CI jobs (python, docker, shell, powershell, yaml, templates), code quality and dependency checks | used |
+| Environment | **conda** (hash-locked per platform), PowerShell and Bash scripts | Reproducible Python 3.13 environment; one-line commands on Windows and Linux | used |
+| Development | **Claude Code**, **Codex** | Coding assistants working on this repository under `AGENTS.md`; not part of the product | development only |
+
+Why these choices: D-012 (own thin gateway, no LiteLLM), D-029 and D-030 (catalog and resilience), D-031 (locked
+dependencies), D-034 (Qdrant), D-056 (emulator). The architecture is in [`docs/architecture.md`](docs/architecture.md).
+
 ### Configuration & Source Code
 
 - **[`AGENTS.md`](AGENTS.md)**, **[`CLAUDE.md`](CLAUDE.md)**, **[`.claude/`](.claude/)** — Instructions and configuration for coding agents (Claude Code; Codex via a generated mirror)
