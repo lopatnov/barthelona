@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import streamlit as st
@@ -20,6 +20,7 @@ from barthelona.domain.layout import (
     run_dir,
 )
 from barthelona.persistence import Store
+from barthelona.ui.activity import activity_text, last_activity
 from barthelona.ui.bounds import REAL_BOUNDS
 from barthelona.ui.event_text import GATES, stop_text
 
@@ -50,6 +51,12 @@ _GATE_HELP = {
 _HOW_LONG = (
     "On the free Nemotron lanes the first checkpoint usually comes after 2 to 5 minutes, and writing the "
     "program takes 5 to 20 minutes, more when it needs repair rounds."
+)
+
+_STALE_HINT = (
+    "A single model call can take a few minutes, but this is longer. Check that the worker window is still "
+    "open and that Nightshift is online (`python -m barthelona meterless status`); if both are fine, wait a "
+    "little more or press **Cancel Run** and then **Resume**."
 )
 
 
@@ -100,18 +107,38 @@ def render_status_banner(run: Run, store: Store) -> None:
             + " ".join(_GATE_HELP.get(kind, "") for kind in kinds)
         )
     elif run.status is RunStatus.QUEUED:
-        st.info(
-            "**Queued.** The worker has not picked this run up yet. The worker is the process that talks to "
-            "the models: it is started by `scripts/run.ps1`, or by hand with `python -m barthelona worker`."
-        )
+        st.info(queued_text(run, store.list_runs(RunStatus.RUNNING)))
     elif run.status is RunStatus.RUNNING:
-        st.info(f"**Running.** {_HOW_LONG}")
+        sentence, stale = activity_text(_last_activity(run, store), datetime.now(UTC))
+        (st.warning if stale else st.info)(f"**Running.** {sentence} {_STALE_HINT if stale else _HOW_LONG}")
     elif run.status is RunStatus.STOPPED and run.stop_reason is not None:
         text = stop_text(run.stop_reason.value)
         if run.stop_reason is StopReason.GREEN:
             st.success(text)
         else:
             st.error(text)
+
+
+def _last_activity(run: Run, store: Store) -> datetime | None:
+    newest = store.events_after(run.id, after_seq=max(store.next_seq(run.id) - 2, -1), limit=5)
+    return last_activity(run_dir(RUNS_DIR, run.id), newest[-1].ts if newest else None)
+
+
+def queued_text(run: Run, running: list[Run]) -> str:
+    """Why a queued run has not started: the worker handles one run at a time, so it may be busy."""
+    others = [other for other in running if other.id != run.id]
+    if not others:
+        return (
+            "**Queued.** The worker has not picked this run up yet. The worker is the process that talks to "
+            "the models: it is started by `scripts/run.ps1`, or by hand with `python -m barthelona worker`."
+        )
+    busy = others[0]
+    return (
+        f"**Queued behind `{busy.id}`** (project `{busy.workspace}`, still running). The worker runs one run "
+        "at a time and starts this one when that run stops. To start this one now, open the other run in "
+        "**Select Run** above and press **Cancel Run**; you can **Resume** it later (its current code step "
+        "starts again)."
+    )
 
 
 def _request_text(run: Run) -> str:

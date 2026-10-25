@@ -328,6 +328,12 @@ models gave no valid program, no model answered, an error) it reads "Resume" and
 the code step from the run's checkpoint. A finished (green) run and an unsupported target have no button. A run that
 was still going when the worker or the PC stopped needs no button: it continues when the worker starts again.
 
+**Is it working or hung? (Live Run).** The box above the stages says what the run is doing. For a running run it
+gives the last activity (the newest event or model reply, with the clock time and how long ago); a single model call
+can take a few minutes, and after five minutes of silence the box turns into a warning with what to check (the worker
+window, `meterless status`) and the way out (Cancel Run, then Resume). The worker handles one run at a time: a new run
+waits as "Queued behind run_X"; to start it now, cancel the other run (Resume brings it back later).
+
 **Package panel (Live Run).** Select a green run: the panel shows the `demos/` folder it will write, a field for the full
 commit sha of barthelona that the generated CI installs (filled from `git rev-parse HEAD`), and the button **Package into
 demos/**. It writes the same files as `runs package` and lists them. It refuses a folder that already has files (pick

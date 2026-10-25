@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,7 @@ import streamlit as st
 
 from barthelona.domain import CommandKind, EventKind, RunCommand, RunStatus
 from barthelona.persistence import Store, open_store
+from barthelona.ui.activity import ago
 from barthelona.ui.continue_run import render_continue
 from barthelona.ui.event_text import describe
 from barthelona.ui.package_panel import render_package_panel
@@ -169,7 +171,9 @@ def _render_event_log(run: Any, store: Store) -> bool:
     # Display accumulated event history (newest first)
     history = st.session_state[history_key]
     if history:
-        st.info(f"**Now:** {describe(history[0])}")
+        newest = history[0]
+        since = ago((datetime.now(UTC) - newest.ts).total_seconds())
+        st.info(f"**Now:** {describe(newest)} ({newest.ts.astimezone().strftime('%H:%M:%S')}, {since})")
         for event in history:
             st.markdown(_format_event(event, technical), unsafe_allow_html=technical)
     else:
