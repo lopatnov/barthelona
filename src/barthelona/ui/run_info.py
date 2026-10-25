@@ -10,6 +10,7 @@ import streamlit as st
 
 from barthelona.domain import EventKind, Run, RunEvent, RunStatus, StopReason
 from barthelona.domain.layout import (
+    DRAFTS_DIR,
     REASONING_FILE,
     REQUEST_FILE,
     RUNS_DIR,
@@ -174,6 +175,13 @@ def _size_and_time(path: Path) -> str:
     return f"{info.st_size} bytes, {datetime.fromtimestamp(info.st_mtime).strftime('%H:%M:%S')}"
 
 
+def draft_rows(drafts: Path) -> list[tuple[str, str]]:
+    """(name, size and time) of every file in the project's drafts folder, oldest name first."""
+    if not drafts.is_dir():
+        return []
+    return [(path.name, _size_and_time(path)) for path in sorted(drafts.iterdir()) if path.is_file()]
+
+
 def render_run_files(run: Run) -> None:
     """Where the run's files are and which of them exist yet."""
     folder = run_dir(RUNS_DIR, run.id)
@@ -187,7 +195,21 @@ def render_run_files(run: Run) -> None:
                 "What it is": [row[2] for row in rows],
             }
         )
+        drafts = Path(run.workspace) / DRAFTS_DIR
+        st.markdown(f"Project folder: `{Path(run.workspace).resolve()}` (created when the run started)")
+        draft_files = draft_rows(drafts)
+        if draft_files:
+            st.table(
+                {
+                    "Draft in `drafts/`": [row[0] for row in draft_files],
+                    "State": [row[1] for row in draft_files],
+                }
+            )
+        else:
+            st.caption(
+                "`drafts/` holds every code draft the models write, visible as soon as the code step starts."
+            )
         st.caption(
-            f"The project folder `{run.workspace}` is written only when the run is green: automatically if "
-            "the request asked for it, otherwise with **Package into demos/** (see below)."
+            "The rest of the project (src/, tests/, README, CI) is written when the run is green: "
+            "automatically if the request asked for it, otherwise with **Package into demos/** (see below)."
         )
