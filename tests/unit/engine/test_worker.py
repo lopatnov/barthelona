@@ -589,7 +589,9 @@ async def test_a_run_stopped_on_time_continues_with_new_limits_from_the_code_ste
     assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.BUDGET_TIME)
     assert run.budget.wall_s == 1.2
     new = store.events_after("r1", after_seq=events_before - 1)
-    assert [e.payload for e in new if e.kind is EventKind.PHASE] == [{"continued": "budget_time"}]
+    assert [e.payload for e in new if e.kind is EventKind.PHASE] == [
+        {"continued": "budget_time", "from": "g1_gate"}
+    ]
     ended = [e.node_id for e in new if e.kind is EventKind.NODE_END]
     assert ended == ["codegen", "finalize"]  # intake, spec and the gate are not repeated
     assert store.pending_gates("r1") == []
@@ -628,3 +630,18 @@ async def test_the_code_step_opens_the_project_folder_for_a_run_that_began_witho
     worker = Worker(store, build_graph(services, InMemorySaver()), clock=lambda: NOW)
     await worker.step()
     assert opened == ["r1", "r1"]  # preflight and the code step
+
+
+async def test_a_run_rejected_at_g1_is_resumed_at_the_code_step(store: Store, runs_dir: Path) -> None:
+    _queue(store, runs_dir)
+    worker = _worker(store, runs_dir)
+    await worker.step()
+    _decide(store, "reject")
+    await worker.step()
+    assert store.get_run("r1").stop_reason is StopReason.HUMAN_ABORT
+    _extend(store, 3600)
+    await worker.step()
+    run = store.get_run("r1")
+    assert run.stop_reason is not StopReason.HUMAN_ABORT  # the code step ran (and ended on its own terms)
+    phases = [e.payload for e in store.events_after("r1") if e.kind is EventKind.PHASE]
+    assert phases == [{"g1": "approved by resume"}, {"continued": "human_abort", "from": "g1_gate"}]
