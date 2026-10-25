@@ -6,6 +6,7 @@ directly in Python.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from barthelona.executors import _wsl_agent as agent  # agent module lives in the package
@@ -296,6 +297,11 @@ def test_mount_must_be_under_runs() -> None:
 
 
 def test_mount_symlink_escaping_the_cache_root_is_rejected(tmp_path: Path) -> None:
+    # Windows requires admin privileges for symlinks; skip if not available
+    if sys.platform == "win32":
+        import pytest
+
+        pytest.skip("symlink creation requires admin on Windows")
     runs = Path(agent._CACHE_ROOT) / "runs"
     runs.mkdir(parents=True, exist_ok=True)
     link = runs / "symlink-escape-test"
@@ -309,3 +315,9 @@ def test_mount_symlink_escaping_the_cache_root_is_rejected(tmp_path: Path) -> No
 def test_resolved_mount_is_what_docker_receives() -> None:
     mount = f"{agent._CACHE_ROOT}/runs/r/../r/0"
     assert agent._resolve_mount(mount) == f"{agent._CACHE_ROOT}/runs/r/0"
+
+
+def test_mount_under_runs_cannot_carry_extra_volume_fields() -> None:
+    argv = ["docker", "run", "bart-run", "true"]
+    for mount in (f"{agent._CACHE_ROOT}/runs/x:/work:rw", f"{agent._CACHE_ROOT}/runs/x:rw"):
+        assert agent._validate_request(argv, None, mount) is not None

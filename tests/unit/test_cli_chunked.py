@@ -74,7 +74,10 @@ def test_stats_are_saved_and_printed_by_the_stats_command(
     assert "stats: run 1 saved" in run.output
     shown = runner.invoke(app, ["chunked", "stats", "--db", str(db)])
     assert shown.exit_code == 0, shown.output
-    assert shown.output.count("┏") == 2  # the runs table and the per-model table; cells are cut at test width
+    # Rich table uses either heavy (┏) or light (┌) box-drawing chars depending on version
+    heavy = shown.output.count("┏")
+    light = shown.output.count("┌")
+    assert heavy + light == 2  # the runs table and the per-model table
     log = RunLog(db)
     assert [row.label for row in log.last_runs()] == ["write hello"]
     log.close()

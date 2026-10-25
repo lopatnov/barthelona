@@ -44,7 +44,8 @@ from pathlib import Path, PurePosixPath
 #: Bumped when the wire format changes; the host refuses a mismatched agent (D-043).
 PROTOCOL_VERSION = 2
 _MAX_CONCURRENCY = 4
-_CACHE_ROOT = str(Path("~/.cache/barthelona").expanduser())
+# Use POSIX-style path for cross-platform comparison; PurePosixPath normalizes to forward slashes.
+_CACHE_ROOT = str(PurePosixPath(Path("~/.cache/barthelona").expanduser()))
 _TC_CONTAINER = "bart-tc"
 _RUN_IMAGE_PREFIX = "bart-run"
 
@@ -215,7 +216,14 @@ def _resolve_mount(mount_raw: object) -> str | None:
     The resolved path, not the caller's string, is what docker receives.
     """
     mount = str(mount_raw)
-    if ":" in mount or "," in mount or "~" in mount or not PurePosixPath(mount).is_absolute():
+    # Allow Windows drive letter at start (e.g., C:/...) but reject other colons (named volumes, etc.)
+    # PurePosixPath doesn't consider Windows drive letters as absolute, so check manually
+    is_absolute = PurePosixPath(mount).is_absolute() or (
+        len(mount) >= 3 and mount[1] == ":" and mount[2] == "/"
+    )
+    # Only the drive letter's own colon may appear: any other one would add fields to `-v host:/work:ro`.
+    after_drive = mount[2:] if mount[1:2] == ":" else mount
+    if "," in mount or "~" in mount or ":" in after_drive or not is_absolute:
         return None
     resolved = str(PurePosixPath(Path(mount).resolve()))
     return resolved if resolved.startswith(_CACHE_ROOT + "/runs/") else None
