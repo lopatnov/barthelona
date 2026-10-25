@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from barthelona.llm import CatalogError, load_catalog
-from barthelona.llm.catalog import expand_env
+from barthelona.llm.catalog import RetryConfig, expand_env
 
 REPO = Path(__file__).resolve().parents[3]
 
@@ -96,3 +96,29 @@ def test_unreadable_file_names_the_path(tmp_path: Path) -> None:
 )
 def test_expand_env(value: str, env: dict[str, str], expected: str) -> None:
     assert expand_env(value, env) == expected
+
+
+def test_timeout_s_takes_an_env_override(tmp_path: Path) -> None:
+    text = _MINIMAL.replace(
+        "cloud: {kind: anthropic_messages, api_key_env: KEY}",
+        'cloud: {kind: anthropic_messages, api_key_env: KEY, timeout_s: "${CLOUD_TIMEOUT:-300}"}',
+    )
+    path = _write(tmp_path, text)
+
+    assert load_catalog(path, env={}).providers["cloud"].timeout_s == 300.0
+    assert load_catalog(path, env={"CLOUD_TIMEOUT": "45"}).providers["cloud"].timeout_s == 45.0
+
+
+def test_retry_delays_double_from_the_base_and_stop_at_the_cap() -> None:
+    assert RetryConfig(base_delay_s=1.0, max_delay_s=30.0, max_attempts=4).delays() == (1.0, 2.0, 4.0)
+    assert RetryConfig(base_delay_s=20.0, max_delay_s=30.0, max_attempts=3).delays() == (20.0, 30.0)
+    assert RetryConfig(max_attempts=1).delays() == ()  # a single attempt is never repeated
+
+
+def test_the_shipped_catalog_gives_the_routing_provider_room_and_retries() -> None:
+    catalog = load_catalog(REPO / "config" / "models.yaml", env={})
+    meterless = catalog.providers["meterless"]
+
+    assert meterless.timeout_s >= 300.0  # 180 s stalled the reasoning lanes on this PC (2026-10-25)
+    assert catalog.resilience.retry.max_attempts == 3
+    assert catalog.resilience.retry.delays() == (1.0, 2.0)

@@ -36,12 +36,13 @@ def test_a_run_with_no_sign_of_life_says_so() -> None:
 
 def test_silence_longer_than_a_model_call_is_stale() -> None:
     now = datetime.now(UTC)
+    long_call = STALE_AFTER_S + 60  # a local fallback call runs for minutes, so the threshold is generous
 
     fresh, fresh_flag = activity_text(now - timedelta(seconds=90), now)
-    stale, stale_flag = activity_text(now - timedelta(seconds=STALE_AFTER_S + 60), now)
+    stale, stale_flag = activity_text(now - timedelta(seconds=long_call), now)
 
     assert "1 min ago" in fresh and not fresh_flag
-    assert "6 min ago" in stale and stale_flag
+    assert ago(long_call) in stale and stale_flag
 
 
 def test_the_newest_of_the_last_event_and_the_reasoning_log_counts(tmp_path: Path) -> None:

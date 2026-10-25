@@ -127,11 +127,16 @@ providers:
     enabled: true
     max_concurrency: 2
     structured_output: none
-    timeout_s: 180
+    timeout_s: ${METERLESS_TIMEOUT_S:-300} # the silent gap between streamed bytes, not the call length
     headers:
       meterless-app: barthelona
       meterless-scope: user
 ```
+
+The timeout is a **read** timeout: it bounds how long the client waits for the next byte, so a call may run
+for many minutes as long as the lane keeps streaming. A lane that goes completely quiet (queueing, loading a
+model, an upstream stall) hits it; the gateway then repeats the same entry once (the policy lives under
+`resilience.retry` in the same file), and only after that falls through to the local model.
 
 ### Model Definitions
 
@@ -404,14 +409,16 @@ To use a different model behind a lane:
 
 ### Adjusting Timeouts
 
-For slow models or long reasoning:
+The shipped value is 300 s and can be changed without editing the file:
 
-```yaml
-# config/models.yaml
-providers:
-  meterless:
-    timeout_s: 300 # 5 minutes (default 180s)
+```bash
+# .env or the shell; the default stays for everything else
+METERLESS_TIMEOUT_S=600
 ```
+
+Or edit [`config/models.yaml`](config/models.yaml) directly. Past ~180 s the reasoning lanes on this PC began
+to stall (measured 2026-10-25), so a value below 300 s is not recommended; the retry policy lives next to it
+under `resilience.retry` (`max_attempts`, `base_delay_s`, `max_delay_s`, `jitter`, `honor_retry_after`).
 
 ### Disabling Thinking for Specific Models
 

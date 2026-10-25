@@ -7,7 +7,10 @@ from pathlib import Path
 
 from barthelona.domain.layout import REASONING_FILE
 
-STALE_AFTER_S = 300  # a model call takes up to a few minutes (the Meterless timeout is 180 s); five is a hint
+# A remote lane answers in about two minutes, but when it times out the chain falls through to the local
+# model, whose calls took 485 s on average and 980 s at worst (measured 2026-10-25). A shorter threshold
+# called those runs frozen while they were working.
+STALE_AFTER_S = 1200
 
 
 def ago(seconds: float) -> str:

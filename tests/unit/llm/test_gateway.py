@@ -17,7 +17,15 @@ from barthelona.llm import (
     RawReply,
     strip_think,
 )
-from barthelona.llm.catalog import Catalog, ChainEntry, ModelConfig, ModelTarget, ProviderConfig
+from barthelona.llm.catalog import (
+    Catalog,
+    ChainEntry,
+    ModelConfig,
+    ModelTarget,
+    ProviderConfig,
+    ResilienceConfig,
+    RetryConfig,
+)
 
 
 def _request() -> CompletionRequest:
@@ -58,6 +66,11 @@ def _catalog(*, cloud_enabled: bool = True, key_env: str | None = None) -> Catal
 
 def _reply(text: str = "ok") -> RawReply:
     return RawReply(text=text, tokens_in=10, tokens_out=4, stop_reason="stop", latency_ms=2000)
+
+
+def _policy(retry: RetryConfig) -> Catalog:
+    """The test catalog with a retry policy of its own, as `resilience.retry` would set it."""
+    return _catalog().model_copy(update={"resilience": ResilienceConfig(retry=retry)})
 
 
 def _gateway(
@@ -133,6 +146,68 @@ async def test_exhausted_chain_raises_with_every_reason() -> None:
     local = _Backend([ModelCallError("also boom")])
     with pytest.raises(GatewayError, match=r"boom.*also boom"):
         await _gateway(cloud, local).complete("worker", _request())
+
+
+async def test_a_timeout_is_repeated_on_the_same_model_before_falling_through() -> None:
+    cloud = _Backend(
+        [ModelCallError("APITimeoutError: Request timed out", FailureKind.TIMEOUT), _reply("from cloud")]
+    )
+    sleeps: list[float] = []
+    gateway = _gateway(cloud, _Backend([]), retry_delays=(0.5,), sleeps=sleeps)
+
+    result = await gateway.complete("worker", _request())
+
+    assert (result.served_by, cloud.targets, sleeps) == ("big", ["big", "big"], [0.5])
+    assert result.fallbacks[0].startswith("big: retry in 0.5s: APITimeoutError")
+
+
+async def test_a_second_timeout_is_not_repeated_even_when_attempts_remain() -> None:
+    cloud = _Backend([ModelCallError("APITimeoutError: stalled", FailureKind.TIMEOUT) for _ in range(3)])
+    sleeps: list[float] = []
+    gateway = _gateway(cloud, _Backend([_reply("local")]), retry_delays=(0.5, 1.5), sleeps=sleeps)
+
+    result = await gateway.complete("worker", _request())
+
+    assert (result.served_by, cloud.targets, sleeps) == ("local_main", ["big", "big"], [0.5])
+    assert len(result.fallbacks) == 2  # the repeat and the second stall, which moves the chain on
+
+
+async def test_the_retry_policy_and_its_jitter_come_from_the_catalog() -> None:
+    cloud = _Backend([ModelCallError("busy", FailureKind.SERVER) for _ in range(3)])
+    sleeps: list[float] = []
+
+    async def sleep(seconds: float) -> None:  # NOSONAR S7503
+        sleeps.append(seconds)
+
+    gateway = Gateway(
+        _policy(RetryConfig(max_attempts=2, base_delay_s=0.25, max_delay_s=1.0, jitter="none")),
+        {"anthropic_messages": cloud, "openai_chat": _Backend([_reply("local")])},  # type: ignore[arg-type]
+        env={},
+        sleep=sleep,
+    )
+
+    result = await gateway.complete("worker", _request())
+
+    assert (result.served_by, cloud.targets, sleeps) == ("local_main", ["big", "big"], [0.25])
+
+
+async def test_retry_after_can_be_ignored_by_the_catalog() -> None:
+    cloud = _Backend([ModelCallError("429", FailureKind.RATE_LIMIT, retry_after=4.0), _reply("from cloud")])
+    sleeps: list[float] = []
+
+    async def sleep(seconds: float) -> None:  # NOSONAR S7503
+        sleeps.append(seconds)
+
+    gateway = Gateway(
+        _policy(RetryConfig(max_attempts=2, base_delay_s=0.5, jitter="none", honor_retry_after=False)),
+        {"anthropic_messages": cloud, "openai_chat": _Backend([])},  # type: ignore[arg-type]
+        env={},
+        sleep=sleep,
+    )
+
+    result = await gateway.complete("worker", _request())
+
+    assert (result.served_by, sleeps) == ("big", [0.5])
 
 
 async def test_a_transient_failure_is_repeated_on_the_same_model_before_falling_through() -> None:

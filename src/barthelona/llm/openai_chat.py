@@ -14,6 +14,7 @@ from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
+import httpx
 import openai
 from openai import AsyncOpenAI
 
@@ -24,6 +25,10 @@ from barthelona.llm.types import CompletionRequest, FailureKind, ModelCallError
 ClientFactory = Callable[[ModelTarget], AsyncOpenAI]
 _NO_KEY = "not-needed"  # LM Studio and Ollama ignore the key but the SDK insists on one
 _MAX_DETAIL_CHARS = 300
+# The read timeout is the silent gap between streamed bytes, not the length of the call, so it is generous
+# (a reasoning lane may think for minutes while still streaming). A dead host must fail fast instead.
+_CONNECT_TIMEOUT_S = 5.0
+_WRITE_TIMEOUT_S = 60.0
 
 
 def _meterless_block(exc: openai.OpenAIError) -> dict[str, Any]:
@@ -38,6 +43,11 @@ def _meterless_block(exc: openai.OpenAIError) -> dict[str, Any]:
 
 def _own_hint(exc: openai.OpenAIError, base_url: str | None) -> str:
     """Our hint, used only when the server sent no fix and the route did not refuse the class."""
+    if isinstance(exc, openai.APITimeoutError):  # a subclass of APIConnectionError, so it is asked first
+        return (
+            f"no bytes arrived from {base_url or 'the provider'} for its whole read timeout: the lane may be "
+            "loading a model or its upstream may be busy; it is retried, and timeout_s raises the bound"
+        )
     if isinstance(exc, openai.APIConnectionError):
         return (
             f"the runtime isn't reachable at {base_url or 'its base URL'}: start Nightshift and check the URL"
@@ -139,7 +149,14 @@ class OpenAIChatBackend:
             base_url=provider.base_url,
             api_key=key,
             max_retries=0,
-            timeout=provider.timeout_s,
+            # The SDK normalizes a legacy httpx.Timeout at runtime; its annotation only names the httpx2
+            # type it bundles, so the mismatch is in the signature, not in the value.
+            timeout=httpx.Timeout(  # type: ignore[arg-type]
+                connect=_CONNECT_TIMEOUT_S,
+                read=provider.timeout_s,
+                write=_WRITE_TIMEOUT_S,
+                pool=provider.timeout_s,
+            ),
             default_headers=provider.headers or None,
         )
 

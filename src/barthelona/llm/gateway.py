@@ -1,8 +1,9 @@
 """The model gateway: role router over the catalog's chains (docs/architecture.md §16.1).
 
 This first slice walks a chain in order, skips entries that cannot be used and falls through to the next
-model when a call fails. A transient failure is repeated on the same entry first, a bounded number of times
-(#255). Circuit breakers, the cost ledger and the affinity scheduler come later.
+model when a call fails. A transient failure (5xx, rate limit, connection reset, a timeout) is repeated on
+the same entry first, as often as ``resilience.retry`` in the catalog allows. Circuit breakers, the cost
+ledger and the affinity scheduler come later.
 """
 
 from __future__ import annotations
@@ -18,12 +19,25 @@ from barthelona.llm.backend import Backend, RawReply, build_completion
 from barthelona.llm.catalog import Catalog, ModelTarget
 from barthelona.llm.types import Completion, CompletionRequest, FailureKind, GatewayError, ModelCallError
 
-# Seconds to wait before each repeat of a failed call on the same chain entry; the length is the retry bound.
-RETRY_DELAYS = (2.0, 6.0)
-# A provider that asks for a longer wait than this is treated as down for this call: the chain moves on.
-MAX_RETRY_AFTER_S = 30.0
-# Failures that can pass by themselves. An auth, refusal or bad-reply failure repeats identically.
-_TRANSIENT = frozenset({FailureKind.SERVER, FailureKind.RATE_LIMIT, FailureKind.TRANSPORT})
+# Failures that can pass by themselves. A timeout is a stall, not a refusal: a reasoning lane that went
+# quiet for the whole read timeout usually answers on the repeat, so it is retried like a 5xx. An auth,
+# refusal or bad-reply failure would repeat identically and moves the chain on at once.
+_TRANSIENT = frozenset(
+    {FailureKind.SERVER, FailureKind.RATE_LIMIT, FailureKind.TRANSPORT, FailureKind.TIMEOUT}
+)
+# A stall costs the whole read timeout (300 s for Meterless), so it is repeated once even when the catalog
+# allows more attempts: a second silence is a down lane, not a hiccup, and the chain should move on.
+_MAX_TIMEOUT_RETRIES = 1
+
+
+def _full_jitter(cap: float) -> float:
+    """A random wait below the cap, so callers that stalled together do not retry together."""
+    return random.uniform(0, cap)  # noqa: S311  # backoff, not security
+
+
+def _no_jitter(cap: float) -> float:
+    """The cap itself: ``jitter: none`` in the catalog uses the configured delays unchanged."""
+    return cap
 
 
 class ModelGateway(Protocol):
@@ -39,9 +53,9 @@ class Gateway:
         backends: Mapping[str, Backend],
         profile: str | None = None,
         env: Mapping[str, str] | None = None,
-        retry_delays: tuple[float, ...] = RETRY_DELAYS,
+        retry_delays: tuple[float, ...] | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
-        jitter: Callable[[float], float] = lambda cap: random.uniform(0, cap),  # noqa: S311  # backoff, not security
+        jitter: Callable[[float], float] | None = None,
         trace: Callable[[str, Completion], None] | None = None,
         progress: Callable[[str], None] | None = None,
     ) -> None:
@@ -52,9 +66,10 @@ class Gateway:
         self._profile = profile
         self._env = os.environ if env is None else env
         self._slots: dict[str, asyncio.Semaphore] = {}
-        self._retry_delays = retry_delays
+        self._retry = catalog.resilience.retry  # the catalog's policy, not a constant in this file
+        self._retry_delays = self._retry.delays() if retry_delays is None else retry_delays
         self._sleep = sleep
-        self._jitter = jitter
+        self._jitter = jitter or (_full_jitter if self._retry.jitter == "full" else _no_jitter)
 
     def _unusable(self, target: ModelTarget) -> str | None:
         provider = target.provider
@@ -84,6 +99,7 @@ class Gateway:
         """The backend's reply or the reason this entry failed, with a note for each repeated call."""
         started = time.monotonic()
         notes: list[str] = []
+        stalls = 0
         for cap in (*self._retry_delays, None):
             try:
                 async with self._slot(target):
@@ -91,11 +107,16 @@ class Gateway:
                     return await self._backends[target.provider.kind].complete(target, request), notes
             except ModelCallError as exc:
                 reason = f"{exc} after {time.monotonic() - started:.1f}s [{exc.kind}]"
-                if cap is None or exc.kind not in _TRANSIENT or (exc.retry_after or 0) > MAX_RETRY_AFTER_S:
-                    return reason, notes
-                delay = max(
-                    exc.retry_after or 0.0, self._jitter(cap)
-                )  # full jitter; Retry-After is the minimum
+                stalls += exc.kind is FailureKind.TIMEOUT
+                asked = exc.retry_after if self._retry.honor_retry_after else None
+                if (
+                    cap is None
+                    or exc.kind not in _TRANSIENT
+                    or stalls > _MAX_TIMEOUT_RETRIES
+                    or (asked or 0.0) > self._retry.max_delay_s
+                ):
+                    return reason, notes  # nothing can be gained by waiting: the chain moves on
+                delay = max(asked or 0.0, self._jitter(cap))  # Retry-After is the minimum wait
                 notes.append(f"{target.key}: retry in {delay:.1f}s: {reason}")
                 self._say(f"FAILED {target.key}: {reason}; retrying in {delay:.0f}s")
                 await self._sleep(delay)
