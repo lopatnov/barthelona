@@ -27,12 +27,12 @@ from barthelona.world_model import (
     Provenance,
     WorldEntity,
     WorldModel,
+    case_key,
     external_id,
     format_entities,
     record_attempt,
     record_run_stop,
     record_spec_and_tests,
-    case_key,
 )
 
 
@@ -75,7 +75,6 @@ def _cases() -> list[TestCase]:
 def test_external_ids_are_stable_and_match_the_typescript_hash() -> None:
     # djb2("run:barthelona:a") == 1065168406 == 0x3f7d2e16, the same hash the TypeScript `externalId` uses.
     assert external_id("run", "barthelona", "a") == "ext_3f7d2e16"
-    assert external_id("run", "barthelona", "r1") == external_id("run", "barthelona", "r1")
     assert external_id("run", "barthelona", "r1") != external_id("test", "barthelona", "r1")
 
 

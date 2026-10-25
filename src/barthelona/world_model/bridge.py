@@ -74,7 +74,7 @@ class TsWorldModel:
     def _run(self, command: dict[str, Any]) -> dict[str, Any]:
         command = command | {"namespace": self._namespace, "directory": str(self._directory)}
         try:
-            completed = subprocess.run(  # noqa: S603 -- argv is a fixed bridge path, never run data
+            completed = subprocess.run(  # noqa: S603  # argv is a fixed bridge path, never run data
                 _argv(self._bridge),
                 input=json.dumps(command),
                 capture_output=True,
