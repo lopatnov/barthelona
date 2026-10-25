@@ -11,6 +11,7 @@ from barthelona.llm.types import Completion
 
 STDERR = "-"
 PROMPT_HEADING = "### prompt"
+TRIED_HEADING = "### tried first"  # the models that failed before this one answered, and why
 
 Trace = Callable[[str, Completion], None]
 
@@ -26,7 +27,14 @@ def _heading(role: str, done: Completion) -> str:
 def _entry(role: str, done: Completion) -> str:
     thought = done.reasoning or "(the model sent no reasoning)"
     asked = f"{PROMPT_HEADING}\n\n{done.prompt}\n\n" if done.prompt else ""
-    return f"{_heading(role, done)}\n\n{asked}### reasoning\n\n{thought}\n\n### answer\n\n{done.text}\n\n"
+    tried = (
+        f"{TRIED_HEADING}\n\n" + "\n".join(f"- {note}" for note in done.fallbacks) + "\n\n"
+        if done.fallbacks
+        else ""
+    )
+    return (
+        f"{_heading(role, done)}\n\n{tried}{asked}### reasoning\n\n{thought}\n\n### answer\n\n{done.text}\n\n"
+    )
 
 
 class ReasoningLog:
