@@ -12,6 +12,7 @@ from barthelona.domain import EventKind, Profile, Run, RunBudget, RunEvent, RunM
 from barthelona.domain.presets import builtin_presets
 from barthelona.persistence import open_store
 from barthelona.ui.activity import STALE_AFTER_S, activity_text, ago, last_activity
+from barthelona.ui.event_text import describe, stop_text
 from barthelona.ui.reasoning_panel import all_entries
 from barthelona.ui.run_info import queued_text
 
@@ -82,6 +83,21 @@ def test_a_queued_run_names_the_run_the_worker_is_busy_with() -> None:
 
 def test_a_queued_run_with_nothing_running_points_at_the_worker() -> None:
     assert "worker" in queued_text(_run("run-b"), [])
+
+
+def test_a_stop_says_what_the_step_that_stopped_the_run_said() -> None:
+    event = RunEvent(
+        run_id="run-a",
+        seq=0,
+        ts=datetime.now(UTC),
+        kind=EventKind.STOP,
+        payload={"stop_reason": "max_attempts", "detail": "worker gave no valid TestsDraft: no JSON object"},
+    )
+
+    assert describe(event).endswith("(worker gave no valid TestsDraft: no JSON object)")
+    assert stop_text("max_attempts", "") == stop_text(
+        "max_attempts"
+    )  # a run that said nothing reads as before
 
 
 def test_a_heading_with_a_time_starts_an_entry_too() -> None:

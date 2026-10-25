@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
+
 import pytest
 
 from barthelona.domain import (
@@ -17,7 +19,7 @@ from barthelona.domain import (
     RunEnv,
     TargetProfile,
 )
-from barthelona.engine.spec import SpecError, ask_json
+from barthelona.engine.spec import MODELS, SpecError, ask_json
 from barthelona.engine.tests_author import TEST_ROLE, TestsDraft, author_tests
 from barthelona.llm import FakeGateway
 from barthelona.llm.types import Completion, CompletionRequest
@@ -105,12 +107,25 @@ async def test_a_long_exact_transcript_is_sent_back_for_substring_checks() -> No
 class _CutOff(FakeGateway):
     """Reports the first answer as stopped by the length limit, like a provider does."""
 
-    async def complete(self, role: str, request: CompletionRequest) -> Completion:
-        done = await super().complete(role, request)
+    async def complete(
+        self, role: str, request: CompletionRequest, avoid: Collection[str] = ()
+    ) -> Completion:
+        done = await super().complete(role, request, avoid)
         if len(self.calls) > 1:
             return done
         record: LLMCallRecord = done.record.model_copy(update={"stop_reason": "length"})
         return done.model_copy(update={"record": record})
+
+
+class _TwoLanes(FakeGateway):
+    """Two models of one chain: the first answer comes from lane-1, the rest from lane-2."""
+
+    async def complete(
+        self, role: str, request: CompletionRequest, avoid: Collection[str] = ()
+    ) -> Completion:
+        done = await super().complete(role, request, avoid)
+        lane = "lane-1" if len(self.calls) == 1 else "lane-2"
+        return done.model_copy(update={"served_by": lane})
 
 
 async def test_a_reply_cut_off_by_the_length_limit_is_named_as_such() -> None:
@@ -119,6 +134,15 @@ async def test_a_reply_cut_off_by_the_length_limit_is_named_as_such() -> None:
     assert "cut off by the length limit" in gateway.calls[1][1].messages[-1].content
 
 
-async def test_two_unusable_replies_stop_the_loop() -> None:
-    with pytest.raises(SpecError, match="no valid TestsDraft"):
-        await ask_json(FakeGateway(["nope", "nope"]), "worker", "sys", "user", TestsDraft, lambda _r: None)
+async def test_a_lane_that_writes_code_is_passed_over_for_the_next_model_of_the_chain() -> None:
+    gateway = _TwoLanes(["section .text\n_start:\n    mov rax, 60\n", _EXACT])
+    _, cases = await author_tests(gateway, _spec(), "", lambda _r: None)
+    assert cases[0].expect.stdout == "Score: 0\n"
+    assert gateway.avoided == [(), ("lane-1",)]  # the model that answered code is not asked again
+
+
+async def test_an_unusable_lane_stops_the_loop_once_the_chain_is_spent() -> None:
+    gateway = FakeGateway(["nope"] * MODELS)
+    with pytest.raises(SpecError, match="no JSON object"):
+        await ask_json(gateway, "worker", "sys", "user", TestsDraft, lambda _r: None)
+    assert len(gateway.calls) == MODELS

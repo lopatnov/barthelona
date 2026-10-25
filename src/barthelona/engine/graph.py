@@ -72,6 +72,7 @@ class Services:
 class RunState(TypedDict, total=False):
     run_id: str
     stop: str  # a StopReason value once the run must end
+    stop_detail: str  # why, in the words of the step that stopped it; shown with the stop, never parsed
     intake: dict[str, Any]  # the `Intake` of the request
     facts: str  # rows read from the knowledge store (Zetaris), marked as untrusted data
     spec: dict[str, Any]  # the `ProjectSpec` draft
@@ -114,8 +115,8 @@ async def _or_stop(step: Awaitable[dict[str, Any]]) -> dict[str, Any]:
         return await step
     except GatewayError:
         return {"stop": StopReason.NO_MODEL_AVAILABLE.value}
-    except SpecError:
-        return {"stop": StopReason.MAX_ATTEMPTS.value}
+    except SpecError as exc:
+        return {"stop": StopReason.MAX_ATTEMPTS.value, "stop_detail": str(exc)[:300]}
 
 
 def _timed(node: Callable[[Any, RunState], Awaitable[dict[str, Any]]]) -> Callable[..., Any]:
@@ -190,8 +191,8 @@ class _Nodes:
     async def validate_spec(self, state: RunState) -> dict[str, Any]:
         spec = ProjectSpec.model_validate(state["spec"])
         cases = [TestCase.model_validate(case) for case in state["tests"]]
-        if validate_spec(spec, cases):
-            return {"stop": StopReason.MAX_ATTEMPTS.value}
+        if problem := validate_spec(spec, cases):
+            return {"stop": StopReason.MAX_ATTEMPTS.value, "stop_detail": problem[:300]}
         self._services.save_spec(state["run_id"], spec, cases)
         self._record_spec(state["run_id"], spec, cases, state.get("spec_model"), state.get("test_model"))
         return {}

@@ -136,7 +136,7 @@ class Worker:
         node, cleared = _resume_point(values)
         if node == "g1_gate" and values.get("g1") != "approve":
             self._emit(run.id, EventKind.PHASE, payload={"g1": "approved by resume"})
-        await self._graph.aupdate_state(config, {"stop": ""} | cleared, as_node=node)
+        await self._graph.aupdate_state(config, {"stop": "", "stop_detail": ""} | cleared, as_node=node)
         self._store.reopen_run(run.id, extensions[-1].budget)
         self._emit(run.id, EventKind.PHASE, payload={"continued": run.stop_reason.value, "from": node})
         await self._drive(run.id, None)
@@ -197,7 +197,11 @@ class Worker:
             if (gate := self._record(run_id, update)) is not None:
                 return gate  # parked at a gate
         state = (await self._graph.aget_state(config)).values
-        self._stop(run_id, StopReason(state.get("stop", StopReason.INFRA_ERROR.value)))
+        self._stop(
+            run_id,
+            StopReason(state.get("stop", StopReason.INFRA_ERROR.value)),
+            str(state.get("stop_detail", "")),
+        )
         return None
 
     def _cancel_requested(self, run_id: str) -> bool:
@@ -257,8 +261,12 @@ class Worker:
         )
         return request
 
-    def _stop(self, run_id: str, reason: StopReason) -> None:
-        self._emit(run_id, EventKind.STOP, payload={"stop_reason": reason.value})
+    def _stop(self, run_id: str, reason: StopReason, detail: str = "") -> None:
+        """Record the stop; *detail* is the step's own words for it, when it gave any."""
+        payload: dict[str, Any] = {"stop_reason": reason.value}
+        if detail:
+            payload["detail"] = detail
+        self._emit(run_id, EventKind.STOP, payload=payload)
         self._store.set_run_status(run_id, RunStatus.STOPPED, reason)
         if self._world is not None:
             self._world.upsert(record_run_stop(run_id, reason.value))

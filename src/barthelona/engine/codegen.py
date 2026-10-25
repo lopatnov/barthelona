@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from dataclasses import dataclass
 
 from barthelona.domain import LLMCallRecord, ProjectSpec, StopReason, TestCase
@@ -65,8 +65,10 @@ class _Recording:
         self._inner = inner
         self._on_call = on_call
 
-    async def complete(self, role: str, request: CompletionRequest) -> Completion:
-        completion = await self._inner.complete(role, request)
+    async def complete(
+        self, role: str, request: CompletionRequest, avoid: Collection[str] = ()
+    ) -> Completion:
+        completion = await self._inner.complete(role, request, avoid)
         self._on_call(completion.record)
         return completion
 

@@ -109,6 +109,16 @@ async def test_first_usable_model_answers_and_the_ledger_row_is_filled() -> None
     assert result.record.usd is None  # cloud prices arrive with the ledger
 
 
+async def test_a_model_the_caller_could_not_use_is_skipped_for_the_next_one() -> None:
+    cloud, local = _Backend([_reply("from cloud")]), _Backend([_reply("from local")])
+    said: list[str] = []
+    result = await _gateway(cloud, local, progress=said.append).complete("worker", _request(), avoid={"big"})
+    assert (result.text, result.served_by) == ("from local", "local_main")
+    assert result.fallbacks == ("big: skipped, its last reply was unusable",)
+    assert cloud.targets == []  # a model the caller cannot use is not asked again
+    assert "FAILED big skipped: its last reply was unusable" in said
+
+
 async def test_local_call_is_free_and_think_blocks_are_stripped() -> None:
     local = _Backend([_reply("<think>hmm</think>answer")])
     result = await _gateway(None, local, cloud_enabled=False).complete("worker", _request())

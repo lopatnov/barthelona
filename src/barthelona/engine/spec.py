@@ -1,8 +1,11 @@
 """The create flow's front half: `intake` and `refine_backlog` (docs/architecture.md §6.1 steps 3-4).
 
 Each step is one small structured model call. The reply is a JSON object (invariant 5 allows JSON for small
-artifacts only; no code travels in it), validated against a domain model. A bad reply is sent back once with
-the validation error; a second bad reply stops the run, so the loop is bounded (invariant 6).
+artifacts only; no code travels in it), validated against a domain model. A reply that is JSON but breaks a
+rule is sent back once with the error, because that model can be told what to fix. A reply that holds no JSON
+object at all is not repairable by repeating the question: the same artifact is asked of the next model of the
+role's chain (§16.3, "then the next tier"), which is what keeps one lane that writes code instead of JSON from
+ending the run. Both counts are bounded, so the loop stops (invariant 6).
 
 The prompts live here for now, like the Markovian prompt; they move to `policies/vN/prompts/` with the policy
 schema (roadmap Phase 1b).
@@ -19,9 +22,10 @@ from pydantic import Field, StringConstraints, ValidationError
 from barthelona.domain import LLMCallRecord, ModuleSpec, ProjectSpec, Requirement, Run
 from barthelona.domain._base import DomainModel, ShortText
 from barthelona.llm.gateway import ModelGateway
-from barthelona.llm.types import ChatMessage, CompletionRequest
+from barthelona.llm.types import ChatMessage, Completion, CompletionRequest
 
-ATTEMPTS = 2
+ATTEMPTS = 2  # asks of one model, for a reply that was JSON but broke a rule
+MODELS = 3  # models of the role's chain one artifact may try; the last entry of every chain is local
 # A reasoning model spends part of this on thinking; 2048 cut the test author off mid-JSON on a 10-test quiz.
 ARTIFACT_TOKENS = 8192
 INTAKE_ROLE = "main"
@@ -83,6 +87,21 @@ def _json_object(text: str) -> object:
     return orjson.loads(text[start : end + 1])
 
 
+def _read[Model: DomainModel](
+    model: type[Model], completion: Completion, check: Callable[[Model], str | None] | None
+) -> tuple[Model | None, str]:
+    """The artifact and '', or None and what is wrong with the reply."""
+    try:
+        value = model.model_validate(_json_object(completion.text))
+    except (ValueError, ValidationError) as exc:  # orjson's decode error is a ValueError
+        problem = str(exc)[:600]
+        if completion.record.stop_reason == "length":
+            problem = "the reply was cut off by the length limit: answer again, much shorter"
+        return None, problem
+    problem = (check(value) if check else None) or ""
+    return (None, problem) if problem else (value, "")
+
+
 async def ask_json[Model: DomainModel](
     gateway: ModelGateway,
     role: str,
@@ -92,28 +111,38 @@ async def ask_json[Model: DomainModel](
     on_call: OnCall,
     check: Callable[[Model], str | None] | None = None,
 ) -> Model:
-    """One small JSON artifact; *check* names what is wrong with a valid one (sent back like an error)."""
+    """One small JSON artifact; *check* names what is wrong with a valid one (sent back like an error).
+
+    A model that answers without a JSON object is passed over for the next one of the chain: this is what
+    keeps a lane that writes assembly code to a "write the tests" prompt from stopping the whole run.
+    """
     messages = [ChatMessage(role="system", content=system), ChatMessage(role="user", content=user)]
+    avoided: set[str] = set()
     problem = ""
-    for _ in range(ATTEMPTS):
-        completion = await gateway.complete(
-            role, CompletionRequest(messages=tuple(messages), max_tokens=ARTIFACT_TOKENS)
-        )
-        on_call(completion.record)
-        try:
-            value = model.model_validate(_json_object(completion.text))
-            problem = (check(value) if check else None) or ""
-            if not problem:
+    served = ""
+    calls = 0
+    for _ in range(MODELS):
+        for _ in range(ATTEMPTS):
+            completion = await gateway.complete(
+                role,
+                CompletionRequest(messages=tuple(messages), max_tokens=ARTIFACT_TOKENS),
+                avoid=frozenset(avoided),
+            )
+            on_call(completion.record)
+            served, calls = completion.served_by, calls + 1
+            value, problem = _read(model, completion, check)
+            if value is not None:
                 return value
-        except (ValueError, ValidationError) as exc:  # orjson's decode error is a ValueError
-            problem = str(exc)[:600]
-            if completion.record.stop_reason == "length":
-                problem = "the reply was cut off by the length limit: answer again, much shorter"
-        messages += [
-            ChatMessage(role="assistant", content=completion.text),
-            ChatMessage(role="user", content=f"That reply is unusable: {problem}\nAnswer again, JSON only."),
-        ]
-    raise SpecError(f"{role} gave no valid {model.__name__} in {ATTEMPTS} tries: {problem}")
+            messages += [
+                ChatMessage(role="assistant", content=completion.text),
+                ChatMessage(
+                    role="user", content=f"That reply is unusable: {problem}\nAnswer again, JSON only."
+                ),
+            ]
+            if "no JSON object" in problem:
+                break  # nothing to repair on this model: ask the one the chain puts next
+        avoided.add(served)
+    raise SpecError(f"{role} gave no valid {model.__name__} in {calls} tries: {problem}")
 
 
 async def run_intake(gateway: ModelGateway, request: str, on_call: OnCall) -> Intake:

@@ -39,9 +39,10 @@ def _gate_name(gate_id: str, fallback_kind: str = "") -> str:
     return GATES.get(kind, f"gate {kind}")
 
 
-def stop_text(reason: str) -> str:
-    """The sentence for a stop reason."""
-    return STOPS.get(reason, f"Stopped: {reason or 'no reason given'}")
+def stop_text(reason: str, detail: str = "") -> str:
+    """The sentence for a stop reason, with the step's own words for it when the event carries them."""
+    sentence = STOPS.get(reason, f"Stopped: {reason or 'no reason given'}")
+    return f"{sentence} ({detail})" if detail else sentence
 
 
 def describe(event: RunEvent) -> str:
@@ -59,7 +60,7 @@ def describe(event: RunEvent) -> str:
             return f"You {verdict} {what}"
         case EventKind.STOP:
             reason = str(payload.get("stop_reason", ""))
-            return stop_text(reason)
+            return stop_text(reason, str(payload.get("detail", "")))
         case EventKind.ERROR:
             detail = payload.get("message") or payload.get("error") or payload.get("ignored_command") or ""
             return f"Problem: {detail}" if detail else "Problem (see the run's event details)"

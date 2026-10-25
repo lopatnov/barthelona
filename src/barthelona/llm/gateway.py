@@ -12,7 +12,7 @@ import asyncio
 import os
 import random
 import time
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Collection, Mapping
 from typing import Protocol
 
 from barthelona.llm.backend import Backend, RawReply, build_completion
@@ -41,8 +41,16 @@ def _no_jitter(cap: float) -> float:
 
 
 class ModelGateway(Protocol):
-    async def complete(self, role: str, request: CompletionRequest) -> Completion:
-        """Answer *request* with the first usable model of *role*'s chain."""
+    async def complete(
+        self, role: str, request: CompletionRequest, avoid: Collection[str] = ()
+    ) -> Completion:
+        """Answer *request* with the first usable model of *role*'s chain.
+
+        *avoid* names the catalog keys whose last reply the caller could not use (a model that answered,
+        but with prose or code where the step needs JSON). They are skipped like a disabled provider, so a
+        lane that ignores the output protocol yields to the next entry of the chain instead of ending the
+        run: §16.3 asks for "the next tier" after the repairs, and this is how a caller reaches it.
+        """
         ...
 
 
@@ -122,9 +130,15 @@ class Gateway:
                 await self._sleep(delay)
         raise AssertionError("unreachable: the last delay is None")  # pragma: no cover
 
-    async def complete(self, role: str, request: CompletionRequest) -> Completion:
+    async def complete(
+        self, role: str, request: CompletionRequest, avoid: Collection[str] = ()
+    ) -> Completion:
         fallbacks: list[str] = []
         for target in self._catalog.resolve(role, self._profile):
+            if target.key in avoid:
+                fallbacks.append(f"{target.key}: skipped, its last reply was unusable")
+                self._say(f"FAILED {target.key} skipped: its last reply was unusable")
+                continue
             if (reason := self._unusable(target)) is not None:
                 fallbacks.append(f"{target.key}: {reason}")
                 self._say(f"FAILED {target.key} skipped: {reason}")

@@ -141,11 +141,18 @@ def render_status_banner(run: Run, store: Store) -> None:
         )
         (st.warning if stale else st.info)(body)
     elif run.status is RunStatus.STOPPED and run.stop_reason is not None:
-        text = stop_text(run.stop_reason.value)
+        text = stop_text(run.stop_reason.value, _stop_detail(run, store))
         if run.stop_reason is StopReason.GREEN:
             st.success(text)
         else:
             st.error(text)
+
+
+def _stop_detail(run: Run, store: Store) -> str:
+    """What the step that stopped the run said, from its STOP event; '' when it said nothing."""
+    events = store.events_after(run.id, after_seq=-1, limit=500)
+    stops = [event for event in events if event.kind is EventKind.STOP]
+    return str(stops[-1].payload.get("detail", "")) if stops else ""
 
 
 def _newest_event(run: Run, store: Store) -> RunEvent | None:

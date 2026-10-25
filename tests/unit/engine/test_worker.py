@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import shutil
 import time
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Collection, Iterator
 from contextlib import closing
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -217,6 +217,17 @@ async def test_a_program_the_oracle_rejects_never_reaches_g4(store: Store, runs_
     assert not (runs_dir / "r1" / "main.asm").exists()
 
 
+async def test_a_step_that_gives_up_stops_the_run_with_its_own_words(store: Store, runs_dir: Path) -> None:
+    _queue(store, runs_dir)
+    code = "section .text\n_start:\n    mov rax, 60\n    syscall\n"
+    worker = _worker(store, runs_dir, replies=[INTAKE, SPEC, code, code, code])
+    await worker.step()
+    run = store.get_run("r1")
+    assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.MAX_ATTEMPTS)
+    [stop] = [event for event in store.events_after("r1") if event.kind is EventKind.STOP]
+    assert "no JSON object" in stop.payload["detail"]
+
+
 async def test_the_spec_is_written_for_the_gate_and_every_model_call_is_in_the_ledger(
     store: Store, runs_dir: Path
 ) -> None:
@@ -265,9 +276,12 @@ async def test_a_reply_that_is_not_json_is_sent_back_once(store: Store, runs_dir
     assert len(store.llm_calls("r1")) == 4
 
 
-async def test_two_unusable_replies_stop_the_run_as_max_attempts(store: Store, runs_dir: Path) -> None:
+async def test_an_artifact_every_model_mangles_stops_the_run_as_max_attempts(
+    store: Store, runs_dir: Path
+) -> None:
     _queue(store, runs_dir)
-    await _worker(store, runs_dir, replies=["no", '{"lang": "english"}']).step()
+    bad = '{"lang": "english"}'  # JSON, but not a language code: each model is asked twice and fails
+    await _worker(store, runs_dir, replies=["no", bad, bad, bad, bad]).step()
     run = store.get_run("r1")
     assert (run.status, run.stop_reason) == (RunStatus.STOPPED, StopReason.MAX_ATTEMPTS)
     assert store.pending_gates("r1") == []
@@ -281,10 +295,12 @@ async def test_tests_that_leave_a_requirement_uncovered_are_sent_back(store: Sto
     assert len(store.llm_calls("r1")) == 4
 
 
-async def test_two_test_drafts_that_miss_a_requirement_stop_the_run(store: Store, runs_dir: Path) -> None:
+async def test_tests_that_miss_a_requirement_on_every_model_stop_the_run(
+    store: Store, runs_dir: Path
+) -> None:
     _queue(store, runs_dir)
-    uncovered = TESTS.replace('"R1"', '"R9"')
-    await _worker(store, runs_dir, replies=[INTAKE, SPEC, uncovered, uncovered]).step()
+    uncovered = TESTS.replace('"R1"', '"R9"')  # a repairable draft: each model is asked twice
+    await _worker(store, runs_dir, replies=[INTAKE, SPEC, *[uncovered] * 6]).step()
     assert store.get_run("r1").stop_reason is StopReason.MAX_ATTEMPTS
     assert not (runs_dir / "r1" / SPEC_FILE).exists()
 
@@ -407,10 +423,12 @@ def test_default_facts_is_empty_without_a_key_and_swallows_a_down_zetaris(monkey
 class _StallsAtCodegen(FakeGateway):
     """Answers intake, spec and tests, then never answers the codegen call."""
 
-    async def complete(self, role: str, request: CompletionRequest) -> Completion:
+    async def complete(
+        self, role: str, request: CompletionRequest, avoid: Collection[str] = ()
+    ) -> Completion:
         if len(self.calls) >= len(REPLIES):
             await asyncio.sleep(30)
-        return await super().complete(role, request)
+        return await super().complete(role, request, avoid)
 
 
 async def test_a_codegen_that_outlasts_the_run_budget_stops_as_budget_time(
@@ -432,10 +450,12 @@ async def test_a_codegen_that_outlasts_the_run_budget_stops_as_budget_time(
 class _SlowIntakeThenStalls(_StallsAtCodegen):
     """The first call (intake) takes 0.7 s; codegen never answers."""
 
-    async def complete(self, role: str, request: CompletionRequest) -> Completion:
+    async def complete(
+        self, role: str, request: CompletionRequest, avoid: Collection[str] = ()
+    ) -> Completion:
         if not self.calls:
             await asyncio.sleep(0.7)
-        return await super().complete(role, request)
+        return await super().complete(role, request, avoid)
 
 
 async def test_time_used_by_earlier_nodes_shortens_the_codegen_allowance(
@@ -457,9 +477,11 @@ async def test_time_used_by_earlier_nodes_shortens_the_codegen_allowance(
 class _NeverAnswers(FakeGateway):
     """Hangs on every model call, as a slow provider does."""
 
-    async def complete(self, role: str, request: CompletionRequest) -> Completion:
+    async def complete(
+        self, role: str, request: CompletionRequest, avoid: Collection[str] = ()
+    ) -> Completion:
         await asyncio.sleep(30)
-        return await super().complete(role, request)
+        return await super().complete(role, request, avoid)
 
 
 async def test_a_cancel_reaches_a_run_that_is_in_the_middle_of_a_model_call(
