@@ -15,6 +15,7 @@ import typer
 from rich.console import Console
 
 from barthelona.domain import TestCase
+from barthelona.domain.layout import RUNS_DIR
 from barthelona.engine.codegen import check_all
 from barthelona.persistence import open_store
 from barthelona.scaffold import PackageError, package_run
@@ -33,7 +34,7 @@ def package_command(
         typer.Option(help="The folder that receives the project (default: the run's demos/ folder)."),
     ] = None,
     db: Annotated[Path, typer.Option("--db", help="The app database.")] = Path("var/app.sqlite"),
-    runs: Annotated[Path, typer.Option("--runs", help="The per-run files folder.")] = Path("var/runs"),
+    runs: Annotated[Path, typer.Option("--runs", help="The per-run files folder.")] = RUNS_DIR,
     force: Annotated[bool, typer.Option(help="Overwrite files that already exist in --out.")] = False,
 ) -> None:
     """Write the repository files of a green single-module run: source, tests, README, CI and release."""

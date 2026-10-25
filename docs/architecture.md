@@ -112,7 +112,7 @@ Measured costs:
 
 So the worker keeps one WSL agent and one toolchain container alive, and runs tests in batches.
 
-**Layering** (D-045), meant to be enforced by a stdlib `ast` test (`tests/unit/test_layering.py`) that holds this table as data; a new edge is a reviewed edit of the table. That test does not exist yet (as of 2026-10-24, so nothing stops a violation such as #271):
+**Layering** (D-045), enforced by a stdlib `ast` test (`tests/unit/test_layering.py`); a new edge is a reviewed edit of this table. Since 2026-10-25 the test covers the invariant-8 edges - the UI imports only its own layers and never the engine, nothing but the entry point imports the UI or the CLI, and Streamlit only in `ui` - which is the edge #271 broke; the rest of the matrix and the SDK containment are issue #65:
 
 | Package | May import |
 | --- | --- |
@@ -124,7 +124,8 @@ So the worker keeps one WSL agent and one toolchain container alive, and runs te
 | `prompting` | `domain`, `knowledge`, `contracts`, `memory` |
 | `nodes` | all of the above; never `engine`, `ui`, `cli` |
 | `engine` | all of the above plus `nodes` |
-| `ui` | `domain`, `persistence`, `config` |
+| `ui` | `domain`, `persistence`, `config`, `scaffold` (F-115: the Package panel renders in the UI process) |
+| `scaffold` | `domain` (today it also imports `persistence`, which #65 settles) |
 | `cli` | everything except `ui` |
 
 - Nothing imports `ui`, `cli`, or (except `cli`) `engine`. The engine never imports Streamlit.
@@ -1360,7 +1361,8 @@ UI language is English. Input in Russian or Ukrainian is accepted; the normalize
   - `events.jsonl`;
   - `llm/<seq>.json` with prompt, response, params and model hash;
   - `exec/<seq>.{argv,out,err}`;
-  - `report.md`.
+  - `report.md`;
+  - `request.txt` (written by the UI or `runs submit`), `spec.json`, `tests.json` and `main.asm` (written by the worker), named in `domain/layout.py` so both sides agree (invariant 8).
 - `kb/`: `facts.sqlite`, `docs_fts.sqlite`, and `emb_cache.sqlite` (P3).
 - `training/` (only when training-data collection is on, §19): `samples.jsonl` and `texts/<aa>/<sha256>.txt`.
 - `policies/vN/` (runtime-created versions) and `bench/<suite>/<timestamp>/`.

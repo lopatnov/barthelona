@@ -8,10 +8,10 @@ from pathlib import Path
 import streamlit as st
 
 from barthelona.domain import Run, StopReason
+from barthelona.domain.layout import RUNS_DIR
 from barthelona.persistence import Store
 from barthelona.scaffold import PackageError, package_run, target_folder
 
-RUNS_DIR = Path("var/runs")
 _SHA_LENGTH = 40
 
 

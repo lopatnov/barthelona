@@ -10,7 +10,7 @@ from typer.testing import CliRunner
 
 from barthelona.cli import app
 from barthelona.domain import CommandKind, GateKind, GateRequest, Profile, RunStatus
-from barthelona.engine.host import REQUEST_FILE
+from barthelona.domain.layout import REQUEST_FILE
 from barthelona.persistence import open_store
 
 

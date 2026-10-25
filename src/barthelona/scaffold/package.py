@@ -6,8 +6,7 @@ import json
 from pathlib import Path
 
 from barthelona.domain import DEMOS_DIR, ProjectSpec, Run, StopReason, TestCase
-from barthelona.engine.graph import SOURCE_FILE
-from barthelona.engine.host import REQUEST_FILE, SPEC_FILE, TESTS_FILE, run_dir
+from barthelona.domain.layout import REQUEST_FILE, SOURCE_FILE, SPEC_FILE, TESTS_FILE, run_dir
 from barthelona.persistence import Store
 from barthelona.scaffold.ci import UnsupportedCiTarget
 from barthelona.scaffold.project import render_project

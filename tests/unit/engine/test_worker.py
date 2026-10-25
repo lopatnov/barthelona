@@ -36,15 +36,9 @@ from barthelona.domain import (
     StopReason,
     TargetProfile,
 )
+from barthelona.domain.layout import REQUEST_FILE, SPEC_FILE, TESTS_FILE
 from barthelona.engine.graph import build_graph
-from barthelona.engine.host import (
-    REQUEST_FILE,
-    SPEC_FILE,
-    TESTS_FILE,
-    default_facts,
-    no_facts,
-    services_for,
-)
+from barthelona.engine.host import default_facts, no_facts, services_for
 from barthelona.engine.worker import Worker
 from barthelona.llm import FakeGateway, GatewayError
 from barthelona.llm.markovian import COMPLETE
