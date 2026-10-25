@@ -16,6 +16,7 @@ PAGE_SIZE = 8  # entries per page, newest first
 _HEADING = re.compile(r"(?m)^(?=## (?:\d\d:\d\d:\d\d )?\S+ via \S+(?: -> \S+)? \()")
 
 _PARTS = (
+    ("tried first", "Tried first"),
     ("prompt", "Asked"),
     ("reasoning", "Thinking"),
     ("answer", "Answer"),
