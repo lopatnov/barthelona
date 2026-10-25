@@ -221,7 +221,9 @@ def _resolve_mount(mount_raw: object) -> str | None:
     is_absolute = PurePosixPath(mount).is_absolute() or (
         len(mount) >= 3 and mount[1] == ":" and mount[2] == "/"
     )
-    if "," in mount or "~" in mount or not is_absolute:
+    # Only the drive letter's own colon may appear: any other one would add fields to `-v host:/work:ro`.
+    after_drive = mount[2:] if mount[1:2] == ":" else mount
+    if "," in mount or "~" in mount or ":" in after_drive or not is_absolute:
         return None
     resolved = str(PurePosixPath(Path(mount).resolve()))
     return resolved if resolved.startswith(_CACHE_ROOT + "/runs/") else None

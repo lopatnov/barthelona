@@ -315,3 +315,9 @@ def test_mount_symlink_escaping_the_cache_root_is_rejected(tmp_path: Path) -> No
 def test_resolved_mount_is_what_docker_receives() -> None:
     mount = f"{agent._CACHE_ROOT}/runs/r/../r/0"
     assert agent._resolve_mount(mount) == f"{agent._CACHE_ROOT}/runs/r/0"
+
+
+def test_mount_under_runs_cannot_carry_extra_volume_fields() -> None:
+    argv = ["docker", "run", "bart-run", "true"]
+    for mount in (f"{agent._CACHE_ROOT}/runs/x:/work:rw", f"{agent._CACHE_ROOT}/runs/x:rw"):
+        assert agent._validate_request(argv, None, mount) is not None
