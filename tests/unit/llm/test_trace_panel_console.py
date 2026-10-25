@@ -42,13 +42,15 @@ def test_the_log_file_gets_one_entry_per_answer(tmp_path: Path) -> None:
     assert "thought text" in text
 
 
-def test_the_console_trace_cuts_long_text_short(capsys: pytest.CaptureFixture[str]) -> None:
-    ConsoleTrace()("worker", _done("x" * 5000, "y" * 5000))
+def test_the_console_trace_prints_the_whole_prompt_thinking_and_answer(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ConsoleTrace()("worker", _done("x" * 5000, "y" * 5000).model_copy(update={"prompt": "p" * 5000}))
 
     shown = capsys.readouterr().err
     assert "worker via meterless_auto" in shown
-    assert "more characters" in shown
-    assert len(shown) < 3000
+    assert "p" * 5000 in shown and "y" * 5000 in shown and "x" * 5000 in shown
+    assert "more characters" not in shown
 
 
 def test_trace_all_calls_every_trace_and_skips_none(tmp_path: Path) -> None:
@@ -118,20 +120,3 @@ def test_a_heading_that_names_the_answering_model_starts_an_entry() -> None:
     log = "## worker via meterless_auto -> nvidia/some-model (1 in, 2 out, 1.0s)\n\n### answer\n\nok\n\n"
 
     assert len(latest_entries(log)) == 1
-
-
-def test_the_console_shows_the_start_of_the_prompt() -> None:
-    done = _done().model_copy(update={"prompt": "p" * 5000})
-    from barthelona.llm.trace import CONSOLE_PROMPT_CHARS
-
-    assert "prompt: " + "p" * CONSOLE_PROMPT_CHARS + " ..." in _capture(done)
-
-
-def _capture(done: Completion) -> str:
-    import contextlib
-    import io
-
-    buffer = io.StringIO()
-    with contextlib.redirect_stderr(buffer):
-        ConsoleTrace()("worker", done)
-    return buffer.getvalue()

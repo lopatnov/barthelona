@@ -91,6 +91,11 @@ def task_text(spec: ProjectSpec, cases: list[TestCase]) -> str:
         "Comment the code with ';' comments: a header saying what the program does, one line for every "
         "section and label, and a note on each syscall and any instruction whose purpose is not obvious.\n"
         f"Program: {spec.summary_en}\nRequirements:\n{requirements}\n"
+        "Environment: the emulator allows only these syscalls: read from fd 0, write to fd 1 or 2, getpid, "
+        "exit (60) and exit_group (231). Any other syscall (mmap, brk, nanosleep, ioctl, open, ...) fails "
+        "the test, and a test is cut off after about a million instructions. There is no terminal, no file, "
+        "no clock and no graphics: the program reads stdin and writes stdout "
+        "(stderr works but is not checked).\n"
         "Acceptance tests (run in an emulator; the exit code must match, stdout must match exactly "
         f"unless a test says it contains texts, which only have to appear in it):\n{examples}"
         + (f"\nConstraints:{constraints}" if constraints else "")

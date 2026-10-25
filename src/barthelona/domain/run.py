@@ -57,7 +57,7 @@ class RunStatus(StrEnum):
     STOPPED = "stopped"
 
 
-DEFAULT_WALL_S = 3600.0  # the limits a run gets when nobody sets them (CLI and UI agree)
+DEFAULT_WALL_S = 14400.0  # the limits a run gets when nobody sets them (CLI and UI agree)
 DEFAULT_TOKENS = 400_000
 
 

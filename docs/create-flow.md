@@ -33,7 +33,7 @@ only the variables already set in the shell. Secrets come only from environment 
 the same choice as a list. The run's own files stay in `--runs`; only `runs package` writes into a folder.
 
 Defaults: `--db var/app.sqlite`, `--runs var/runs`, `--checkpoints var/checkpoints.sqlite`,
-`--catalog config/models.yaml`, `--profile meterless`, `--preset linux-x64-nasm-static`, `--wall-s 3600`,
+`--catalog config/models.yaml`, `--profile meterless`, `--preset linux-x64-nasm-static`, `--wall-s 14400`,
 `--tokens 400000`. `--memory` defaults to `hmem.sqlite` next to `--db`. `--facts-sql` replaces the Zetaris
 statement behind the facts in the prompts; by default, with `ZETARIS_API_KEY` set, the Barthelona knowledge
 tables are used. `--profile` is one of `local-only`, `hybrid`, `cloud`, `meterless`; only `meterless` and the local profiles can

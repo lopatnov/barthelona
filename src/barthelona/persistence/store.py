@@ -15,10 +15,12 @@ from datetime import UTC, datetime
 import orjson
 
 from barthelona.domain import (
+    CommandKind,
     GateDecision,
     GateRequest,
     LLMCallRecord,
     Run,
+    RunBudget,
     RunCommand,
     RunEvent,
     RunStatus,
@@ -109,6 +111,25 @@ class Store:
             run = Run.model_validate(run.model_dump() | {"status": RunStatus.RUNNING})
             self._save_run(run)
         return run
+
+    def reopen_run(self, run_id: str, budget: RunBudget) -> Run:
+        """Move a stopped run back to `running` with new limits (a continued run keeps its checkpoint)."""
+        with self._write():
+            run = self.get_run(run_id)
+            reopened = Run.model_validate(
+                run.model_dump() | {"status": RunStatus.RUNNING, "stop_reason": None, "budget": budget}
+            )
+            self._save_run(reopened)
+        return reopened
+
+    def runs_to_continue(self) -> list[Run]:
+        """Stopped runs that have an unclaimed `extend_budget` command, oldest first."""
+        rows = self._conn.execute(
+            "SELECT DISTINCT r.doc, r.created_at, r.id FROM runs r JOIN commands c ON c.run_id = r.id "
+            "WHERE r.status = ? AND c.kind = ? AND c.claimed_at IS NULL ORDER BY r.created_at, r.id",
+            (RunStatus.STOPPED, CommandKind.EXTEND_BUDGET),
+        )
+        return [Run.model_validate_json(row["doc"]) for row in rows]
 
     def _save_run(self, run: Run) -> None:
         """Overwrite the run's row; callers hold the write transaction."""

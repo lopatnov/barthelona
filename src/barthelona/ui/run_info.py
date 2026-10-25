@@ -51,13 +51,20 @@ _HOW_LONG = (
 )
 
 
-def stage_line(done_nodes: Iterable[str], active: bool) -> str:
-    """The stages as one line: done, the one in progress (while *active*), and the ones still to come."""
+def stage_line(
+    done_nodes: Iterable[str], active: bool, failed: str | None = None, automatic: bool = False
+) -> str:
+    """The stages as one line: done, the one in progress (while *active*), the one that *failed*, the rest.
+
+    With *automatic* the approvals are labeled as answered by the worker, not waiting for a person.
+    """
     done = set(done_nodes)
     current = next((node for node, _ in STAGES if node not in done), None) if active else None
     marks = []
     for node, label in STAGES:
-        mark = "✅" if node in done else "⏳" if node == current else "◻️"
+        if automatic and node.endswith("_gate"):
+            label = label.replace("Your approval", "Automatic approval")
+        mark = "❌" if node == failed else "✅" if node in done else "⏳" if node == current else "◻️"
         marks.append(f"{mark} {label}")
     return "  →  ".join(marks)
 
@@ -66,10 +73,19 @@ def _done_nodes(events: Iterable[RunEvent]) -> set[str]:
     return {e.node_id for e in events if e.kind is EventKind.NODE_END and e.node_id}
 
 
+def _failed_stage(run: Run, done: set[str]) -> str | None:
+    """The stage a run stopped in: a node also ends when it stops the run, so the last one done is it."""
+    if run.status is not RunStatus.STOPPED or run.stop_reason in (None, StopReason.GREEN):
+        return None
+    finished = [node for node, _ in STAGES if node in done and node != "finalize"]
+    return finished[-1] if finished else None
+
+
 def render_stages(run: Run, store: Store) -> None:
     events = store.events_after(run.id, after_seq=-1, limit=500)
     active = run.status in (RunStatus.RUNNING, RunStatus.QUEUED)
-    st.markdown(stage_line(_done_nodes(events), active))
+    done = _done_nodes(events)
+    st.markdown(stage_line(done, active, _failed_stage(run, done), run.auto_approve))
 
 
 def render_status_banner(run: Run, store: Store) -> None:
@@ -133,6 +149,10 @@ RUN_FILES = (
         SOURCE_FILE,
         "the generated program; appears only when the code step ends, which can take 10 to 20 minutes",
     ),
+    (
+        "attempt-N.asm",
+        "every draft the model wrote, accepted or not; a stopped run has these but no main.asm",
+    ),
     (REASONING_FILE, "what the models thought and answered; grows with every reply"),
 )
 
@@ -141,14 +161,17 @@ def file_rows(folder: Path) -> list[tuple[str, str, str]]:
     """(name, state, meaning) for each file a run writes: its size and time when it exists, else 'not yet'."""
     rows = []
     for name, meaning in RUN_FILES:
-        path = folder / name
-        if path.is_file():
-            info = path.stat()
-            when = datetime.fromtimestamp(info.st_mtime).strftime("%H:%M:%S")
-            rows.append((name, f"{info.st_size} bytes, {when}", meaning))
-        else:
+        found = sorted(folder.glob(name.replace("N", "*"))) if "N" in name else [folder / name]
+        existing = [path for path in found if path.is_file()]
+        if not existing:
             rows.append((name, "not yet", meaning))
+        rows.extend((path.name, _size_and_time(path), meaning) for path in existing)
     return rows
+
+
+def _size_and_time(path: Path) -> str:
+    info = path.stat()
+    return f"{info.st_size} bytes, {datetime.fromtimestamp(info.st_mtime).strftime('%H:%M:%S')}"
 
 
 def render_run_files(run: Run) -> None:
@@ -165,6 +188,6 @@ def render_run_files(run: Run) -> None:
             }
         )
         st.caption(
-            f"The project folder `{run.workspace}` is written only when the run is green and you press "
-            "**Package into demos/** (see below)."
+            f"The project folder `{run.workspace}` is written only when the run is green: automatically if "
+            "the request asked for it, otherwise with **Package into demos/** (see below)."
         )
