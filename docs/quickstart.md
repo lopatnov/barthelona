@@ -317,7 +317,7 @@ When you press **Create Run**, the UI takes you straight to **Live Run** with th
 **Model reasoning (Live Run).** The panel shows the newest replies of the run, each with what the model thought and what
 it answered, and refreshes by itself. The box "Show what the models think and answer" is ticked by default. The worker
 writes the same text to `var/runs/<run id>/reasoning.md` (per run) and to `var/activity.md` (all runs), and prints it to its
-own terminal window, with the model that answered (long thoughts and answers cut short). `worker` and `chunked run` do this
+own terminal window, with the model that answered (the whole prompt, thinking and answer). `worker` and `chunked run` do this
 by default; `--no-show-reasoning` turns it off.
 
 **Package panel (Live Run).** Select a green run: the panel shows the `demos/` folder it will write, a field for the full
