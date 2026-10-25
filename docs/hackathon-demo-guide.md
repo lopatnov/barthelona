@@ -19,8 +19,9 @@ local Zetaris, the worker and the Unicorn emulator).
 6. [Layer 3: Meterless and Nemotron](#layer-3-power-meterless-and-nemotron)
 7. [Check that the layers work together](#check-that-the-layers-work-together)
 8. [Demos](#demos)
-9. [Troubleshooting](#troubleshooting)
-10. [Glossary](#glossary)
+9. [Hackathon form: what we integrated and where](#hackathon-form-what-we-integrated-and-where)
+10. [Troubleshooting](#troubleshooting)
+11. [Glossary](#glossary)
 
 ---
 
@@ -250,11 +251,16 @@ on the `lmstudio` provider (the file used in the live runs was `var/proof/models
 not in git). Then a run whose Nightshift calls all fail ends as
 `no_model_available` instead of calling a local model.
 
-### 3.3 Optional: a local fallback
+### 3.3 Local fallback
 
-Not used in the hackathon runs. If you want one: install LM Studio, load a coder model with a 16K context, start the
-local server on port 1234. On Windows cap WSL memory in `%UserProfile%\.wslconfig` (`memory=8GB`) and run
-`wsl --shutdown`.
+The default catalog, `config/models.yaml`, ends every role chain of the `meterless` profile with `local_main`
+(for example `worker: [meterless_auto, local_main]`), so when Nightshift fails a call falls through to a local model
+if one is running. To have one: install LM Studio, load a coder model with a 16K context, start the local server on
+port 1234. On Windows cap WSL memory in `%UserProfile%\.wslconfig` (`memory=8GB`) and run `wsl --shutdown`.
+
+The hackathon runs used a private copy of the catalog (`var/proof/models-free.yaml`) with the local model switched
+off, to keep the promise of free models only: with it a failed call stops the run instead of falling back. That copy
+is not in the repository; the committed catalog keeps the fallback.
 
 **Done with POWER when** `meterless status` prints `online`.
 
@@ -324,6 +330,38 @@ assembles and passes the emulator check. If both runs finish in one chunk, say t
 | A, create flow | Green run, package, `check` pass, per-model table | That the result is ABI-checked, fuzzed or multi-module |
 | B, Zetaris | Facts in the prompt and in the reasoning log, `seed` and `publish` tables | That the tables are verified against the kernel source |
 | C, memory | The mechanism and the published tables | That a second run is cheaper: not shown |
+
+---
+
+## Hackathon form: what we integrated and where
+
+Answers for the submission form, each with the place in the repository where a reviewer can check it.
+
+### Which Meterless features are integrated
+
+| Feature | Integrated? | What it does here | Where |
+| --- | --- | --- | --- |
+| **Nightshift runtime** | Yes | Every model call of the `meterless` profile (the default) goes to Nightshift's OpenAI-compatible API. Routes `meterless/auto`, `deep` and `fast` are mapped to roles; each call records which model answered | Provider, models and role chains: `config/models.yaml` (`providers.meterless`, `meterless_auto`, `meterless_deep`, `meterless_fast`, profile `meterless`). Client and discovery: `src/barthelona/llm/meterless.py`, `src/barthelona/llm/openai_chat.py`. Probe: `python -m barthelona meterless status` (`src/barthelona/cli/meterless.py`) |
+| **H-MEM** (persistent memory) | Yes | A Python port of the memory spec. Before every chunk the best memories are recalled; after the assembler and emulator accept a program the lesson is written back; the knowledge tables seed it | `src/barthelona/llm/hmem.py`; recall in each code-generation chunk: `src/barthelona/engine/codegen.py`; seeding from Zetaris: `src/barthelona/llm/zetaris_memory.py` (`zetaris seed`) |
+| **Markovian Thinking** (context optimisation) | Yes | Long work runs in bounded chunks that carry a short summary instead of the whole history; the run prints the measured saving against a full history (single-chunk runs print "too short to compare") | `src/barthelona/llm/markovian.py`; used by `python -m barthelona chunked run` (`src/barthelona/cli/chunked.py`) and by code generation in the worker (`src/barthelona/engine/codegen.py`) |
+| **World Model** (state and provenance) | **No, still working on integration** | Event-sourced shared state for agents running in parallel, written in TypeScript. Nothing in the pipeline uses it yet and the official conformance runner has not been run against it | `engines/world-model/index.ts`, status in `engines/world-model/README.md` |
+| AI Hotspot | No | Not used | |
+
+If the form has "Still working on integration", tick it and name the World Model there.
+
+### What kinds of intelligence Nightshift powers
+
+**Language and reasoning only:** chat, analysis and coding. In the create flow the models read the request (intake), write the specification and the golden tests (`deep` route), write the NASM program in chunks (`auto` route) and repair it from the assembler's and emulator's reports. Code: `src/barthelona/engine/spec.py`, `tests_author.py`, `codegen.py`. No vision, image, audio, video or 3D call exists in the project. Vision, image generation and 3D appear only as possible later uses for the 2D and 3D demos (roadmap Phase 6).
+
+### What goes well with Zetaris
+
+A local Zetaris runs next to the engine. Two knowledge tables (37 Linux x86-64 system calls and 11 ABI rules) are registered as file tables and read over the REST API into the spec and test-author prompts; they seed H-MEM; and run history is written back as tables (`barthelona_runtime`) that can be queried with SQL. All of it was checked end to end on the owner's PC.
+
+Where: the REST client `src/barthelona/llm/zetaris.py` (`zetaris status`, `zetaris sql`, read-only), facts in prompts `worker --facts-sql` and `chunked run --facts-sql`, seeding `src/barthelona/llm/zetaris_memory.py`, publishing `src/barthelona/llm/zetaris_publish.py` (`zetaris publish`), the data in `knowledge/zetaris/*.csv`, and the table registration in [`zetaris-guide.md`](zetaris-guide.md) and [`zetaris-engines.md`](zetaris-engines.md).
+
+### What does not go well with Zetaris
+
+Getting our own data in was manual: files had to be copied into the container's shared volume and registered with `CREATE LIGHTNING FILESTORE TABLE`, and we found no documented way to insert rows over REST. The knowledge is only two small tables (no assembler manuals loaded yet), and the Zetaris event is never emitted by the engine (#256). No run has yet shown that the facts make code better or cheaper to produce.
 
 ---
 
