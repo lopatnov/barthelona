@@ -91,7 +91,11 @@ def problems(spec: ProjectSpec, draft: TestsDraft) -> str | None:
     covered = {rid for t in draft.tests for rid in t.requirement_ids}
     missing = [r.id for r in spec.requirements if r.id not in covered]
     if missing:
-        return f"no test covers requirement {', '.join(missing)}"
+        ids = ", ".join(missing)
+        return (
+            f"no test covers requirement {ids}: add {ids} to the requirement_ids of a test; "
+            "a requirement the output cannot show is covered by any test that runs the whole program"
+        )
     return None
 
 
