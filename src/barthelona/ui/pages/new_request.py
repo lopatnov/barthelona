@@ -7,6 +7,7 @@ Phase 1a fields:
 - Prompt textarea (Russian/English/Ukrainian)
 - Profile: meterless / local-only / hybrid / cloud
 - Budget controls (wall time, tokens, optional USD cap)
+- Approve checkpoints automatically (on by default)
 - Collect training data checkbox (D-036)
 """
 
@@ -163,6 +164,16 @@ def page_new_request() -> None:
                 help="Record code-producing attempts after the ladder for local-model training export",
             )
 
+        auto_approve = st.checkbox(
+            "Approve checkpoints automatically",
+            value=True,
+            help=(
+                "G1 (specification and tests) and G4 (the finished code) are approved by the worker "
+                "and logged as automatic. Untick to read and approve them yourself on the Approvals page. "
+                "The assembler and the emulator still decide whether the code is accepted."
+            ),
+        )
+
         submitted = st.form_submit_button("🚀 Create Run", type="primary", use_container_width=True)
 
     if submitted:
@@ -191,6 +202,7 @@ def page_new_request() -> None:
             budget=budget,
             composition_level=CompositionLevel.L0,
             collect_training_data=collect_training,
+            auto_approve=auto_approve,
         )
 
         try:

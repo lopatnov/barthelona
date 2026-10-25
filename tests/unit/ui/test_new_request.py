@@ -63,3 +63,30 @@ def test_the_new_project_box_decides_between_a_name_field_and_the_existing_list(
 
     assert [box.label for box in app.selectbox if box.label == "Project"] == ["Project"]
     assert not app.text_input
+
+
+def test_a_run_is_created_with_auto_approve_on_unless_the_box_is_unticked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from contextlib import closing
+
+    from streamlit.testing.v1 import AppTest
+
+    from barthelona.persistence import open_store
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "var").mkdir()
+    app = AppTest.from_function(_page).run()
+    box = next(box for box in app.checkbox if box.label == "Approve checkpoints automatically")
+    assert box.value is True
+
+    app.text_input[0].set_value("quiz-demo")
+    app.text_area[0].set_value("Print hello.")
+    app.button[0].click().run()
+    box = next(box for box in app.checkbox if box.label == "Approve checkpoints automatically")
+    box.uncheck()
+    app.button[0].click().run()
+
+    with closing(open_store(tmp_path / "var" / "app.sqlite")) as store:
+        runs = store.list_runs()
+    assert sorted(run.auto_approve for run in runs) == [False, True]
