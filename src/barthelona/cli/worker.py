@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -11,7 +12,7 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from rich.console import Console
 
 from barthelona.cli._activity import ACTIVITY_HELP, DEFAULT_ACTIVITY_LOG, activity_log
-from barthelona.domain import Run
+from barthelona.domain import EventKind, Run, RunEvent
 from barthelona.domain.layout import REASONING_FILE, RUNS_DIR, run_dir
 from barthelona.engine.graph import build_graph
 from barthelona.engine.host import services_for, zetaris_facts
@@ -19,7 +20,7 @@ from barthelona.engine.worker import Worker
 from barthelona.llm import CatalogError, Gateway, OpenAIChatBackend, load_catalog
 from barthelona.llm.gateway import ModelGateway
 from barthelona.llm.hmem import HMem
-from barthelona.llm.trace import ConsoleTrace, ReasoningLog, TraceAll
+from barthelona.llm.trace import ConsoleProgress, ConsoleTrace, ReasoningLog, TraceAll
 from barthelona.llm.zetaris import ZetarisError
 from barthelona.persistence import open_store
 from barthelona.scaffold import PackageError, current_commit, package_run
@@ -53,7 +54,21 @@ async def _run(
     def gateway_for(run: Run) -> ModelGateway:
         run_log = ReasoningLog(run_dir(runs, run.id) / REASONING_FILE)  # what Live Run shows for this run
         traces = TraceAll(trace, run_log, ConsoleTrace() if console else None)
-        return Gateway(catalog, backends, profile=run.profile.value, trace=traces)
+        console_progress = ConsoleProgress() if console else None
+
+        def progress(message: str) -> None:  # Live Run shows it, so a long wait is not a silent one
+            if console_progress is not None:
+                console_progress(message)
+            event = RunEvent(
+                run_id=run.id,
+                seq=store.next_seq(run.id),
+                ts=datetime.now(UTC),
+                kind=EventKind.LLM_CALL,
+                payload={"status": message},
+            )
+            store.append_events([event])
+
+        return Gateway(catalog, backends, profile=run.profile.value, trace=traces, progress=progress)
 
     store = open_store(db)
     hmem = HMem(memory)
