@@ -14,12 +14,10 @@ from typing import Annotated
 import typer
 from rich.console import Console
 
-from barthelona.domain import DEMOS_DIR, ProjectSpec, StopReason, TestCase
+from barthelona.domain import TestCase
 from barthelona.engine.codegen import check_all
-from barthelona.engine.graph import SOURCE_FILE
-from barthelona.engine.host import REQUEST_FILE, SPEC_FILE, TESTS_FILE, run_dir
 from barthelona.persistence import open_store
-from barthelona.scaffold import UnsupportedCiTarget, render_project
+from barthelona.scaffold import PackageError, package_run
 from barthelona.verification.asm_gate import find_nasm
 
 _out = Console(soft_wrap=True, highlight=False)
@@ -39,36 +37,12 @@ def package_command(
     force: Annotated[bool, typer.Option(help="Overwrite files that already exist in --out.")] = False,
 ) -> None:
     """Write the repository files of a green single-module run: source, tests, README, CI and release."""
-    with closing(open_store(db)) as store:
-        run = store.get_run(run_id)
-        calls = store.llm_calls(run_id)
-    target_dir = out or Path(run.workspace)
-    if out is None and not run.workspace.startswith(f"{DEMOS_DIR}/"):
-        raise typer.BadParameter(f"run {run_id} has no demos/ folder (workspace {run.workspace}); pass --out")
-    if run.stop_reason is not StopReason.GREEN:
-        raise typer.BadParameter(f"run {run_id} did not stop green ({run.stop_reason}); nothing to package")
-    folder = run_dir(runs, run_id)
-    spec = ProjectSpec.model_validate_json((folder / SPEC_FILE).read_text(encoding="utf-8"))
-    cases = [TestCase.model_validate(item) for item in json.loads((folder / TESTS_FILE).read_text("utf-8"))]
     try:
-        files = render_project(
-            run,
-            spec,
-            cases,
-            (folder / SOURCE_FILE).read_text(encoding="utf-8"),
-            (folder / REQUEST_FILE).read_text(encoding="utf-8"),
-            calls,
-            barthelona_ref,
-        )
-    except UnsupportedCiTarget as exc:
+        with closing(open_store(db)) as store:
+            written = package_run(store, runs, run_id, barthelona_ref, out, force)
+    except PackageError as exc:
         raise typer.BadParameter(str(exc)) from exc
-    taken = [name for name in files if (target_dir / name).exists() and not force]
-    if taken:
-        raise typer.BadParameter(f"{target_dir} already has {', '.join(taken)}; use --force to overwrite")
-    for name, text in files.items():
-        target = target_dir / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text, encoding="utf-8", newline="\n")
+    for name in written:
         _out.print(name, markup=False)
 
 
