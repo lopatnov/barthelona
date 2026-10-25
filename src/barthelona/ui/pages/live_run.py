@@ -45,11 +45,18 @@ _EVENT_KIND_ICONS = {
 }
 
 
+def _is_failure(status: str) -> bool:
+    """True for the gateway's messages about a failed request, a repeat or a fall to the next model."""
+    return any(word in status for word in ("failed", "gave up", "asking again", "trying the next"))
+
+
 def _format_event(event: Any, technical: bool = False) -> str:
     """One event as a line a person can read; *technical* adds the raw ids and payload."""
     icon = _EVENT_KIND_ICONS.get(event.kind, "•")
     if event.kind is EventKind.STOP and event.payload.get("stop_reason") == "green":
         icon = "🏁"
+    if event.kind is EventKind.LLM_CALL and _is_failure(str(event.payload.get("status", ""))):
+        icon = "⚠️"  # a request that failed or was given up: said plainly, not hidden among the others
     line = f"{icon} `{event.ts.astimezone().strftime('%H:%M:%S')}` {describe(event)}"  # local time
     if not technical:
         return line

@@ -193,3 +193,55 @@ def test_run_parameters_state_the_real_bounds_not_sprints(
 
     text = " ".join(item.value for item in app.markdown)
     assert REAL_BOUNDS in text and " sprints," not in text
+
+
+def _log_with(calls: int) -> str:
+    return "".join(
+        f"## worker via meterless_auto (1 in, 2 out, 1.0s, stop=stop)\n\n### answer\n\nanswer number {n}\n\n"
+        for n in range(1, calls + 1)
+    )
+
+
+def test_the_panel_pages_through_every_call_newest_first(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _run_waiting_for_g1(tmp_path)
+    log = tmp_path / "var" / "runs" / "run-1" / "reasoning.md"
+    log.write_text(_log_with(25), encoding="utf-8", newline="\n")
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_function(_page, default_timeout=30)
+    app.session_state["auto_poll"] = False
+
+    app.run()
+
+    first_page = " ".join(block.value for block in app.code)
+    assert "answer number 25" in first_page and "answer number 16" in first_page
+    assert "answer number 15" not in first_page
+    assert any("Calls 1 to 10 of 25" in c.value for c in app.caption)
+    page_box = next(box for box in app.number_input if box.label.startswith("Page (of 3"))
+
+    page_box.set_value(3).run()
+
+    last_page = " ".join(block.value for block in app.code)
+    assert "answer number 5" in last_page and "answer number 1" in last_page
+    assert "answer number 6" not in last_page
+    assert any("Calls 21 to 25 of 25" in c.value for c in app.caption)
+    assert not app.exception
+
+
+@pytest.mark.parametrize(
+    ("status", "icon"),
+    [
+        ("meterless_deep failed (Too Many Requests); asking again in 4s", "⚠️"),
+        ("meterless_deep gave up (timeout); trying the next model", "⚠️"),
+        ("asking meterless_deep, waiting for its reply", "🤖"),
+    ],
+)
+def test_a_failed_or_repeated_model_request_has_a_warning_icon(status: str, icon: str) -> None:
+    from barthelona.ui.pages.live_run import _format_event
+
+    event = RunEvent(
+        run_id="run-1", seq=0, ts=datetime.now(UTC), kind=EventKind.LLM_CALL, payload={"status": status}
+    )
+
+    assert _format_event(event).startswith(icon)

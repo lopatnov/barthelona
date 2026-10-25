@@ -316,8 +316,11 @@ you choose:
 
 When you press **Create Run**, the UI takes you straight to **Live Run** with that run selected.
 
-**Model reasoning (Live Run).** The panel shows the newest replies of the run, each with what the model thought and what
-it answered, and refreshes by itself. The box "Show what the models think and answer" is ticked by default. The worker
+**Model reasoning (Live Run).** The panel shows every model call of the run, ten per page, newest first (the Page box
+reaches the older ones). Each call has tabs: "Tried first" when other models failed before this one answered (which
+model, the error, the seconds), what was asked, what the model thought and what it answered. A failed request or a
+repeat is also a line with a warning sign under "What happened". The panel refreshes by itself. The box "Show what
+was asked and what the models think and answer" is ticked by default. The worker
 writes the same text to `var/runs/<run id>/reasoning.md` (per run) and to `var/activity.md` (all runs), and prints it to its
 own terminal window, with the model that answered (the whole prompt, thinking and answer). `worker` and `chunked run` do this
 by default; `--no-show-reasoning` turns it off.

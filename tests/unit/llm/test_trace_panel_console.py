@@ -159,3 +159,15 @@ def test_the_panel_splits_the_tried_first_part_off() -> None:
         "reasoning": "why",
         "answer": "ok",
     }
+
+
+def test_pages_cover_every_entry_and_clamp_a_page_past_the_end() -> None:
+    from barthelona.ui.reasoning_panel import page_slice, pages
+
+    entries = [str(n) for n in range(25)]
+
+    assert pages(0) == 1 and pages(10) == 1 and pages(11) == 2 and pages(25) == 3
+    assert page_slice(entries, 1) == entries[:10]
+    assert page_slice(entries, 3) == entries[20:]
+    assert page_slice(entries, 99) == entries[20:]
+    assert page_slice(entries, 0) == entries[:10]

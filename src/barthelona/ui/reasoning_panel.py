@@ -9,8 +9,7 @@ import streamlit as st
 
 from barthelona.domain.layout import REASONING_FILE, RUNS_DIR, run_dir
 
-MAX_ENTRIES = 8  # newest first; the whole log stays in the run folder
-_TAIL_BYTES = 800_000  # read only the end of a long log; an entry can hold a whole prompt
+PAGE_SIZE = 10  # calls shown at once; the page box reaches all the others, newest first
 
 # "## role via route -> model (usage)", as the log writes it; "-> model" only when the router names it
 _HEADING = re.compile(r"(?m)^(?=## (?:\d\d:\d\d:\d\d )?\S+ via \S+(?: -> \S+)? \()")
@@ -23,10 +22,22 @@ _PARTS = (
 )  # in the order the log has them
 
 
-def latest_entries(text: str, limit: int = MAX_ENTRIES) -> list[str]:
-    """The last *limit* entries of a reasoning log, newest first; each starts with its ``## ...`` heading."""
+def latest_entries(text: str, limit: int | None = None) -> list[str]:
+    """The entries of a reasoning log, newest first (only *limit* when given), each with its heading."""
     entries = [part.strip() for part in _HEADING.split(text) if part.startswith("## ")]
-    return entries[-limit:][::-1]
+    newest_first = entries[::-1]
+    return newest_first if limit is None else newest_first[:limit]
+
+
+def pages(total: int, size: int = PAGE_SIZE) -> int:
+    """How many pages *total* entries make; at least one, so an empty log still has a page 1."""
+    return max(1, -(-total // size))
+
+
+def page_slice(entries: list[str], page: int, size: int = PAGE_SIZE) -> list[str]:
+    """The entries of 1-based *page*, newest first; a page past the end is clamped to the last one."""
+    page = min(max(page, 1), pages(len(entries), size))
+    return entries[(page - 1) * size : page * size]
 
 
 def split_entry(body: str) -> dict[str, str]:
@@ -45,15 +56,25 @@ def split_entry(body: str) -> dict[str, str]:
     return {name: body[text:end].strip() for (name, _, text), end in zip(starts, ends, strict=True)}
 
 
-def _read_tail(path: Path) -> str:
-    with path.open("rb") as handle:
-        handle.seek(0, 2)
-        handle.seek(max(0, handle.tell() - _TAIL_BYTES))
-        return handle.read().decode("utf-8", errors="replace").replace("\r\n", "\n")
+@st.cache_data(show_spinner=False, max_entries=8)
+def _entries_of(path: str, modified_ns: int, size: int) -> list[str]:
+    """Every entry of the log at *path*, newest first; the page reruns each second, the file changes less."""
+    text = Path(path).read_text(encoding="utf-8", errors="replace").replace("\r\n", "\n")
+    return latest_entries(text)
+
+
+def _render_entry(position: int, entry: str) -> None:
+    heading, _, body = entry.partition("\n")
+    parts = split_entry(body.strip())
+    shown = [(key, label) for key, label in _PARTS if key in parts] or [("answer", "Answer")]
+    with st.expander(heading.removeprefix("## "), expanded=position == 0):
+        for tab, (key, _) in zip(st.tabs([label for _, label in shown]), shown, strict=True):
+            with tab:
+                st.code(parts[key], language="text", wrap_lines=True)
 
 
 def render_reasoning_panel(run_id: str) -> None:
-    """The newest model calls of one run: what was asked, the thinking and the answer; on by default."""
+    """Every model call of one run, ten at a time, newest first: asked, thinking, answer; on by default."""
     st.subheader("🧠 Model reasoning")
     show = st.checkbox(
         "Show what was asked and what the models think and answer",
@@ -66,11 +87,24 @@ def render_reasoning_panel(run_id: str) -> None:
     if not path.is_file():
         st.caption("No model has answered yet. Each call appears here as soon as its reply arrives.")
         return
-    for position, entry in enumerate(latest_entries(_read_tail(path))):
-        heading, _, body = entry.partition("\n")
-        parts = split_entry(body.strip())
-        shown = [(key, label) for key, label in _PARTS if key in parts] or [("answer", "Answer")]
-        with st.expander(heading.removeprefix("## "), expanded=position == 0):
-            for tab, (key, _) in zip(st.tabs([label for _, label in shown]), shown, strict=True):
-                with tab:
-                    st.code(parts[key], language="text", wrap_lines=True)
+    info = path.stat()
+    entries = _entries_of(str(path), info.st_mtime_ns, info.st_size)
+    last_page = pages(len(entries))
+    page = 1
+    if last_page > 1:
+        page = int(
+            st.number_input(
+                f"Page (of {last_page}; page 1 has the newest calls)",
+                min_value=1,
+                max_value=last_page,
+                value=1,
+                step=1,
+                key=f"reasoning_page_{run_id}",
+            )
+        )
+    first = (page - 1) * PAGE_SIZE + 1
+    st.caption(
+        f"Calls {first} to {first + len(page_slice(entries, page)) - 1} of {len(entries)}, newest first."
+    )
+    for position, entry in enumerate(page_slice(entries, page)):
+        _render_entry(position if page == 1 else 1, entry)
