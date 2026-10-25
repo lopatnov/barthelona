@@ -12,14 +12,14 @@ from rich.console import Console
 
 from barthelona.cli._activity import ACTIVITY_HELP, DEFAULT_ACTIVITY_LOG, activity_log
 from barthelona.domain import Run
-from barthelona.domain.layout import RUNS_DIR
+from barthelona.domain.layout import REASONING_FILE, RUNS_DIR, run_dir
 from barthelona.engine.graph import build_graph
 from barthelona.engine.host import services_for, zetaris_facts
 from barthelona.engine.worker import Worker
 from barthelona.llm import CatalogError, Gateway, OpenAIChatBackend, load_catalog
 from barthelona.llm.gateway import ModelGateway
 from barthelona.llm.hmem import HMem
-from barthelona.llm.trace import ReasoningLog
+from barthelona.llm.trace import ConsoleTrace, ReasoningLog, TraceAll
 from barthelona.llm.zetaris import ZetarisError
 from barthelona.persistence import open_store
 
@@ -36,13 +36,16 @@ async def _run(
     poll: float,
     once: bool,
     trace: ReasoningLog | None,
+    console: bool,
 ) -> None:
     catalog = load_catalog(catalog_path)
     facts = zetaris_facts(facts_sql) if facts_sql else None  # None: services_for uses the default facts
     backends = {"openai_chat": OpenAIChatBackend()}
 
     def gateway_for(run: Run) -> ModelGateway:
-        return Gateway(catalog, backends, profile=run.profile.value, trace=trace)
+        run_log = ReasoningLog(run_dir(runs, run.id) / REASONING_FILE)  # what Live Run shows for this run
+        traces = TraceAll(trace, run_log, ConsoleTrace() if console else None)
+        return Gateway(catalog, backends, profile=run.profile.value, trace=traces)
 
     store = open_store(db)
     hmem = HMem(memory)
@@ -89,6 +92,13 @@ def worker_command(
     trace_reasoning: Annotated[
         str, typer.Option("--trace-reasoning", help=ACTIVITY_HELP)
     ] = DEFAULT_ACTIVITY_LOG,
+    show_reasoning: Annotated[
+        bool,
+        typer.Option(
+            "--show-reasoning/--no-show-reasoning",
+            help="Print every model's name, thinking and answer (long ones cut short) to this terminal.",
+        ),
+    ] = True,
 ) -> None:
     """Claim queued runs, run them to their next human gate and continue them when the UI resumes them."""
     try:
@@ -103,6 +113,7 @@ def worker_command(
                 poll,
                 once,
                 activity_log(trace_reasoning),
+                show_reasoning,
             )
         )
     except (CatalogError, ZetarisError) as exc:

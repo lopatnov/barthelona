@@ -19,6 +19,7 @@ import streamlit as st
 from barthelona.domain import CommandKind, EventKind, RunBudget, RunCommand, RunStatus
 from barthelona.persistence import Store, open_store
 from barthelona.ui.package_panel import render_package_panel
+from barthelona.ui.reasoning_panel import render_reasoning_panel
 
 _EVENT_KIND_ICONS = {
     EventKind.PHASE: "📍",
@@ -237,6 +238,11 @@ def page_live_run() -> None:
 
         # Run controls
         _render_run_controls(run.id, run, store)
+
+        st.divider()
+
+        # What the models think and answer, as it arrives
+        render_reasoning_panel(run.id)
 
         st.divider()
 

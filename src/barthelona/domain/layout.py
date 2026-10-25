@@ -16,6 +16,7 @@ SOURCE_FILE = "main.asm"  # the source gate G4 shows and packaging copies
 REQUEST_FILE = "request.txt"
 SPEC_FILE = "spec.json"
 TESTS_FILE = "tests.json"
+REASONING_FILE = "reasoning.md"  # what the models thought and answered during this run; the UI shows it
 
 
 def run_dir(runs_dir: Path, run_id: str) -> Path:

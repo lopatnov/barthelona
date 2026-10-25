@@ -1,9 +1,9 @@
 """New Request page: create a new run from a natural-language prompt.
 
 Phase 1a fields:
-- Mode: create / edit
+- New project checkbox: checked creates a project in a new demos/ folder, unchecked edits an existing one
 - Dialect/preset picker (built-in list)
-- Folder under demos/ the result belongs to (existing subfolder or a new name)
+- Project: a new folder name (checked) or the list of existing demos/ folders (unchecked)
 - Prompt textarea (Russian/English/Ukrainian)
 - Profile: meterless / local-only / hybrid / cloud
 - Budget controls (wall time, tokens, optional USD cap)
@@ -32,7 +32,11 @@ from barthelona.domain.layout import REQUEST_FILE, RUNS_DIR, run_dir
 from barthelona.domain.presets import builtin_presets
 from barthelona.persistence import open_store
 
-NEW_FOLDER = "+ New folder..."
+_PROFILE_NOTE = (
+    "Nightshift (Meterless) is the model router: every request goes to one of its lanes (auto, deep, fast). "
+    "Zetaris works with every profile: with ZETARIS_API_KEY set, its assembler facts (syscalls, ABI) are put "
+    "into the prompts."
+)
 
 
 def _demo_folders() -> list[str]:
@@ -41,19 +45,20 @@ def _demo_folders() -> list[str]:
     return sorted(entry.name for entry in root.iterdir() if entry.is_dir()) if root.is_dir() else []
 
 
-def _folder_fields() -> str:
-    """The demos/ subfolder the user picked, or the new name typed in (not yet validated)."""
-    choice = st.selectbox(
-        "Save the project in demos/",
-        [*_demo_folders(), NEW_FOLDER],
-        help="The demos/ subfolder this run's project is meant for: an existing one or a new name.",
-    )
-    new_name = st.text_input(
-        "New folder name",
-        placeholder="my-demo",
-        help=f"Used only for '{NEW_FOLDER}': lowercase letters, digits and dashes.",
-    )
-    return new_name.strip() if choice == NEW_FOLDER else choice
+def _folder_fields(new_project: bool) -> str:
+    """The demos/ folder: the name typed in for a new project (not yet validated), or the existing pick."""
+    if new_project:
+        name = st.text_input(
+            "Project",
+            placeholder="my-demo",
+            help="The demos/ folder the new project goes to: lowercase letters, digits and dashes.",
+        )
+        return name.strip()
+    existing = _demo_folders()
+    if not existing:
+        st.warning("demos/ has no projects yet: tick **New project**.")
+        return ""
+    return st.selectbox("Project", existing, help="The existing demos/ folder to edit.")
 
 
 def _form_problem(prompt: str, folder: str) -> str | None:
@@ -95,19 +100,16 @@ def page_new_request() -> None:
 
     presets = builtin_presets()
 
+    # Outside the form: a form only reacts on submit, and this choice changes which fields it shows.
+    new_project = st.checkbox(
+        "New project", value=True, help="Unticked: edit a project that already exists in demos/."
+    )
+    mode = RunMode.CREATE if new_project else RunMode.EDIT
+
     with st.form("new_request_form", clear_on_submit=False):
         col1, col2 = st.columns(2)
 
         with col1:
-            mode = st.radio(
-                "Mode",
-                [RunMode.CREATE, RunMode.EDIT],
-                format_func=lambda m: (
-                    "🆕 Create new project" if m == RunMode.CREATE else "✏️ Edit existing project"
-                ),
-                horizontal=True,
-            )
-
             preset = st.selectbox(
                 "Target Preset",
                 presets,
@@ -119,17 +121,18 @@ def page_new_request() -> None:
                 "Model Profile",
                 [Profile.METERLESS, Profile.LOCAL_ONLY, Profile.HYBRID, Profile.CLOUD],
                 format_func=lambda p: {
-                    Profile.METERLESS: "⚡ Meterless (Nightshift routes to free Nemotron lanes)",
+                    Profile.METERLESS: "⚡ Meterless (Nightshift)",
                     Profile.LOCAL_ONLY: "🏠 Local only (LM Studio / Ollama)",
                     Profile.HYBRID: "🔀 Hybrid (cloud with local fallback)",
                     Profile.CLOUD: "☁️ Cloud (Anthropic, OpenAI, Gemini, DeepSeek)",
                 }[p],
                 horizontal=False,
             )
+            st.caption(_PROFILE_NOTE)
 
         st.divider()
 
-        folder = _folder_fields()
+        folder = _folder_fields(new_project)
 
         prompt = st.text_area(
             "Prompt",
