@@ -18,6 +18,7 @@ import streamlit as st
 
 from barthelona.domain import CommandKind, EventKind, RunBudget, RunCommand, RunStatus
 from barthelona.persistence import Store, open_store
+from barthelona.ui.package_panel import render_package_panel
 
 _EVENT_KIND_ICONS = {
     EventKind.PHASE: "📍",
@@ -238,6 +239,9 @@ def page_live_run() -> None:
         _render_run_controls(run.id, run, store)
 
         st.divider()
+
+        # Package a green run
+        render_package_panel(run, store)
 
         # Topology
         _render_topology(run.id, store)

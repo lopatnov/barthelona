@@ -298,7 +298,7 @@ One-sentence programs went green this way on 2026-10-24; larger ones (an interac
 ```
 
 starts the worker and the UI at http://127.0.0.1:8501 (`-UiOnly`, `-WorkerOnly` and `-StreamlitPort 8502` change that).
-Three pages exist: **New Request**, **Approvals** (answer G1 and G4) and **Live Run** (events of a run). On New Request
+Three pages exist: **New Request**, **Approvals** (answer G1 and G4) and **Live Run** (events of a run; for a run that stopped green it also has a **Package** panel, see below). On New Request
 you choose:
 
 - the dialect and target preset, the mode (create or edit) and the request text;
@@ -310,8 +310,13 @@ you choose:
   10 sprints, no money cap). Every run is bounded, but you do not have to enter anything;
 - cloud consent and the training-data checkbox (see section 4).
 
-This is a walking skeleton. Still missing: the sprint board, the review page, the models and provider-health page, a
-list of past runs, and packaging from the UI (use `runs package`).
+**Package panel (Live Run).** Select a green run: the panel shows the `demos/` folder it will write, a field for the full
+commit sha of barthelona that the generated CI installs (filled from `git rev-parse HEAD`), and the button **Package into
+demos/**. It writes the same files as `runs package` and lists them. It refuses a folder that already has files (pick
+another project folder, or use `runs package --force` on the command line).
+
+This is a walking skeleton. Still missing: the sprint board, the review page, the models and provider-health page and a
+list of past runs.
 
 ---
 
