@@ -28,6 +28,7 @@ from barthelona.llm.markovian import (
 from barthelona.llm.types import Completion, CompletionRequest
 from barthelona.verification.asm_gate import AssembleResult, assemble_best
 from barthelona.verification.behavior_gate import Expectation, check_behavior
+from barthelona.world_model import WorldModel, format_entities
 
 # Each repair sees the checker report (assembler errors, end of the wrong output); a quiz needed over 2.
 REPAIRS = 4
@@ -38,7 +39,8 @@ DOMAIN = "assembly"
 CHUNKS = MarkovianConfig(chunk_tokens=6000, carryover_tokens=128, max_chunks=8)
 
 OnCall = Callable[[LLMCallRecord], None]
-OnAttempt = Callable[[int, str], None]  # (attempt number from 1, its source), even when the oracles reject it
+# (attempt number from 1, its source, the oracle's verdict, the chunks used so far), even when rejected.
+OnAttempt = Callable[[int, str, AssembleResult, int], None]
 
 
 @dataclass(frozen=True)
@@ -158,21 +160,23 @@ async def generate_source(
     on_call: OnCall,
     run_id: str,
     on_attempt: OnAttempt | None = None,
+    world: WorldModel | None = None,
 ) -> Codegen:
     """Write the source, let the oracles judge it, repair up to `REPAIRS` times, remember it if accepted."""
     recording = _Recording(gateway, on_call)
     task = task_text(spec, cases)
     recalled = memory.query(task, domain=DOMAIN, top_n=RECALL_TOP_N).context if memory else ""
-    context = "\n\n".join(filter(None, [facts, recalled]))
     recall = chunk_recall(memory, task, DOMAIN)
     prompt, chunks = task, 0
     for attempt in range(REPAIRS + 1):
         role = REPAIR_ROLE if attempt else WRITE_ROLE
+        world_context = world_context_block(world, spec.slug, run_id) if world is not None else ""
+        context = "\n\n".join(filter(None, [facts, world_context, recalled]))
         result = await run_markovian(recording, role, prompt, CHUNKS, context, recall)
         chunks += len(result.chunks)
         source, verdict = await asyncio.to_thread(_judge, result, cases, nasm)  # subprocess and emulator
         if on_attempt is not None and source.strip():
-            on_attempt(attempt + 1, source)  # a draft on disk now, not only when the whole step ends
+            on_attempt(attempt + 1, source, verdict, chunks)  # a draft on disk, and its verdict in the world
         stop = _stop_for(verdict, result)
         if verdict.status != "fail" or stop is StopReason.NO_MODEL_AVAILABLE:
             break
@@ -181,3 +185,13 @@ async def generate_source(
         lessons = [fact for chunk in result.chunks for fact in facts_from_state(chunk.state)]
         memory.ingest(lessons, source=f"run:{run_id}:{int(time.time())}", domain=DOMAIN)
     return Codegen(source, verdict, attempt + 1, chunks, stop)
+
+
+def world_context_block(world: WorldModel, slug: str, run_id: str) -> str:
+    """What earlier runs of this task produced, as an untrusted block next to Zetaris facts and H-MEM."""
+    prior = [entity for entity in world.entities(slug=slug) if entity.run_id != run_id]
+    if not prior:
+        return ""
+    return "[WORLD MODEL] what earlier runs of this task produced\n" + wrap_untrusted(
+        format_entities(prior), "world-model"
+    )

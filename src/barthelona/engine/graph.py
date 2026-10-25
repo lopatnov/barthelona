@@ -28,13 +28,15 @@ from langgraph.types import interrupt
 from barthelona.domain import GateKind, LLMCallRecord, ProjectSpec, Run, StopReason, TestCase
 from barthelona.domain._base import DomainModel
 from barthelona.domain.layout import SOURCE_FILE
-from barthelona.engine.codegen import generate_source
+from barthelona.engine.codegen import REPAIR_ROLE, WRITE_ROLE, generate_source
 from barthelona.engine.gates import g1_payload, g4_payload
 from barthelona.engine.spec import Intake, SpecError, draft_spec, run_intake
 from barthelona.engine.tests_author import author_tests, validate_spec
 from barthelona.llm.gateway import ModelGateway
 from barthelona.llm.hmem import HMem
 from barthelona.llm.types import GatewayError
+from barthelona.verification.asm_gate import AssembleResult
+from barthelona.world_model import WorldModel, record_attempt, record_spec_and_tests
 
 APPROVE = "approve"
 REJECT = "reject"
@@ -63,6 +65,8 @@ class Services:
     open_workspace: Callable[[str], None]  # (run_id) -> creates the project's demos/ folder at the start
     nasm: str | None  # the assembler binary, None when none was found (the oracle then stops the run)
     memory: HMem | None  # H-MEM: recalled in every chunk, written to when the oracle accepts
+    world: WorldModel | None  # the shared state a run records; None: the run writes nothing (D-058)
+    last_call: Callable[[str], LLMCallRecord | None]  # the run's latest model call, for provenance
 
 
 class RunState(TypedDict, total=False):
@@ -75,6 +79,8 @@ class RunState(TypedDict, total=False):
     g1: str  # the decision made at gate G1
     verdict: str  # the oracle's verdict on it: pass, fail or unavailable
     g4: str  # the decision made at gate G4
+    spec_model: str | None  # the model that drafted the spec, captured for World Model provenance
+    test_model: str | None  # the model that authored the tests, captured for World Model provenance
     spent_s: float  # seconds the model nodes have used so far; the run's wall-clock budget is spent from it
 
 
@@ -136,6 +142,10 @@ class _Nodes:
     def _recorder(self, run_id: str) -> Callable[[LLMCallRecord], None]:
         return lambda record: self._services.record_call(run_id, record)
 
+    def _last_model(self, run_id: str) -> str | None:
+        last = self._services.last_call(run_id)
+        return last.model if last is not None else None
+
     async def preflight(self, state: RunState) -> dict[str, Any]:
         self._services.open_workspace(state["run_id"])
         reason = self._services.preflight(state["run_id"])
@@ -161,13 +171,14 @@ class _Nodes:
             state.get("facts", ""),
             self._recorder(run_id),
         )
-        return await _or_stop(_update("spec", drafted))
+        return await _or_stop(_update("spec", drafted)) | {"spec_model": self._last_model(run_id)}
 
     @_timed
     async def test_author(self, state: RunState) -> dict[str, Any]:
         run_id = state["run_id"]
         spec = ProjectSpec.model_validate(state["spec"])
-        return await _or_stop(self._author(run_id, spec, state.get("facts", "")))
+        update = await _or_stop(self._author(run_id, spec, state.get("facts", "")))
+        return update | {"test_model": self._last_model(run_id)}
 
     async def _author(self, run_id: str, spec: ProjectSpec, facts: str) -> dict[str, Any]:
         linked, cases = await author_tests(self._gateway(run_id), spec, facts, self._recorder(run_id))
@@ -182,7 +193,21 @@ class _Nodes:
         if validate_spec(spec, cases):
             return {"stop": StopReason.MAX_ATTEMPTS.value}
         self._services.save_spec(state["run_id"], spec, cases)
+        self._record_spec(state["run_id"], spec, cases, state.get("spec_model"), state.get("test_model"))
         return {}
+
+    def _record_spec(
+        self,
+        run_id: str,
+        spec: ProjectSpec,
+        cases: list[TestCase],
+        spec_model: str | None,
+        test_model: str | None,
+    ) -> None:
+        world = self._services.world
+        if world is None:
+            return
+        world.upsert_all(record_spec_and_tests(run_id, spec, cases, spec_model, test_model))
 
     async def g1_gate(self, state: RunState) -> dict[str, Any]:
         return _ask(state, GateKind.G1_SPEC, G1_OPTIONS, g1_payload(state["spec"], state["tests"]))
@@ -190,6 +215,7 @@ class _Nodes:
     @_timed
     async def codegen(self, state: RunState) -> dict[str, Any]:
         run_id = state["run_id"]
+        spec = ProjectSpec.model_validate(state["spec"])
         self._services.open_workspace(run_id)  # a run that began before the folder existed gets it here
         wall_s = self._services.load_run(run_id).budget.wall_s
         remaining = wall_s - state.get("spent_s", 0.0)  # earlier nodes have already used part of the budget
@@ -199,14 +225,17 @@ class _Nodes:
             async with asyncio.timeout(remaining):  # the longest node: bounded by what is left of the budget
                 done = await generate_source(
                     self._gateway(run_id),
-                    ProjectSpec.model_validate(state["spec"]),
+                    spec,
                     [TestCase.model_validate(case) for case in state["tests"]],
                     state.get("facts", ""),
                     self._services.memory,
                     self._services.nasm,
                     self._recorder(run_id),
                     run_id,
-                    lambda attempt, source: self._services.save_attempt(run_id, attempt, source),
+                    lambda attempt, source, verdict, chunks: self._on_attempt(
+                        run_id, spec, attempt, source, verdict, chunks
+                    ),
+                    self._services.world,
                 )
         except TimeoutError:
             return {"stop": StopReason.BUDGET_TIME.value}
@@ -214,6 +243,33 @@ class _Nodes:
             self._services.save_source(run_id, done.source)
         update: dict[str, Any] = {"verdict": done.verdict.status}
         return update if done.accepted else update | {"stop": done.stop.value}
+
+    def _on_attempt(
+        self,
+        run_id: str,
+        spec: ProjectSpec,
+        attempt: int,
+        source: str,
+        verdict: AssembleResult,
+        chunks: int,
+    ) -> None:
+        self._services.save_attempt(run_id, attempt, source)
+        world = self._services.world
+        if world is None:
+            return
+        route = WRITE_ROLE if attempt == 1 else REPAIR_ROLE
+        world.upsert(
+            record_attempt(
+                run_id,
+                spec.slug,
+                attempt,
+                verdict.status,
+                verdict.errors,
+                chunks,
+                self._last_model(run_id),
+                route,
+            )
+        )
 
     async def g4_gate(self, state: RunState) -> dict[str, Any]:
         return _ask(state, GateKind.G4_FINAL, G4_OPTIONS, g4_payload(SOURCE_FILE, state.get("verdict")))

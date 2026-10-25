@@ -27,6 +27,7 @@ from barthelona.ui.package_panel import render_package_panel
 from barthelona.ui.paging import page_controls, page_slice
 from barthelona.ui.reasoning_panel import render_reasoning_panel
 from barthelona.ui.run_info import render_parameters, render_run_files, render_stages, render_status_banner
+from barthelona.ui.world_panel import render_world_panel
 
 _EVENT_KIND_ICONS = {
     EventKind.PHASE: "📍",
@@ -218,6 +219,11 @@ def page_live_run() -> None:
 
         # Package a green run
         render_package_panel(run, store)
+
+        st.divider()
+
+        # The run's World Model entities (D-058)
+        render_world_panel(run.id)
 
         st.divider()
 

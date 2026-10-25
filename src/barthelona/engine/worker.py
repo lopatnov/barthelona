@@ -29,6 +29,7 @@ from barthelona.domain import (
 )
 from barthelona.engine.gates import node_summary
 from barthelona.persistence import Store
+from barthelona.world_model import WorldModel, record_run_stop
 
 log = logging.getLogger(__name__)
 
@@ -67,11 +68,13 @@ class Worker:
         graph: Any,
         clock: Clock = _utc_now,
         packager: Callable[[str], list[str]] | None = None,
+        world: WorldModel | None = None,
     ) -> None:
         self._store = store
         self._graph = graph
         self._clock = clock
         self._packager = packager  # writes a green run's project into its demos/ folder; None: never
+        self._world = world  # the shared state a run records; None: the run writes nothing (D-058)
 
     # --- one pass --------------------------------------------------------------------------------
 
@@ -257,6 +260,8 @@ class Worker:
     def _stop(self, run_id: str, reason: StopReason) -> None:
         self._emit(run_id, EventKind.STOP, payload={"stop_reason": reason.value})
         self._store.set_run_status(run_id, RunStatus.STOPPED, reason)
+        if self._world is not None:
+            self._world.upsert(record_run_stop(run_id, reason.value))
         if reason is StopReason.GREEN:
             self._package(run_id)
 

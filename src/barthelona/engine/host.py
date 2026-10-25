@@ -17,6 +17,7 @@ import orjson
 
 from barthelona.domain import (
     EventKind,
+    LLMCallRecord,
     ProjectSpec,
     Run,
     RunEvent,
@@ -38,6 +39,7 @@ from barthelona.llm.hmem import HMem
 from barthelona.llm.zetaris import ZetarisConfig, ZetarisError, facts_block, run_sql
 from barthelona.persistence import Store
 from barthelona.verification.asm_gate import find_nasm
+from barthelona.world_model import WorldModel
 
 DEFAULT_FACTS_SQL = (
     "SELECT number, name, arg1, arg2, arg3 FROM barthelona_files.linux_x64_syscalls"
@@ -118,6 +120,7 @@ def services_for(
     memory: HMem | None = None,
     nasm: str | None = None,
     workspace_root: Path | None = None,
+    world: WorldModel | None = None,
 ) -> Services:
     def load_request(run_id: str) -> str:
         return (run_dir(runs_dir, run_id) / REQUEST_FILE).read_text(encoding="utf-8")
@@ -150,6 +153,10 @@ def services_for(
             ]
         )
 
+    def last_call(run_id: str) -> LLMCallRecord | None:
+        calls = store.llm_calls(run_id)
+        return calls[-1] if calls else None
+
     if facts is None:
         facts = default_facts(emit_event=emit_zetaris_error)
 
@@ -166,4 +173,6 @@ def services_for(
         open_workspace=folders.open,
         nasm=find_nasm(nasm),
         memory=memory,
+        world=world,
+        last_call=last_call,
     )
