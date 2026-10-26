@@ -2,6 +2,7 @@
 
 - Status: Proposed
 - Date: 2026-10-13
+- Amended by: D-059
 
 ## Decision
 

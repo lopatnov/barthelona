@@ -327,7 +327,8 @@ The draft's "pool of ready micro-agents" is the **node registry** (§10). The "B
 | Gate                 | When                                                                  | Decision                                                                                            |
 | -------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | G0 Clarify           | after intake, only if needed; at most 5 questions, asked once         | answers, or "proceed with the stated assumptions"                                                   |
-| G1 Spec & tests      | before any code is written                                            | approve or edit the spec, requirements and acceptance tests                                         |
+| G1 Spec              | before any code is written (D-059)                                    | approve or edit the spec, requirements and constraints; no tests exist yet                          |
+| G1b Tests            | after characterization and the reference check (D-059)                | approve or edit the captured tests; they are frozen here (D-009)                                     |
 | G2 Contracts         | after `architect`, and again on any change to a frozen contract       | approve or edit the contracts. Merged into G1 for single-module projects.                           |
 | G3 Sprint review     | end of each sprint                                                    | accept, return items, or stop. Accepted automatically when the sprint is green and autopilot is on. |
 | G4 Final             | end of the run                                                        | merge, export, or discard                                                                           |
@@ -363,9 +364,11 @@ Retrieval patterns (§14): exact lookup first (instruction, directive and syscal
 The outer run graph is fixed code, compiled once when the worker starts:
 
 ```
-create: intake -> [G0] -> refine_backlog -> test_author(acceptance) -> validate_spec -> [G1]
+create: intake -> [G0] -> refine_backlog -> [G1]                     # the specification (D-059)
         -> architect -> validate_contracts -> header_gen -> skeleton_build -> [G2]
-        -> SPRINT LOOP -> final_integration -> [G4] -> finalize
+        -> FIRST PASS (sprint loop until it assembles and runs) -> characterize -> test_author
+        -> validate_spec -> reference_check -> [G1b]                # the captured tests freeze here
+        -> SPRINT LOOP (repair against the frozen tests) -> final_integration -> [G4] -> finalize
 edit:   import -> detect_target -> baseline_build -> repo_map -> recover_contracts -> characterize
         -> change_spec -> [G1] -> (contract delta ? [G2]) -> SPRINT LOOP -> [G4] -> finalize
 SPRINT LOOP: sprint_planner -> compose -> validate_topology (<=2 repairs, else default template)
@@ -380,13 +383,11 @@ SPRINT LOOP: sprint_planner -> compose -> validate_topology (<=2 repairs, else d
    - Detects the language and normalizes the request into an English goal.
    - Extracts entities: I/O, syscalls, constraints.
    - G0 runs only if the request is ambiguous.
-4. **Spec and acceptance tests.**
-   - `refine_backlog` produces the `ProjectSpec`, a module sketch, and stories of size XS–M.
-   - `test_author` produces acceptance `TestCase`s: golden I/O for programs, call tests for library symbols. For pure functions it also writes a Python reference model.
-   - Checks:
-     - every requirement has at least one test;
-     - the examples agree with the reference model, executed in the emulator child or the sandbox.
-5. **G1.** The user edits and approves. The tests become locked, and their hashes are recorded.
+4. **Spec.** `refine_backlog` produces the `ProjectSpec`, a module sketch, and stories of size XS–M.
+   No test is written here (D-059): an expected value comes out of an executed program, never out of a
+   model that has not seen one.
+5. **G1 — the specification.** The user edits and approves the requirements, the modules and the
+   constraints. Nothing is frozen yet, because nothing exists yet.
 6. **Architect.** Produces the modules and `Symbol` contracts. Validators check that:
    - registers are legal for the arch;
    - clobbers are consistent with the ABI (a SysV function with `abi=target` must not clobber rbx, rbp or r12–r15);
@@ -402,11 +403,24 @@ SPRINT LOOP: sprint_planner -> compose -> validate_topology (<=2 repairs, else d
    - then runs `git init` and creates branch `bart/<run_id>`.
 8. **Skeleton build.** The all-stub project must pass V0–V2 before any LLM-written code exists. This proves the generators and the toolchain.
 9. **G2.**
-10. **Sprints** (§7) run until the backlog is done or a cap fires.
-11. **Final integration sprint.** Mandatory:
-    - only real modules, no stubs;
-    - the full ladder, including golden I/O.
-12. **G4.** The user sees the diff, ladder evidence and cost, then merges or exports.
+10. **First pass.** A bounded sprint (§7) whose only goal is a project that assembles and runs; its
+    behavior is not judged yet. If this pass cannot produce a running program, the run stops here and
+    no tests exist to freeze.
+11. **Characterize.** The produced program runs in the emulator or the sandbox over a small set of
+    inputs, and its real stdout, stderr and exit code are recorded — the same step the edit flow uses
+    for an imported project (§6.2).
+12. **Tests.** `test_author` names the cases (input, the requirement each exercises, what it means) and
+    every `expect` is filled from a capture. `TestOrigin.CHARACTERIZATION` marks create-mode cases; a
+    pure function also gets the Python reference model.
+13. **Reference check.** The Python reference model of the requirements runs with no network and is
+    diffed against both the captures and the requirement text. A divergence stops the run with its own
+    stop reason: a wrong behavior is never frozen (F-114, D-059).
+14. **G1b — the tests.** The user reads the captured cases and the reference report, then approves. The
+    suite is locked with hashes (D-009) and the repair loop can no longer touch it.
+15. **Repair sprints** (§7) run until the backlog is done or a cap fires; the frozen tests are the oracle.
+16. **Final integration sprint.** Mandatory: only real modules, no stubs; the full ladder, including
+    golden I/O.
+17. **G4.** The user sees the diff, ladder evidence and cost, then merges or exports.
 
 ### 6.2 Edit flow
 
@@ -1189,6 +1203,7 @@ The gateway provides:
 - one semaphore per endpoint (local: 1 in flight);
 - a **model-affinity scheduler** that groups queued calls by model, because reloading a model on this machine costs seconds to minutes and wipes the prefix cache;
 - a **role router** that walks the role's chain for the run's profile (§16.2), skipping disabled providers, missing keys and open circuits (§16.6);
+- an **`avoid` list** on every call: the catalog keys whose last reply the caller could not use (the model answered, but with prose or code where the step needs JSON) are skipped like a disabled provider, so one lane that ignores the output protocol hands the artifact to the next entry of its chain instead of ending the run (§16.3);
 - a **cost ledger**: every call's cost comes from the API's reported usage times the catalog prices, with optional caps enforced by reserve-then-settle (§16.6);
 - an `LLMCallRecord` for every call, including which model actually served the role and why (fallback reason);
 - normalization of provider differences: reasoning parameters (`output_config.effort`, `reasoning.effort`, `thinking_level`, DeepSeek `thinking` + `reasoning_effort`), structured output (json_schema vs DeepSeek `json_object` + Pydantic validation), refusals (`stop_reason: refusal`, OpenAI `refusal` items, Gemini `finish_reason: SAFETY`, DeepSeek `content_filter`), and echoing of reasoning items or `reasoning_content` in multi-turn tool use;
@@ -1276,6 +1291,7 @@ Not candidates for the main model:
   - Local models: LM Studio `response_format: {type: "json_schema"}`, enforced by grammar sampling for GGUF models. LM Studio's docs warn that models under about 7B may struggle (https://lmstudio.ai/docs/developer/openai-compat/structured-output).
   - Cloud, per provider (`structured_output` in `config/models.yaml`): Anthropic `output_config.format` / `client.messages.parse()` and `strict: true` tools; OpenAI Responses `text.format` `json_schema` with `strict: true`; Gemini `response_mime_type: application/json` + `response_json_schema`; DeepSeek `response_format: json_object` only (the prompt must mention JSON), so its output is always validated and repaired.
   - Then Pydantic validation, then semantic validators, then at most 2 repair attempts that feed back up to 10 errors, then the next tier or a deterministic fallback.
+  - A reply that holds no JSON object at all is not asked of the same model again: the step passes that model's key as `avoid` (§16.1) and asks the next entry of the chain, up to 3 models per artifact. Every such stop carries the last problem in its stop event, so "the models did not produce a valid result" always says what was wrong.
 - **Code never goes inside JSON.** Small models mangle escaped backslashes and quotes. Envelopes:
   - whole files: `=== FILE: src/str.asm ===` … `=== END ===`;
   - edits: `<<<<<<< SEARCH` / `=======` / `>>>>>>> REPLACE` blocks, where each SEARCH must match exactly once;
