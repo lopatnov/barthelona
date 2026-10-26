@@ -88,10 +88,10 @@ scripts/doctor.sh
 
 Go to **NIGHT → LANES** and add at least two lanes:
 
-| Lane Name | Duty  | Suggested Model                                                  | Purpose                                             |
-| --------- | ----- | ---------------------------------------------------------------- | --------------------------------------------------- |
+| Lane Name | Duty  | Suggested Model                                                                                                                                    | Purpose                                             |
+| --------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
 | `race`    | Race  | a Nemotron model from Nightshift's list (the id here before was not re-checked; the dev PC's lane answered as `nvidia/nemotron-3-ultra-550b-a55b`) | Primary coding model                                |
-| `judge`   | Judge | Different model family (e.g., `gpt-4o-mini` or another Nemotron) | Review/validation — **must be different from Race** |
+| `judge`   | Judge | Different model family (e.g., `gpt-4o-mini` or another Nemotron)                                                                                   | Review/validation — **must be different from Race** |
 
 > ⚠️ **Critical**: A model never grades its own answers. You MUST have at least two lanes with different model families, or Nightshift will show a red warning.
 
@@ -204,6 +204,42 @@ Routes: meterless/auto, meterless/deep, meterless/fast
 | `online` | ✅ Connected, routes listed |
 | `unauthorized` | ❌ Wrong/missing `METERLESS_RUNTIME_TOKEN` |
 | `offline` | ❌ Nightshift not running or unreachable |
+
+---
+
+## Which models the runtime offers, and what a lane answers with
+
+`GET /v1/models` returns two kinds of entry, and `python -m barthelona meterless models` prints them apart
+(measured 2026-10-25, provider contract v4, Runtime 1.4):
+
+```bash
+python -m barthelona meterless models                       # modes and every callable model
+python -m barthelona meterless models --kind local --free   # what never leaves this machine
+python -m barthelona meterless models --tier A              # the runtime's own quality grade
+python -m barthelona meterless models --lanes                # ask each mode once: which model answers now
+```
+
+- **Routing modes** (`meterless/auto`, `deep`, `fast`, `cheap`, `local`, `fusion`, `text`, `code`, `vision`,
+  `judge`, and the media classes) carry `availability` (`ready`, `admittable`, `unavailable`) and a description.
+  A mode is a disposition, not a model file.
+- **Concrete models** are callable directly: naming one in `model` bypasses the router. Each entry gives the
+  runtime's `kind` (`cloud` or `local`), `tier` (`A`, `B`, `C`), `context` and price per 1M tokens, so a role
+  can be pinned to a specific model instead of a route. On 2026-10-25 the runtime listed 18 modes and 156 models.
+- **A lane's members are not published.** There is no `/v1/lanes`, no `/api/*` listing and no
+  `GET /v1/models/<id>`; a route entry has no member list. The only honest source is the answer itself: the
+  response's `model` field, which Barthelona keeps as `answered_by` and writes into `reasoning.md` as
+  `role via <key> -> <model>`. `--lanes` does exactly that, one tiny call per mode.
+- **The same mode can answer from a different model on the next call** (it prefers what is already loaded).
+  On 2026-10-25 `auto`, `fast`, `deep`, `cheap`, `local`, `fusion` and `cluster` all answered
+  `nvidia/nemotron-3-ultra-550b-a55b`, while `text`, `vision` and `judge` answered `gpt-4o-mini`; `code` timed
+  out, and the media classes replied that this build of `/v1/chat/completions` cannot return them. Pin a model
+  by id when a step must be reproducible.
+- **JSON mode is honoured:** `response_format: {"type": "json_object"}` on a chat route returned the bare JSON
+  object. Barthelona does not use it yet (see #334).
+
+A model that cannot encode JSON where the step needs it is skipped, not retried: the engine passes its key back
+to the gateway as `avoid` and the artifact is asked of the next entry of the role's chain
+(`docs/architecture.md` §16.1/§16.3).
 
 ---
 
@@ -438,7 +474,7 @@ models:
 | Document                        | Link                                                                                              |
 | ------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Quickstart (includes Meterless) | [`docs/quickstart.md`](quickstart.md)                                                             |
-| Commands (meterless status)      | [`docs/quickstart.md`](quickstart.md#24-meterless-status-is-nightshift-reachable)       |
+| Commands (meterless status)     | [`docs/quickstart.md`](quickstart.md#24-meterless-status-is-nightshift-reachable)                 |
 | Runbook (environment setup)     | [`docs/runbook.md`](runbook.md#4-lm-studio-local-models)                                          |
 | Hackathon Demo Notes            | [`docs/hackathon-demo.md`](hackathon-demo.md)                                                     |
 | Architecture (Model Gateway)    | [`docs/architecture.md`](architecture.md#16-llm-routing-structured-output-context)                |

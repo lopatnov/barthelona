@@ -8,7 +8,14 @@ import httpx
 import pytest
 
 from barthelona.llm import Catalog, Gateway, GatewayError, load_catalog
-from barthelona.llm.meterless import normalize_base_url, parse_connect_link, probe, usable_token
+from barthelona.llm.meterless import (
+    normalize_base_url,
+    offer,
+    parse_connect_link,
+    probe,
+    route_probe,
+    usable_token,
+)
 
 
 @pytest.mark.parametrize(
@@ -111,3 +118,60 @@ async def test_gateway_skips_meterless_with_the_placeholder_token() -> None:
 def test_probe_refuses_urls_that_are_not_http() -> None:
     assert probe("file:///etc/passwd", "tok").state == "offline"
     assert probe("ftp://host/v1", "tok").reason == "not an http(s) URL with a host"
+
+
+_LISTING = {
+    "data": [
+        {
+            "id": "meterless/deep",
+            "owned_by": "meterless",
+            "meterless": {"name": "Meterless Deep", "availability": "ready", "description": "Top."},
+        },
+        {
+            "id": "nvidia/nemotron-3.5-lightning-30b-a3b",
+            "owned_by": "nvidia",
+            "meterless": {
+                "kind": "cloud",
+                "tier": "A",
+                "context": 262144,
+                "price": {"input_per_m": 0, "output_per_m": 0},
+            },
+        },
+    ]
+}
+
+
+def test_offer_separates_the_routing_modes_from_the_models_that_can_be_called() -> None:
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, json=_LISTING))
+    listed = offer("127.0.0.1:8088", "tok", _client(transport))
+    assert [(route.id, route.availability, route.name) for route in listed.routes] == [
+        ("meterless/deep", "ready", "Meterless Deep")
+    ]
+    assert [(m.id, m.kind, m.tier, m.context, m.price_in) for m in listed.served] == [
+        ("nvidia/nemotron-3.5-lightning-30b-a3b", "cloud", "A", 262144, 0.0)
+    ]
+
+
+def test_offer_says_why_it_found_nothing_instead_of_returning_half_a_list() -> None:
+    wrong_token = httpx.MockTransport(lambda request: httpx.Response(401))
+    assert offer("127.0.0.1:8088", "wrong", _client(wrong_token)).reason.startswith("unauthorized")
+    empty = httpx.MockTransport(lambda request: httpx.Response(200, json={"data": []}))
+    assert offer("127.0.0.1:8088", "tok", _client(empty)).reason == "the runtime listed no models"
+
+
+def test_route_probe_reports_the_concrete_model_that_answered() -> None:
+    seen: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"model": "gpt-4o-mini", "choices": []})
+
+    routed = route_probe("127.0.0.1:8088", "tok", "meterless/auto", _client(httpx.MockTransport(handle)))
+    assert (routed.route, routed.model, routed.status) == ("meterless/auto", "gpt-4o-mini", 200)
+    assert seen[0].headers["meterless-scope"] == "user"
+
+
+def test_route_probe_reports_a_failure_instead_of_a_model() -> None:
+    transport = httpx.MockTransport(lambda request: httpx.Response(502, text="upstream said no"))
+    routed = route_probe("127.0.0.1:8088", "tok", "meterless/deep", _client(transport))
+    assert (routed.model, routed.status, routed.reason) == ("", 502, "upstream said no")
