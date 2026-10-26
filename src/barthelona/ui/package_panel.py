@@ -7,18 +7,29 @@ from pathlib import Path
 import streamlit as st
 
 from barthelona.domain import Run, StopReason
-from barthelona.domain.layout import RUNS_DIR
+from barthelona.domain.layout import DRAFTS_DIR, RUNS_DIR
 from barthelona.persistence import Store
 from barthelona.scaffold import PackageError, current_commit, package_run, target_folder
 
 _SHA_LENGTH = 40  # a full git commit sha
+# The engine writes this into the project folder itself while a run is in flight, so its content is not a
+# stranger's file: counting it made the button refuse every project the run had written a draft into.
+_ENGINE_OWNED = (DRAFTS_DIR,)
 
 
 def existing_files(folder: Path) -> list[str]:
-    """Files already in *folder* (empty when it does not exist yet), as names relative to it."""
+    """Files in *folder* that a person put there (empty when it does not exist or holds only drafts)."""
     if not folder.is_dir():
         return []
-    return sorted(str(item.relative_to(folder)) for item in folder.rglob("*") if item.is_file())
+    names: list[str] = []
+    for item in folder.rglob("*"):
+        if not item.is_file():
+            continue
+        parts = item.relative_to(folder).parts
+        if parts[0] in _ENGINE_OWNED:
+            continue
+        names.append(str(item.relative_to(folder)))
+    return sorted(names)
 
 
 def package_problem(run: Run, folder: Path | None, ref: str) -> str | None:

@@ -54,6 +54,14 @@ def test_existing_files_of_a_missing_folder_is_empty(tmp_path: Path) -> None:
     assert package_panel.existing_files(tmp_path / "nope") == []
 
 
+def test_the_drafts_folder_the_engine_wrote_does_not_block_packaging(tmp_path: Path) -> None:
+    (tmp_path / "drafts").mkdir()
+    (tmp_path / "drafts" / "attempt-1.asm").write_text("x", encoding="utf-8")
+
+    assert package_panel.package_problem(_run(), tmp_path, SHA) is None
+    assert package_panel.existing_files(tmp_path) == []
+
+
 def _fake_git(stdout: str, code: int) -> Any:
     def run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(args[0], code, stdout=stdout)
