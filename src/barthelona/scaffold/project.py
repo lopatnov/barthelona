@@ -63,6 +63,13 @@ def _readme(
         f"--profile {run.profile.value} --preset {run.target.preset}"
     )
     quoted = "\n".join(f"> {line}" if line else ">" for line in request.strip().splitlines())
+    # Who answered G1 and G4 is part of the provenance: an auto-approve run has no reader at the gates.
+    gates = (
+        "- Gates G1 (specification and tests) and G4 (source) were approved automatically: the run was "
+        "started with auto-approve, so no person read them."
+        if run.auto_approve
+        else "- Gates G1 (specification and tests) and G4 (source) were approved by a person."
+    )
     return f"""# {spec.slug}
 
 {spec.summary_en}
@@ -107,7 +114,7 @@ Request (also in `{REQUEST_COPY}`):
 {quoted}
 
 - Run `{run.id}`, profile `{run.profile.value}`, preset `{run.target.preset}`, policy `{run.policy_version}`.
-- Gates G1 (specification and tests) and G4 (source) were approved by a person.
+{gates}
 - Repeat it: `{repeat}`.
 
 | Model | Calls | Tokens in | Tokens out | Seconds |

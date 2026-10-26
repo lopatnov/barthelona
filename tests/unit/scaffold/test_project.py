@@ -98,6 +98,14 @@ def _call(model: str, tokens_in: int, tokens_out: int, latency_ms: int) -> LLMCa
     )
 
 
+def test_the_readme_says_who_approved_the_gates() -> None:
+    assert "approved by a person" in _render()["README.md"]
+
+    text = _render(run=_run().model_copy(update={"auto_approve": True}))["README.md"]
+    assert "approved automatically" in text
+    assert "approved by a person" not in text
+
+
 def _render(**changes: object) -> dict[str, str]:
     args: dict[str, object] = {
         "run": _run(),
