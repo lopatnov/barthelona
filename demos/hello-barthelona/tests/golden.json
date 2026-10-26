@@ -1,0 +1,27 @@
+[
+  {
+    "schema_version": 1,
+    "id": "T1",
+    "kind": "io_golden",
+    "symbol": null,
+    "level": "V6",
+    "inputs": {
+      "stdin": ""
+    },
+    "expect": {
+      "ret": null,
+      "regs": {},
+      "mem": {},
+      "stdout": "Hello Barthelona\n",
+      "stdout_contains": [],
+      "exit_code": 0
+    },
+    "reference": null,
+    "generator": null,
+    "visibility": "visible",
+    "origin": "test_author",
+    "approved": true,
+    "locked": true,
+    "sha256": null
+  }
+]
